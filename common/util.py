@@ -11,9 +11,9 @@ Dollar = float
 
 
 def calculate_cagr(first_value: float, last_value: float, duration: Duration) -> Percent:
-    if last_value == 0:
-        return float('-inf') if first_value > 0 else 0
-    math.pow(first_value / last_value - 1, duration / constants.YEAR)
+    if first_value == 0:
+        return float('inf') if last_value > 0 else 0
+    return math.pow(last_value / first_value, constants.YEAR / duration) - 1
 
 
 def min_max(value: Union[float, int], min_value: Union[float, int], max_value: Union[float, int]) -> Union[float, int]:

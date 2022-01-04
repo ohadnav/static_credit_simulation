@@ -73,27 +73,38 @@ class TestDynamicLineOfCredit(TestCase):
     def test_revenue_collateralization(self):
         self.context.revenue_collateralization = False
         self.dynamic_line_of_credit.underwriting.approved = MagicMock(return_value=False)
+        self.dynamic_line_of_credit.update_repayment_rate()
         self.assertEqual(
-            self.dynamic_line_of_credit.calculate_repayment_rate(),
+            self.dynamic_line_of_credit.current_repayment_rate,
             self.dynamic_line_of_credit.default_repayment_rate())
         self.context.revenue_collateralization = True
+        self.dynamic_line_of_credit.update_repayment_rate()
         self.assertEqual(
-            self.dynamic_line_of_credit.calculate_repayment_rate(), constants.MAX_REPAYMENT_RATE)
+            self.dynamic_line_of_credit.current_repayment_rate, constants.MAX_REPAYMENT_RATE)
+
+    def test_update_credit(self):
+        self.dynamic_line_of_credit.update_repayment_rate = MagicMock()
+        self.dynamic_line_of_credit.update_credit()
+        self.dynamic_line_of_credit.update_repayment_rate.assert_called()
 
     def test_repayment_rate_unchaged(self):
         self.dynamic_line_of_credit.underwriting.aggregated_score = MagicMock(return_value=constants.REPAYMENT_FACTOR)
+        self.dynamic_line_of_credit.update_repayment_rate()
         self.assertEqual(
-            self.dynamic_line_of_credit.calculate_repayment_rate(),
+            self.dynamic_line_of_credit.current_repayment_rate,
             self.dynamic_line_of_credit.default_repayment_rate())
 
     def test_repayment_rate_increase(self):
-        self.dynamic_line_of_credit.underwriting.aggregated_score=MagicMock(return_value=constants.REPAYMENT_FACTOR * 0.9)
+        self.dynamic_line_of_credit.underwriting.aggregated_score = MagicMock(
+            return_value=constants.REPAYMENT_FACTOR * 0.9)
+        self.dynamic_line_of_credit.update_repayment_rate()
         self.assertGreater(
-            self.dynamic_line_of_credit.calculate_repayment_rate(),
+            self.dynamic_line_of_credit.current_repayment_rate,
             self.dynamic_line_of_credit.default_repayment_rate())
 
     def test_repayment_rate_decrease(self):
         self.dynamic_line_of_credit.underwriting.aggregated_score = MagicMock(return_value=constants.REPAYMENT_FACTOR * 1.1)
+        self.dynamic_line_of_credit.update_repayment_rate()
         self.assertLess(
-            self.dynamic_line_of_credit.calculate_repayment_rate(),
+            self.dynamic_line_of_credit.current_repayment_rate,
             self.dynamic_line_of_credit.default_repayment_rate())

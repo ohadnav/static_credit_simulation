@@ -2,7 +2,7 @@ from autologging import traced, logged
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.util import min_max, Percent, Dollar
+from common.util import min_max, Dollar
 from finance.loan import Loan
 from seller.merchant import Merchant
 
@@ -27,15 +27,19 @@ class DynamicLineOfCredit(LineOfCredit):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
         super(DynamicLineOfCredit, self).__init__(context, data_generator, merchant)
 
-    def calculate_repayment_rate(self) -> Percent:
+    def update_credit(self):
+        super(DynamicLineOfCredit, self).update_credit()
+        self.update_repayment_rate()
+
+    def update_repayment_rate(self):
         if self.underwriting.approved():
             repayment_ratio = constants.REPAYMENT_FACTOR / self.underwriting.aggregated_score()
             # repayment_ratio = constants.REPAYMENT_FACTOR / self.underwriting.benchmark_score(
             #     'debt_to_inventory', self.today)
             new_rate = repayment_ratio * self.default_repayment_rate()
             new_rate = min_max(new_rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
-            return new_rate
+            self.current_repayment_rate = new_rate
         elif self.context.revenue_collateralization:
-            return constants.MAX_REPAYMENT_RATE
+            self.current_repayment_rate = constants.MAX_REPAYMENT_RATE
         else:
-            return self.default_repayment_rate()
+            self.current_repayment_rate = self.default_repayment_rate()

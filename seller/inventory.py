@@ -1,14 +1,13 @@
-import logging
 from typing import Optional, List
 
 from autologging import logged, traced
 
 from common import constants
 from common.context import DataGenerator
-from common.util import Date, Dollar
 from common.primitives import Primitive
-from seller.product import Product
+from common.util import Date, Dollar
 from seller.batch import Batch
+from seller.product import Product
 
 
 @traced
@@ -24,16 +23,16 @@ class Inventory(Primitive):
                            product: Optional[Product] = None):
         product = product or Product.generate_simulated(data_generator)
         batches = [Batch.generate_simulated(data_generator, product)]
-        total_duration = batches[0].batch_duration()
+        total_duration = batches[0].duration
         while total_duration < constants.SIMULATION_DURATION:
             next_batch = Batch.generate_simulated(data_generator, product, batches[-1])
-            total_duration += next_batch.batch_duration()
+            total_duration += next_batch.duration
             batches.append(next_batch)
         new_inventory = Inventory(data_generator, product, batches)
         return new_inventory
 
     def current_batch(self, day: Date) -> Batch:
-        return [batch for batch in self.batches if batch.start_date <=day <= batch.last_date()][0]
+        return [batch for batch in self.batches if batch.start_date <= day <= batch.last_date][0]
 
     def annual_top_line(self, day: Date) -> Dollar:
         return self.current_batch(day).inventory_turnover_ratio * self.current_batch(day).stock * self.product.price

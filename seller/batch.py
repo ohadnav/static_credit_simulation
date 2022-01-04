@@ -1,4 +1,3 @@
-import logging
 import math
 from dataclasses import dataclass
 from typing import Optional
@@ -7,8 +6,8 @@ from autologging import logged, traced
 
 from common import constants
 from common.context import DataGenerator
-from common.util import Percent, Date, Duration, Stock, Dollar
 from common.primitives import Primitive
+from common.util import Percent, Date, Duration, Stock, Dollar
 from seller.product import Product
 
 
@@ -30,11 +29,13 @@ class Batch(Primitive):
         self.stock = stock
         self.out_of_stock_ratio = out_of_stock_ratio
         self.inventory_turnover_ratio = inventory_turnover_ratio
+        self.duration = constants.YEAR / self.inventory_turnover_ratio
         self.roas = roas
         self.roas = roas
         self.organic_ratio = organic_ratio
         self.growth_rate = growth_rate
         self.start_date = start_date
+        self.last_date = self.start_date + self.duration
         self.purchase_order: Optional[PurchaseOrder] = None
         self.next_batch = None
 
@@ -62,7 +63,7 @@ class Batch(Primitive):
         organic_ratio = (
                             previous.organic_ratio if previous else data_generator.organic_ratio_median) * data_generator.normal_ratio(
             data_generator.organic_ratio_variance)
-        start_date = (previous.start_date + previous.batch_duration()) if previous else 0
+        start_date = (previous.start_date + previous.duration) if previous else 0
         new_batch = Batch(
             data_generator, product, out_of_stock_ratio, inventory_turnover_ratio, roas, organic_ratio, growth_rate,
             stock, start_date)
@@ -85,7 +86,7 @@ class Batch(Primitive):
         return self.get_purchase_order_start_date() + self.product.manufacturing_duration
 
     def get_purchase_order_start_date(self) -> Date:
-        return self.last_date() - self.product.lead_time()
+        return self.last_date - self.product.lead_time()
 
     def max_purchase_order(self) -> PurchaseOrder:
         stock = Stock(
@@ -102,6 +103,7 @@ class Batch(Primitive):
             new_purchase_order = PurchaseOrder(stock, upfront_cost, post_cost)
         if new_purchase_order.stock > self.product.min_purchase_order_size:
             self.purchase_order = new_purchase_order
+            self.next_batch.stock = self.purchase_order.stock
 
     def max_inventory_cost(self, day: Date) -> Dollar:
         if day == self.get_purchase_order_start_date():
@@ -118,20 +120,11 @@ class Batch(Primitive):
             return self.purchase_order.post_manufacturing_cost
         return 0
 
-    def batch_start_date(self):
-        return self.batch_duration() - self.product.lead_time()
-
-    def batch_duration(self) -> Duration:
-        return constants.YEAR / self.inventory_turnover_ratio
-
     def is_out_of_stock(self, day: Date) -> bool:
         return day - self.start_date > self.duration_out_of_stock()
 
-    def last_date(self) -> Date:
-        return self.start_date + self.batch_duration()
-
     def sales_velocity(self) -> float:
-        return self.stock / (self.batch_duration() * (1 - self.out_of_stock_ratio))
+        return self.stock / (self.duration * (1 - self.out_of_stock_ratio))
 
     def revenue_per_day(self, day: Date) -> Dollar:
         if self.is_out_of_stock(day):
@@ -147,4 +140,4 @@ class Batch(Primitive):
 
     def duration_out_of_stock(self) -> Duration:
         duration_until_out_of_stock = math.ceil(self.stock / self.sales_velocity())
-        return self.batch_duration() - duration_until_out_of_stock
+        return self.duration - duration_until_out_of_stock
