@@ -5,7 +5,7 @@ from numpy.random import mtrand
 
 from common import constants
 from common.constants import LoanType
-from common.util import Percent
+from common.util import Percent, min_max
 
 
 @dataclass
@@ -14,11 +14,11 @@ class DataGenerator:
 
     # Costs
     num_products = 1
-    shipping_duration = constants.SHIPPING_TIME_MIN
+    shipping_duration_avg = constants.SHIPPING_DURATION_MIN
+    shipping_duration_std = constants.SHIPPING_DURATION_MIN
+    manufacturing_duration_avg = constants.MANUFACTURING_DURATION_MIN
+    manufacturing_duration_std = constants.MANUFACTURING_DURATION_STD
     shipping_volatility = constants.SHIPPING_VOLATILITY
-    shipping_delay = constants.SHIPPING_TIME_DELAY
-    delay_max = constants.SHIPPING_DELAY_MAX
-    inventory_buffer = constants.INVENTORY_BUFFER
     sgna_payment_cycle = constants.SGNA_PAYMENT_CYCLE
     sgna_std = constants.SGNA_STD
     sgna_ratio = constants.SGNA_RATIO_MIN
@@ -61,8 +61,7 @@ class DataGenerator:
             random_value = mtrand.normal(mean, std)
             max_value = max_value or mean + constants.MAX_RANDOM_DEVIATION * std
             min_value = min_value or mean - constants.MAX_RANDOM_DEVIATION * std
-            random_value = min(max_value, random_value)
-            random_value = max(min_value, random_value)
+            random_value = min_max(random_value, min_value, max_value)
             return random_value
         return mean
 

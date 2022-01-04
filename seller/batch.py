@@ -50,7 +50,7 @@ class Batch(Primitive):
         inventory_turnover_ratio = min(inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX)
         inventory_turnover_ratio = min(inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX)
         stock = None if previous else Stock(
-            max(product.lead_time() + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
+            max(product.lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
                 constants.INITIAL_STOCK_STD, chance_positive=1))
         out_of_stock_ratio = (
                                  previous.out_of_stock_ratio if previous else data_generator.out_of_stock_ratio_median) * data_generator.normal_ratio(
@@ -86,11 +86,11 @@ class Batch(Primitive):
         return self.get_purchase_order_start_date() + self.product.manufacturing_duration
 
     def get_purchase_order_start_date(self) -> Date:
-        return self.last_date - self.product.lead_time()
+        return self.last_date - self.product.lead_time
 
     def max_purchase_order(self) -> PurchaseOrder:
         stock = Stock(
-            self.sales_velocity() * self.product.lead_time() * (1 + self.growth_rate))
+            self.sales_velocity() * self.product.lead_time * (1 + self.growth_rate))
         stock = max(self.product.min_purchase_order_size, stock)
         upfront_cost, post_cost = self.product.purchase_order_cost(stock)
         return PurchaseOrder(stock, upfront_cost, post_cost)

@@ -267,16 +267,16 @@ class TestLoan(TestCase):
         self.loan.add_debt(self.loan.loan_amount())
         self.loan.is_default = MagicMock(return_value=False)
         self.context.loan_duration = 1
-        self.assertEqual(
+        self.assertAlmostEqual(
             self.loan.loss(), self.loan.loan_amount() - self.merchant.revenue_per_day(
                 self.loan.today) * self.loan.current_repayment_rate)
 
     def test_cost_of_capital(self):
         self.loan.add_debt(self.loan.loan_amount())
-        self.assertEqual(self.loan.cost_of_capital(), self.context.cost_of_capital * self.loan.loan_amount())
+        self.assertAlmostEqual(self.loan.cost_of_capital(), self.context.cost_of_capital * self.loan.loan_amount())
         self.loan.simulate_sales()
         self.loan.marketplace_payout()
-        self.assertEqual(self.loan.cost_of_capital(), self.context.cost_of_capital * self.loan.loan_amount())
+        self.assertAlmostEqual(self.loan.cost_of_capital(), self.context.cost_of_capital * self.loan.loan_amount())
 
     def test_projected_remaining_debt(self):
         self.loan.add_debt(self.loan.loan_amount())
