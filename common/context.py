@@ -14,9 +14,9 @@ class DataGenerator:
 
     # Costs
     num_products = 1
-    shipping_duration_avg = constants.SHIPPING_DURATION_MIN
-    shipping_duration_std = constants.SHIPPING_DURATION_MIN
-    manufacturing_duration_avg = constants.MANUFACTURING_DURATION_MIN
+    shipping_duration_avg = constants.SHIPPING_DURATION_AVG
+    shipping_duration_std = constants.SHIPPING_DURATION_AVG
+    manufacturing_duration_avg = constants.MANUFACTURING_DURATION_AVG
     manufacturing_duration_std = constants.MANUFACTURING_DURATION_STD
     sgna_payment_cycle = constants.SGNA_PAYMENT_CYCLE
     sgna_std = constants.SGNA_STD
@@ -26,6 +26,7 @@ class DataGenerator:
     cogs_margin_median = constants.COGS_MARGIN_BENCHMARK_AVG
     inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     sgna_ratio_median = constants.SGNA_RATIO_MIN
+    include_purchase_order_in_valuation = True
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO

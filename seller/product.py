@@ -15,15 +15,12 @@ CHANGE_THRESHOLD = 1.02
 @logged
 class Product(Primitive):
     def __init__(self, data_generator: DataGenerator, price: Dollar, cost_per_unit: Dollar,
-                 min_purchase_order_size: Stock, manufacturing_duration: Duration, shipping_duration: Duration,
-                 cogs_margin: Percent):
+                 min_purchase_order_size: Stock, manufacturing_duration: Duration, cogs_margin: Percent):
         super(Product, self).__init__(data_generator)
         self.price = price
         self.cost_per_unit = cost_per_unit
         self.min_purchase_order_size = min_purchase_order_size
         self.manufacturing_duration = manufacturing_duration
-        self.shipping_duration = shipping_duration
-        self.lead_time = self.shipping_duration + self.manufacturing_duration
         self.cogs_margin = cogs_margin
 
     @classmethod
@@ -31,21 +28,16 @@ class Product(Primitive):
         price = data_generator.median_price * data_generator.normal_ratio(data_generator.price_std)
         cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(
             std=constants.COGS_MARGIN_STD, max_ratio=constants.COGS_MARGIN_MAX / data_generator.cogs_margin_median)
-        manufacturing_duration = max(
-            constants.MIN_MANUFACTURING_DURATION, Duration(
-                data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
-                    data_generator.manufacturing_duration_std)))
-        shipping_duration = max(
-            constants.MIN_SHIPPING_DURATION, Duration(
-                data_generator.shipping_duration_avg * data_generator.normal_ratio(
-                    data_generator.shipping_duration_std)))
-        lead_time = manufacturing_duration + shipping_duration
+        manufacturing_duration = Duration(
+            data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
+                data_generator.manufacturing_duration_std))
+        manufacturing_duration = min_max(
+            manufacturing_duration, constants.MANUFACTURING_DURATION_MIN, constants.MANUFACTURING_DURATION_MAX)
+
         min_purchase_order_size = Stock(round(constants.MIN_PURCHASE_ORDER_VALUE / (cogs_margin * price)))
-        min_purchase_order_size = max([min_purchase_order_size, lead_time, constants.MIN_PURCHASE_ORDER_SIZE])
         new_product = Product(
             data_generator, price, data_generator.cogs_margin_median * price, min_purchase_order_size,
-            manufacturing_duration, shipping_duration,
-            cogs_margin)
+            manufacturing_duration, cogs_margin)
         return new_product
 
     def volume_discount(self, volume: Stock) -> Percent:
@@ -58,7 +50,7 @@ class Product(Primitive):
         return self.cost_per_unit * (1 - self.volume_discount(volume))
 
     def batch_size_from_upfront_cost(self, upfront_cost: Dollar) -> Stock:
-        total_cost = upfront_cost * (1 / constants.INVENTORY_UPFRONT_PAYMENT)
+        total_cost = upfront_cost * (1 / constants.INVENTORY_UPFRONT_PAYMENT) + constants.FLOAT_ADJUSTMENT
         estimated_batch_size = int(total_cost / self.cost_per_unit)
         estimated_discounted_cpu = self.cost_per_unit
         change = 2 * CHANGE_THRESHOLD

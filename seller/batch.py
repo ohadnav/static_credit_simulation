@@ -21,15 +21,17 @@ class PurchaseOrder:
 @traced
 @logged
 class Batch(Primitive):
-    def __init__(self, data_generator: DataGenerator, product: Product, out_of_stock_ratio: Percent,
-                 inventory_turnover_ratio: float, roas: float, organic_ratio: Percent, growth_rate: Percent,
-                 stock: Optional[Stock], start_date: Date):
+    def __init__(self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
+                 out_of_stock_ratio: Percent, inventory_turnover_ratio: float, roas: float, organic_ratio: Percent,
+                 growth_rate: Percent, stock: Optional[Stock], start_date: Date):
         super(Batch, self).__init__(data_generator)
         self.product = product
+        self.shipping_duration = shipping_duration
+        self.lead_time = self.shipping_duration + self.product.manufacturing_duration
         self.stock = stock
         self.out_of_stock_ratio = out_of_stock_ratio
         self.inventory_turnover_ratio = inventory_turnover_ratio
-        self.duration = Duration(constants.YEAR / self.inventory_turnover_ratio)
+        self.duration = math.ceil(constants.YEAR / self.inventory_turnover_ratio)
         self.roas = roas
         self.roas = roas
         self.organic_ratio = organic_ratio
@@ -42,16 +44,28 @@ class Batch(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None,
                            previous: Optional['Batch'] = None):
-        product = (product or previous.product if previous else None) or Product.generate_simulated(data_generator)
+        assert product is None or previous is None or product == previous.product
+        if previous:
+            product = previous.product
+        product = product or Product.generate_simulated(data_generator)
+        shipping_duration = Duration(
+            data_generator.shipping_duration_avg * data_generator.normal_ratio(
+                data_generator.shipping_duration_std))
+        max_shipping_duration = constants.MAX_LEAD_TIME_DURATION - product.manufacturing_duration
+        max_shipping_duration = min(constants.SHIPPING_DURATION_MAX, max_shipping_duration)
+        shipping_duration = min_max(shipping_duration, constants.MIN_SHIPPING_DURATION, max_shipping_duration)
+        lead_time = shipping_duration + product.manufacturing_duration
         inventory_turnover_ratio = (
                                        previous.inventory_turnover_ratio if previous else
                                        data_generator.inventory_turnover_ratio_median) * data_generator.normal_ratio(
             constants.INVENTORY_TURNOVER_RATIO_STD)
+        max_inventory_turnover_ratio = min(
+            constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX, constants.YEAR / lead_time)
         inventory_turnover_ratio = min_max(
             inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MIN,
-            constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX)
+            max_inventory_turnover_ratio)
         stock = None if previous else Stock(
-            max(product.lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
+            max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
                 constants.INITIAL_STOCK_STD, chance_positive=1))
         out_of_stock_ratio = (
                                  previous.out_of_stock_ratio if previous else data_generator.out_of_stock_ratio_median) * data_generator.normal_ratio(
@@ -67,7 +81,8 @@ class Batch(Primitive):
             data_generator.organic_ratio_variance)
         start_date = (previous.last_date + 1) if previous else constants.START_DATE
         new_batch = Batch(
-            data_generator, product, out_of_stock_ratio, inventory_turnover_ratio, roas, organic_ratio, growth_rate,
+            data_generator, product, shipping_duration, out_of_stock_ratio, inventory_turnover_ratio, roas,
+            organic_ratio, growth_rate,
             stock, start_date)
         if previous:
             previous.next_batch = new_batch
@@ -88,7 +103,7 @@ class Batch(Primitive):
         return self.get_purchase_order_start_date() + self.product.manufacturing_duration
 
     def get_purchase_order_start_date(self) -> Date:
-        return self.last_date - self.product.lead_time
+        return self.last_date - self.lead_time
 
     def max_purchase_order(self) -> PurchaseOrder:
         stock = self.max_stock_for_next_purchase_order()
@@ -98,10 +113,10 @@ class Batch(Primitive):
     def max_stock_for_next_purchase_order(self):
         return max(
             self.product.min_purchase_order_size, Stock(
-                self.sales_velocity() * self.product.lead_time * (1 + self.growth_rate)))
+                self.sales_velocity() * self.lead_time * (1 + self.growth_rate)))
 
     def initiate_new_purchase_order(self, current_cash) -> Optional[PurchaseOrder]:
-        current_cash += 0.0001
+        current_cash += constants.FLOAT_ADJUSTMENT
         new_purchase_order = self.max_purchase_order()
         if new_purchase_order.upfront_cost > current_cash:
             stock = self.product.batch_size_from_upfront_cost(current_cash)
@@ -154,3 +169,10 @@ class Batch(Primitive):
 
     def duration_in_stock(self) -> Duration:
         return math.ceil(self.stock / self.sales_velocity())
+
+    # at the beginning of the day
+    def remaining_stock(self, day: Date) -> Stock:
+        assert day >= self.start_date
+        sales_duration = min(self.duration_in_stock(), day - self.start_date)
+        sold_in_duration = Stock(self.sales_velocity() * sales_duration)
+        return max(self.stock - sold_in_duration, 0)

@@ -1,14 +1,14 @@
-from typing import Optional, List, Any
+from typing import Optional, List
 
 from autologging import logged, traced
 
 from common import constants
 from common.context import DataGenerator
-from common.util import Percent, Date, Dollar
 from common.primitives import Primitive
+from common.util import Percent, Date, Dollar
+from seller.batch import Batch
 from seller.inventory import Inventory
 from seller.product import Product
-from seller.batch import Batch
 
 
 @traced
@@ -59,12 +59,12 @@ class Merchant(Primitive):
         return [batch for inventory in self.inventories for batch in inventory.batches]
 
     def max_inventory_cost(self, day: Date) -> Dollar:
-        current_batches = [inventory.current_batch(day) for inventory in self.inventories]
+        current_batches = [inventory[day] for inventory in self.inventories]
         max_cost = sum([batch.max_inventory_cost(day) for batch in current_batches])
         return max_cost
 
     def inventory_cost(self, day: Date, current_cash: Dollar) -> Dollar:
-        current_batches = [inventory.current_batch(day) for inventory in self.inventories]
+        current_batches = [inventory[day] for inventory in self.inventories]
         total_to_pay = 0.0
         for batch in current_batches:
             total_to_pay += batch.inventory_cost(day, current_cash)

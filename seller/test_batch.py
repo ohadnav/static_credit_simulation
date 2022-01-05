@@ -39,9 +39,10 @@ class TestBatch(TestCase):
         self.assertAlmostEqual(self.batch.growth_rate, self.data_generator.growth_rate_avg * ratio)
         self.assertAlmostEqual(self.batch.roas, self.data_generator.roas_median * ratio)
         self.assertAlmostEqual(self.batch.organic_ratio, self.data_generator.organic_ratio_median * ratio)
+        self.assertEqual(self.batch.shipping_duration, int(self.data_generator.shipping_duration_avg * ratio))
         self.assertEqual(
             self.batch.stock,
-            int(max(self.batch.product.lead_time + 1, self.batch.product.min_purchase_order_size) * ratio))
+            int(max(self.batch.lead_time + 1, self.batch.product.min_purchase_order_size) * ratio))
         self.assertEqual(self.batch.start_date, constants.START_DATE)
         self.assertIsNone(self.batch.next_batch)
 
@@ -79,7 +80,7 @@ class TestBatch(TestCase):
         self.assertEqual(self.batch.get_manufacturing_done_date(), 1 + self.batch.product.manufacturing_duration)
 
     def test_get_purchase_order_start_date(self):
-        self.batch.product.lead_time = 2
+        self.batch.lead_time = 2
         self.assertEqual(self.batch.get_purchase_order_start_date(), self.batch.last_date - 2)
 
     def test_max_purchase_order(self):
@@ -170,3 +171,10 @@ class TestBatch(TestCase):
         self.batch.duration = 4
         self.batch.out_of_stock_ratio = 0.25
         self.assertEqual(self.batch.duration_in_stock(), 3)
+
+    def test_remaining_stock(self):
+        self.assertEqual(self.batch.remaining_stock(constants.START_DATE), self.batch.stock)
+        self.assertEqual(
+            self.batch.remaining_stock(constants.START_DATE + 1), self.batch.stock - int(self.batch.sales_velocity()))
+        self.assertGreater(self.batch.remaining_stock(constants.START_DATE + self.batch.duration_in_stock() - 1), 0)
+        self.assertEqual(self.batch.remaining_stock(constants.START_DATE + self.batch.duration_in_stock()), 0)

@@ -37,9 +37,8 @@ class TestProduct(TestCase):
         self.assertAlmostEqual(self.product.cogs_margin, self.data_generator.cogs_margin_median * ratio)
         self.assertEqual(
             self.product.manufacturing_duration, int(self.data_generator.manufacturing_duration_avg * ratio))
-        self.assertEqual(self.product.shipping_duration, int(self.data_generator.shipping_duration_avg * ratio))
         self.assertGreater(
-            self.product.min_purchase_order_size, max(self.product.lead_time, constants.MIN_PURCHASE_ORDER_SIZE))
+            self.product.min_purchase_order_size, constants.MIN_PURCHASE_ORDER_SIZE)
 
     def test__discount(self):
         self.assertEqual(self.product.volume_discount(self.product.min_purchase_order_size), 0)
