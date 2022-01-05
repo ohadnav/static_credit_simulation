@@ -9,7 +9,7 @@ from autologging import TRACE, logged, traced
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test
+from common.statistical_test import statistical_test_mean_error
 from seller.batch import Batch
 from seller.inventory import Inventory
 
@@ -44,7 +44,7 @@ class TestInventory(TestCase):
         self.assertEqual(self.inventory[constants.START_DATE], self.inventory.batches[0])
         self.assertEqual(self.inventory[self.inventory.batches[0].last_date + 1], self.inventory.batches[1])
 
-    @statistical_test(times=10)
+    @statistical_test_mean_error(times=10)
     def test_annual_top_line(self, errors: List[float]):
         self.inventory = Inventory.generate_simulated(self.data_generator)
         expected_sales = self.inventory[

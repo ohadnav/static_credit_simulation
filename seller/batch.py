@@ -44,6 +44,7 @@ class Batch(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None,
                            previous: Optional['Batch'] = None):
+        # TODO: adjust variance per annual top line
         assert product is None or previous is None or product == previous.product
         if previous:
             product = previous.product
@@ -102,7 +103,7 @@ class Batch(Primitive):
         return self.get_purchase_order_start_date() + self.product.manufacturing_duration
 
     def get_purchase_order_start_date(self) -> Date:
-        return self.last_date - self.lead_time
+        return self.last_date - self.lead_time + 1
 
     def max_purchase_order(self) -> PurchaseOrder:
         stock = self.max_stock_for_next_purchase_order()

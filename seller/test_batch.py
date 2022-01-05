@@ -7,7 +7,7 @@ from autologging import TRACE, traced, logged
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test
+from common.statistical_test import statistical_test_mean_error
 from seller.batch import Batch, PurchaseOrder
 
 
@@ -81,7 +81,9 @@ class TestBatch(TestCase):
 
     def test_get_purchase_order_start_date(self):
         self.batch.lead_time = 2
-        self.assertEqual(self.batch.get_purchase_order_start_date(), self.batch.last_date - 2)
+        self.assertEqual(self.batch.get_purchase_order_start_date(), self.batch.last_date - 1)
+        self.batch.last_date = 2
+        self.assertEqual(self.batch.get_purchase_order_start_date(), 1)
 
     def test_max_purchase_order(self):
         max_stock = self.batch.max_stock_for_next_purchase_order()
@@ -118,7 +120,7 @@ class TestBatch(TestCase):
     def test_inventory_cost(self):
         self.data_generator.remove_randomness()
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
-        self.assertEqual(self.batch.inventory_cost(constants.START_DATE - 1, 1000000), 0)
+        self.assertEqual(self.batch.inventory_cost(constants.SIMULATION_DURATION + 1, 1000000), 0)
         self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), upfront - 1), 0)
         self.assertIsNone(self.batch.purchase_order)
         self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), upfront), upfront)
@@ -132,7 +134,7 @@ class TestBatch(TestCase):
             self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock() - 1))
         self.assertTrue(self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock()))
 
-    @statistical_test
+    @statistical_test_mean_error
     def test_out_of_stock_statistical_test(self, errors):
         count_oos = 0
         self.batch = Batch.generate_simulated(self.data_generator)

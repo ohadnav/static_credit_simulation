@@ -1,5 +1,5 @@
-from dataclasses import dataclass, fields
-from typing import Optional, Mapping
+from dataclasses import dataclass
+from typing import Optional
 
 from numpy.random import mtrand
 
@@ -90,22 +90,13 @@ class RiskConfiguration:
     score: Optional[Percent] = None
 
 
-@dataclass
 class RiskContext:
-    out_of_stock_ratio = RiskConfiguration(higher_is_better=False)
-    inventory_turnover_ratio = RiskConfiguration()
-    total_revenue = RiskConfiguration()
-    cogs_margin = RiskConfiguration(higher_is_better=False)
-    roas = RiskConfiguration()
-    organic_ratio = RiskConfiguration()
-    debt_to_inventory = RiskConfiguration(higher_is_better=False)
-
-    def to_dict(self) -> Mapping[str, RiskConfiguration]:
-        result = {}
-        for predictor in fields(self):
-            risk_configuration: RiskConfiguration = getattr(self, predictor.name)
-            result[predictor.name] = risk_configuration
-        return result
+    def __init__(self):
+        self.out_of_stock_ratio = RiskConfiguration(higher_is_better=False)
+        self.inventory_turnover_ratio = RiskConfiguration()
+        self.profit_margin = RiskConfiguration()
+        self.roas = RiskConfiguration()
+        self.organic_ratio = RiskConfiguration()
 
 
 @dataclass
@@ -127,10 +118,9 @@ class SimulationContext:
 
     # Underwriting
     organic_ratio_benchmark = constants.ORGANIC_SALES_RATIO_BENCHMARK_MIN
-    out_of_stock_benchmark = constants.OUT_OF_STOCK_BENCHMARK
+    out_of_stock_ratio_benchmark = constants.OUT_OF_STOCK_BENCHMARK
     profit_margin_benchmark = constants.PROFIT_MARGIN_BENCHMARK_MIN
     inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     roas_benchmark = constants.ROAS_BENCHMARK_MIN
-    debt_to_inventory_benchmark = constants.DEBT_TO_INVENTORY_BENCHMARK
     benchmark_factor = constants.BENCHMARK_FACTOR
     min_risk_score = constants.MIN_RISK_SCORE
