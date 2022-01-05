@@ -58,7 +58,7 @@ class TestProduct(TestCase):
 
     def test_batch_size_from_upfront_cost(self):
         self.data_generator.remove_randomness()
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.product.batch_size_from_upfront_cost(
                 self.product.purchase_order_cost(self.product.min_purchase_order_size)[0]),
             self.product.min_purchase_order_size)
@@ -70,11 +70,10 @@ class TestProduct(TestCase):
     def test_purchase_order_cost(self):
         self.data_generator.remove_randomness()
         total_cost: Dollar = self.product.min_purchase_order_size * self.product.cost_per_unit
+        upfront, post = self.product.purchase_order_cost(self.product.min_purchase_order_size)
         # noinspection PyTypeChecker
-        self.assertAlmostEqual(
-            self.product.purchase_order_cost(self.product.min_purchase_order_size), (
-                total_cost * constants.INVENTORY_UPFRONT_PAYMENT,
-                total_cost * (1 - constants.INVENTORY_UPFRONT_PAYMENT)))
+        self.assertAlmostEqual(upfront, total_cost * constants.INVENTORY_UPFRONT_PAYMENT)
+        self.assertAlmostEqual(post, total_cost * (1 - constants.INVENTORY_UPFRONT_PAYMENT))
         self.assertLess(
             self.product.purchase_order_cost(10 * self.product.min_purchase_order_size), (
                 10 * self.product.min_purchase_order_size * self.product.cost_per_unit * constants.INVENTORY_UPFRONT_PAYMENT,

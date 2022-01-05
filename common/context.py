@@ -18,13 +18,12 @@ class DataGenerator:
     shipping_duration_std = constants.SHIPPING_DURATION_MIN
     manufacturing_duration_avg = constants.MANUFACTURING_DURATION_MIN
     manufacturing_duration_std = constants.MANUFACTURING_DURATION_STD
-    shipping_volatility = constants.SHIPPING_VOLATILITY
     sgna_payment_cycle = constants.SGNA_PAYMENT_CYCLE
     sgna_std = constants.SGNA_STD
     sgna_ratio = constants.SGNA_RATIO_MIN
     inventory_cost_std = constants.INVENTORY_COST_STD
     out_of_stock_ratio_median = constants.OUT_OF_STOCK_BENCHMARK
-    cogs_margin_median = constants.COGS_MARGIN_BENCHMARK_MIN
+    cogs_margin_median = constants.COGS_MARGIN_BENCHMARK_AVG
     inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     sgna_ratio_median = constants.SGNA_RATIO_MIN
 
@@ -36,7 +35,7 @@ class DataGenerator:
     organic_growth_rate = constants.ORGANIC_GROWTH_RATE
     organic_sales_cycle = constants.ORGANIC_SALES_CYCLE
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
-    expected_sales_growth = constants.EXPECTED_SALES_GROWTH
+    growth_rate_avg = constants.GROWTH_RATE_AVG
     sales_volatility_cycle = constants.SALES_VOLATILITY_CYCLE
     organic_sales_volatility = constants.ORGANIC_SALES_VOLATILITY
     roas_variance = constants.ROAS_VOLATILITY

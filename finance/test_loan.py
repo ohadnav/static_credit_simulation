@@ -258,7 +258,7 @@ class TestLoan(TestCase):
         self.assertEqual(self.loan.loss(), 0)
         self.loan.add_debt(self.loan.loan_amount())
         self.loan.is_default = MagicMock(return_value=True)
-        self.assertEqual(self.loan.loss(), self.loan.loan_amount())
+        self.assertAlmostEqual(self.loan.loss(), self.loan.loan_amount())
         self.loan.outstanding_debt = self.loan.loan_amount() * self.loan.interest
         self.assertAlmostEqual(self.loan.loss(), 0)
 
@@ -292,7 +292,7 @@ class TestLoan(TestCase):
 
     def test_debt_to_valuation(self):
         self.merchant.valuation = MagicMock(return_value=2)
-        self.assertEqual(self.loan.debt_to_valuation(), 0)
+        self.assertAlmostEqual(self.loan.debt_to_valuation(), 0)
         self.loan.add_debt(self.loan.loan_amount())
         self.assertAlmostEqual(self.loan.debt_to_valuation(), self.loan.max_debt() / 2)
 
