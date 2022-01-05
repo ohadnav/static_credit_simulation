@@ -58,7 +58,7 @@ class TestBatch(TestCase):
         self.assertAlmostEqual(batch2.growth_rate, self.batch.growth_rate * ratio)
         self.assertAlmostEqual(batch2.roas, self.batch.roas * ratio)
         self.assertAlmostEqual(batch2.organic_ratio, self.batch.organic_ratio * ratio)
-        self.assertIsNone(batch2.stock)
+        self.assertEqual(batch2.stock, 0)
         self.assertEqual(batch2.start_date, self.batch.last_date + 1)
 
     def test_gp_margin(self):

@@ -26,8 +26,8 @@ class Product(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator):
         price = data_generator.median_price * data_generator.normal_ratio(data_generator.price_std)
-        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(
-            std=constants.COGS_MARGIN_STD, max_ratio=constants.COGS_MARGIN_MAX / data_generator.cogs_margin_median)
+        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(std=constants.COGS_MARGIN_STD)
+        cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)
         manufacturing_duration = Duration(
             data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
                 data_generator.manufacturing_duration_std))

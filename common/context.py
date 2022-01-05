@@ -13,7 +13,7 @@ class DataGenerator:
     randomness = True
 
     # Costs
-    num_products = 1
+    num_products = constants.NUM_PRODUCTS
     shipping_duration_avg = constants.SHIPPING_DURATION_AVG
     shipping_duration_std = constants.SHIPPING_DURATION_AVG
     manufacturing_duration_avg = constants.MANUFACTURING_DURATION_AVG

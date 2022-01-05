@@ -23,7 +23,7 @@ class PurchaseOrder:
 class Batch(Primitive):
     def __init__(self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
                  out_of_stock_ratio: Percent, inventory_turnover_ratio: float, roas: float, organic_ratio: Percent,
-                 growth_rate: Percent, stock: Optional[Stock], start_date: Date):
+                 growth_rate: Percent, start_date: Date, stock: Stock):
         super(Batch, self).__init__(data_generator)
         self.product = product
         self.shipping_duration = shipping_duration
@@ -64,7 +64,7 @@ class Batch(Primitive):
         inventory_turnover_ratio = min_max(
             inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MIN,
             max_inventory_turnover_ratio)
-        stock = None if previous else Stock(
+        stock = 0 if previous else Stock(
             max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
                 constants.INITIAL_STOCK_STD, chance_positive=1))
         out_of_stock_ratio = (
@@ -82,8 +82,7 @@ class Batch(Primitive):
         start_date = (previous.last_date + 1) if previous else constants.START_DATE
         new_batch = Batch(
             data_generator, product, shipping_duration, out_of_stock_ratio, inventory_turnover_ratio, roas,
-            organic_ratio, growth_rate,
-            stock, start_date)
+            organic_ratio, growth_rate, start_date, stock)
         if previous:
             previous.next_batch = new_batch
         return new_batch
@@ -163,6 +162,9 @@ class Batch(Primitive):
     @staticmethod
     def revenue_margin():
         return 1 - constants.MARKETPLACE_COMMISSION
+
+    def profit_margin(self):
+        return 1 - self.gp_margin() - self.product.cogs_margin
 
     def gp_per_day(self, day: Date) -> Dollar:
         return self.total_revenue_per_day(day) * self.gp_margin()

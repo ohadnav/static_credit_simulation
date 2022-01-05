@@ -5,10 +5,8 @@ from autologging import logged, traced
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Date, Dollar
-from seller.batch import Batch
+from common.util import Percent, Date, Dollar, weighted_average, min_max
 from seller.inventory import Inventory
-from seller.product import Product
 
 
 @traced
@@ -22,26 +20,26 @@ class Merchant(Primitive):
         self.suspension_start_date: Optional[Date] = self.calculate_suspension_start_date()
 
     @classmethod
-    def generate_simulated(cls, data_generator: DataGenerator,
-                           products: Optional[List[Product]] = None, inventories: Optional[List[Inventory]] = None):
-        products = products or [Product.generate_simulated(data_generator) for _ in range(data_generator.num_products)]
-        inventories = inventories or [Inventory.generate_simulated(data_generator, product) for product in products]
+    def generate_simulated(cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None):
+        num_products = round(data_generator.num_products * data_generator.normal_ratio())
+        num_products = min_max(num_products, 1, 100)
+        inventories = inventories or [Inventory.generate_simulated(data_generator) for _ in range(num_products)]
         account_suspension_chance = data_generator.account_suspension_chance * data_generator.normal_ratio()
         return Merchant(data_generator, inventories, account_suspension_chance)
 
     def calculate_suspension_start_date(self) -> Optional[Date]:
-        day = constants.YEAR
-        for i in range(constants.YEAR):
+        suspension_date = None
+        for i in range(constants.START_DATE, constants.SIMULATION_DURATION + 1):
             if self.data_generator.random() < self.account_suspension_chance:
-                day = i
-        return day if day != constants.YEAR else None
+                suspension_date = i
+        return suspension_date
 
     def annual_top_line(self, day: Date) -> Dollar:
         return sum([inventory.annual_top_line(day) for inventory in self.inventories])
 
     def is_suspended(self, day: Date):
-        return self.suspension_start_date and self.suspension_start_date <= day <=\
-               self.suspension_start_date + constants.ACCOUNT_SUSPENSION_DURATION
+        return self.suspension_start_date and \
+               self.suspension_start_date <= day <= self.suspension_start_date + constants.ACCOUNT_SUSPENSION_DURATION - 1
 
     def gp_per_day(self, day: Date) -> Dollar:
         if self.is_suspended(day):
@@ -55,9 +53,6 @@ class Merchant(Primitive):
         total_revenue = sum([inventory.revenue_per_day(day) for inventory in self.inventories])
         return total_revenue
 
-    def get_all_batches(self) -> List[Batch]:
-        return [batch for inventory in self.inventories for batch in inventory.batches]
-
     def max_inventory_cost(self, day: Date) -> Dollar:
         current_batches = [inventory[day] for inventory in self.inventories]
         max_cost = sum([batch.max_inventory_cost(day) for batch in current_batches])
@@ -67,31 +62,38 @@ class Merchant(Primitive):
         current_batches = [inventory[day] for inventory in self.inventories]
         total_to_pay = 0.0
         for batch in current_batches:
-            total_to_pay += batch.inventory_cost(day, current_cash)
-            current_cash -= total_to_pay
+            batch_cost = batch.inventory_cost(day, current_cash)
+            total_to_pay += batch_cost
+            current_cash -= batch_cost
         return total_to_pay
 
     def valuation(self, day: Date, net_cashflow: Dollar) -> Dollar:
         return net_cashflow + sum([inventory.valuation(day) for inventory in self.inventories])
 
     def inventory_value(self, day: Date) -> Dollar:
-        pass
+        return sum([inventory.current_inventory_valuation(day) for inventory in self.inventories])
 
     def organic_ratio(self, day: Date) -> Percent:
-        pass
+        top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
+        organic_ratios = [inventory[day].organic_ratio for inventory in self.inventories]
+        return weighted_average(organic_ratios, top_lines)
 
-    def out_of_stock(self, day: Date) -> Percent:
-        pass
+    def out_of_stock_ratio(self, day: Date) -> Percent:
+        top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
+        out_of_stock_ratios = [inventory[day].out_of_stock_ratio for inventory in self.inventories]
+        return weighted_average(out_of_stock_ratios, top_lines)
 
     def profit_margin(self, day: Date) -> Percent:
-        pass
+        top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
+        profit_margins = [inventory[day].profit_margin() for inventory in self.inventories]
+        return weighted_average(profit_margins, top_lines)
 
     def inventory_turnover_ratio(self, day: Date) -> float:
-        pass
+        top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
+        ratios = [inventory[day].inventory_turnover_ratio for inventory in self.inventories]
+        return weighted_average(ratios, top_lines)
 
     def roas(self, day: Date) -> float:
-        pass
-
-    def debt_to_inventory(self, day: Date) -> Percent:
-        pass
-
+        top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
+        ratios = [inventory[day].roas for inventory in self.inventories]
+        return weighted_average(ratios, top_lines)

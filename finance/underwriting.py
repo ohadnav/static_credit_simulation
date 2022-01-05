@@ -1,11 +1,10 @@
 from copy import deepcopy
-from dataclasses import dataclass, fields
 
 from autologging import logged, traced
 
 from common import constants
 from common.context import SimulationContext, RiskConfiguration
-from common.util import Percent, Date, Duration, weighted_average
+from common.util import Percent, Date, weighted_average
 from seller.merchant import Merchant
 
 
@@ -34,7 +33,6 @@ class Underwriting:
     def benchmark_score(self, predictor: str, day: Date):
         configuration: RiskConfiguration = getattr(self.context.risk_context, predictor)
         benchmark = getattr(self.context, f'{predictor}_benchmark')
-        self.merchant.debt_to_inventory(day)
         value = getattr(self.merchant, predictor)(day)
         return self.benchmark_comparison(benchmark, value, configuration.higher_is_better)
 
