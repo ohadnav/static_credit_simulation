@@ -1,6 +1,6 @@
 import logging
 import sys
-from typing import List
+from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -8,7 +8,7 @@ import numpy as np
 from autologging import traced, logged, TRACE
 
 from common.context import SimulationContext, DataGenerator
-from common.statistical_test import statistical_test_bigger
+from common.statistical_test import statistical_test_bool
 from finance.lender import Lender, LenderSimulationResults
 from finance.loan import LoanSimulationResults
 from seller.merchant import Merchant
@@ -80,18 +80,18 @@ class TestLender(TestCase):
         for merchant in self.merchants:
             self.assertIsNotNone(self.lender.loans[merchant].simulation_results)
 
-    @statistical_test_bigger(num_lists=4, times=5, confidence=0.8)
-    def test_lender_profitable(self, is_bigger: List[List[bool]]):
+    @statistical_test_bool(num_lists=4, times=5, confidence=0.8)
+    def test_lender_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
         self.data_generator.num_merchants = 100
         self.data_generator.num_products = 5
         self.merchants = [Merchant.generate_simulated(self.data_generator) for _ in
                           range(self.data_generator.num_merchants)]
         self.lender = Lender(self.context, self.data_generator, self.merchants)
         self.lender.simulate()
-        is_bigger[0].append(self.lender.simulation_results.lender_gross_profit > 0)
-        is_bigger[1].append(
+        is_true[0].append(self.lender.simulation_results.lender_gross_profit > 0)
+        is_true[1].append(
             self.lender.simulation_results.portfolio_merchants.valuation_cagr > self.lender.simulation_results.all_merchants.valuation_cagr)
-        is_bigger[2].append(
+        is_true[2].append(
             self.lender.simulation_results.portfolio_merchants.revenues_cagr > self.lender.simulation_results.all_merchants.revenues_cagr)
-        is_bigger[3].append(
+        is_true[3].append(
             self.lender.simulation_results.portfolio_merchants.net_cashflow_cagr > self.lender.simulation_results.all_merchants.net_cashflow_cagr)

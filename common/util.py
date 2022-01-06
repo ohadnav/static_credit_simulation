@@ -4,6 +4,7 @@ from typing import Union, List, Optional
 from common import constants
 
 Percent = float
+Ratio = float
 Date = int
 Duration = int
 Stock = int

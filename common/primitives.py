@@ -38,6 +38,9 @@ class Primitive:
             s += f' {name}={self.str_type_encoder(value)}'
         return s
 
+    def __repr__(self):
+        return self.__str__()
+
     def __hash__(self):
         return hash(self.id)
 

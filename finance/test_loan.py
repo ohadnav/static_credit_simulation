@@ -2,7 +2,7 @@ import logging
 import math
 import sys
 from random import uniform
-from typing import List
+from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -10,7 +10,7 @@ from autologging import traced, logged, TRACE
 
 from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.statistical_test import statistical_test_bigger
+from common.statistical_test import statistical_test_bool
 from finance.loan import Loan, LoanSimulationResults
 from seller.merchant import Merchant
 
@@ -335,25 +335,25 @@ class TestLoan(TestCase):
         projected_revenues = 10 * 0.08 * 6
         self.assertAlmostEqual(self.loan.projected_lender_profit(), projected_revenues - projected_costs)
 
-    @statistical_test_bigger(confidence=0.6)
-    def test_big_merchants_profitable(self, is_bigger: List[bool]):
+    @statistical_test_bool(confidence=0.6)
+    def test_big_merchants_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
         self.data_generator.min_purchase_order_value = 100000
         self.data_generator.num_products = 10
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = Loan(self.context, self.data_generator, self.merchant)
-        is_bigger.append(self.loan.projected_lender_profit() > 0)
+        is_true[0].append(self.loan.projected_lender_profit() > 0)
 
-    @statistical_test_bigger(confidence=0.6)
-    def test_small_merchants_not_profitable(self, is_bigger: List[bool]):
+    @statistical_test_bool(confidence=0.6)
+    def test_small_merchants_not_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
         self.data_generator.min_purchase_order_value = 1000
         self.data_generator.max_num_products = 2
         self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = Loan(self.context, self.data_generator, self.merchant)
-        is_bigger.append(self.loan.projected_lender_profit() < 0)
+        is_true[0].append(self.loan.projected_lender_profit() < 0)
 
-    @statistical_test_bigger(confidence=0.8, num_lists=4)
-    def test_funded_merchants_profitable_and_growing(self, is_bigger: List[List[bool]]):
+    @statistical_test_bool(confidence=0.8, num_lists=4)
+    def test_funded_merchants_profitable_and_growing(self, is_true: List[List[Tuple[bool, Any]]]):
         self.data_generator.num_products = 10
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = Loan(self.context, self.data_generator, self.merchant)
@@ -361,10 +361,12 @@ class TestLoan(TestCase):
             self.merchant = Merchant.generate_simulated(self.data_generator)
             self.loan = Loan(self.context, self.data_generator, self.merchant)
         self.loan.simulate()
-        is_bigger[0].append(self.loan.simulation_results.lender_profit > 0)
-        is_bigger[0].append(self.loan.simulation_results.revenues_cagr > 0)
-        is_bigger[0].append(self.loan.simulation_results.net_cashflow_cagr > 0)
-        is_bigger[0].append(self.loan.simulation_results.valuation_cagr > 0)
+        is_true[0].append((self.loan.simulation_results.lender_profit > 0, self.loan.simulation_results.lender_profit))
+        is_true[1].append((self.loan.simulation_results.revenues_cagr > 0, self.loan.simulation_results.revenues_cagr))
+        is_true[2].append(
+            (self.loan.simulation_results.net_cashflow_cagr > 0, self.loan.simulation_results.net_cashflow_cagr))
+        is_true[3].append(
+            (self.loan.simulation_results.valuation_cagr > 0, self.loan.simulation_results.valuation_cagr))
 
     def test_apr(self):
         self.loan.apr_history = [0.5]

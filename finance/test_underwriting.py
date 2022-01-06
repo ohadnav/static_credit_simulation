@@ -1,7 +1,7 @@
 import logging
 import sys
 from random import random
-from typing import List
+from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -9,7 +9,7 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.statistical_test import statistical_test_bigger
+from common.statistical_test import statistical_test_bool
 from common.util import weighted_average
 from finance.underwriting import Underwriting
 from seller.merchant import Merchant
@@ -76,18 +76,18 @@ class TestUnderwriting(TestCase):
     def test_approved(self):
         for configuration in vars(self.underwriting.risk_context).values():
             configuration.score = 1
-        self.assertTrue(self.underwriting.approved())
+        self.assertTrue(self.underwriting.approved(constants.START_DATE))
         for configuration in vars(self.underwriting.risk_context).values():
             configuration.score = configuration.threshold - 0.01
-            self.assertFalse(self.underwriting.approved())
+            self.assertFalse(self.underwriting.approved(constants.START_DATE))
             configuration.score = 1
         self.underwriting.aggregated_score = MagicMock(return_value=self.context.min_risk_score - 0.01)
-        self.assertFalse(self.underwriting.approved())
+        self.assertFalse(self.underwriting.approved(constants.START_DATE))
 
     def test_risk_factors(self):
         for predictor, configuration in vars(self.context.risk_context).items():
-            @statistical_test_bigger(confidence=0.6)
-            def test_factor(self, is_bigger: List[bool]):
+            @statistical_test_bool(confidence=0.6)
+            def test_factor(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
                 merchant1 = Merchant.generate_simulated(self.data_generator)
                 merchant2 = Merchant.generate_simulated(self.data_generator)
                 benchmark = getattr(self.context, f'{predictor}_benchmark')
@@ -97,6 +97,6 @@ class TestUnderwriting(TestCase):
                     MagicMock(return_value=benchmark / 2 if configuration.higher_is_better else benchmark * 2))
                 underwriting1 = Underwriting(self.context, merchant1)
                 underwriting2 = Underwriting(self.context, merchant2)
-                is_bigger.append(underwriting1.aggregated_score() > underwriting2.aggregated_score())
+                is_true[0].append(underwriting1.aggregated_score() > underwriting2.aggregated_score())
 
             test_factor(self)

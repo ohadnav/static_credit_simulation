@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import List, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -7,7 +8,7 @@ from autologging import TRACE, traced, logged
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test_mean_error
+from common.statistical_test import statistical_test_mean_error, statistical_test_bool
 from seller.batch import Batch, PurchaseOrder
 
 
@@ -35,10 +36,10 @@ class TestBatch(TestCase):
         self.batch = Batch.generate_simulated(self.data_generator)
         self.assertAlmostEqual(
             self.batch.inventory_turnover_ratio, self.data_generator.inventory_turnover_ratio_median * ratio)
-        self.assertAlmostEqual(self.batch.out_of_stock_ratio, self.data_generator.out_of_stock_ratio_median * ratio)
+        self.assertAlmostEqual(self.batch.out_of_stock_rate, self.data_generator.out_of_stock_rate_median * ratio)
         self.assertAlmostEqual(self.batch.growth_rate, self.data_generator.growth_rate_avg * ratio)
         self.assertAlmostEqual(self.batch.roas, self.data_generator.roas_median * ratio)
-        self.assertAlmostEqual(self.batch.organic_ratio, self.data_generator.organic_ratio_median * ratio)
+        self.assertAlmostEqual(self.batch.organic_rate, self.data_generator.organic_rate_median * ratio)
         self.assertEqual(self.batch.shipping_duration, int(self.data_generator.shipping_duration_avg * ratio))
         self.assertEqual(
             self.batch.stock,
@@ -54,20 +55,56 @@ class TestBatch(TestCase):
         self.assertEqual(self.batch.product, batch2.product)
         self.assertAlmostEqual(
             batch2.inventory_turnover_ratio, self.batch.inventory_turnover_ratio * ratio)
-        self.assertAlmostEqual(batch2.out_of_stock_ratio, self.batch.out_of_stock_ratio * ratio)
+        self.assertAlmostEqual(batch2.out_of_stock_rate, self.batch.out_of_stock_rate * ratio)
         self.assertAlmostEqual(batch2.growth_rate, self.batch.growth_rate * ratio)
         self.assertAlmostEqual(batch2.roas, self.batch.roas * ratio)
-        self.assertAlmostEqual(batch2.organic_ratio, self.batch.organic_ratio * ratio)
+        self.assertAlmostEqual(batch2.organic_rate, self.batch.organic_rate * ratio)
         self.assertEqual(batch2.stock, 0)
         self.assertEqual(batch2.start_date, self.batch.last_date + 1)
 
-    def test_gp_margin(self):
-        self.assertGreater(self.batch.gp_margin(), 0)
+    @statistical_test_bool(num_lists=8)
+    def test_generated_makes_sense(self, is_true: List[List[Tuple[bool, Any]]]):
+        self.batch = Batch.generate_simulated(self.data_generator)
+        is_true[0].append(
+            (
+                self.data_generator.shipping_duration_avg / 2 < self.batch.shipping_duration < 2 * self.data_generator.shipping_duration_avg,
+                self.batch.shipping_duration))
+        is_true[1].append((constants.MONTH < self.batch.lead_time < 3 * constants.MONTH, self.batch.lead_time))
+        is_true[2].append(
+            (
+                self.data_generator.inventory_turnover_ratio_median / 2 < self.batch.inventory_turnover_ratio < \
+                2 * self.data_generator.inventory_turnover_ratio_median, self.batch.inventory_turnover_ratio))
+        is_true[3].append(
+            (
+                self.data_generator.roas_median / 1.5 < self.batch.roas < \
+                1.5 * self.data_generator.roas_median, self.batch.roas))
+        is_true[4].append(
+            (
+                self.data_generator.organic_rate_median / 2 < self.batch.organic_rate < \
+                2 * self.data_generator.organic_rate_median, self.batch.organic_rate))
+        is_true[5].append(
+            (
+                constants.MIN_PURCHASE_ORDER_SIZE * 5 < self.batch.stock < constants.MIN_PURCHASE_ORDER_SIZE * 1000,
+                self.batch.stock))
+        is_true[6].append(
+            (0.01 < self.batch.gp_margin() - self.batch.product.cogs_margin < 0.3,
+             (round(self.batch.gp_margin(), 2), round(self.batch.product.cogs_margin, 2))))
+        is_true[7].append((0.01 < self.batch.profit_margin() < 0.3, round(self.batch.profit_margin(), 2)))
+
+    def test_margins(self):
+        self.assertGreater(self.batch.revenue_margin(), self.batch.gp_margin())
+        self.assertGreater(self.batch.gp_margin(), self.batch.profit_margin())
 
     def test_marketing_margin(self):
-        self.batch.acos = MagicMock(return_value=self.batch.product.price / 2)
-        self.batch.organic_ratio = 0.5
-        self.assertAlmostEqual(self.batch.marketing_margin(), 0.25)
+        self.batch.organic_rate = 1
+        self.assertAlmostEqual(self.batch.marketing_margin(), 0)
+        self.batch.organic_rate = 0.8
+        self.batch.roas = 1
+        self.assertAlmostEqual(self.batch.marketing_margin(), 0.2)
+        self.batch.roas = 2
+        self.assertAlmostEqual(self.batch.marketing_margin(), 0.1)
+        self.batch.roas = 1000000
+        self.assertLess(self.batch.marketing_margin(), 0.01)
 
     def test_acos(self):
         self.batch.roas = 2
@@ -150,13 +187,13 @@ class TestBatch(TestCase):
         for day in range(self.batch.start_date, self.batch.last_date + 1):
             if self.batch.is_out_of_stock(day):
                 count_oos += 1
-        oos_error = abs(count_oos / self.batch.duration - self.batch.out_of_stock_ratio)
+        oos_error = abs(count_oos / self.batch.duration - self.batch.out_of_stock_rate)
         errors.append(oos_error)
 
     def test_sales_velocity(self):
         self.batch.stock = 30
         self.batch.duration = 4
-        self.batch.out_of_stock_ratio = 0.25
+        self.batch.out_of_stock_rate = 0.25
         self.assertAlmostEqual(self.batch.sales_velocity(), 10)
 
     def test_revenue_per_day(self):
@@ -175,12 +212,12 @@ class TestBatch(TestCase):
             self.batch.total_revenue_per_day(constants.START_DATE) * 0.8, self.batch.gp_per_day(constants.START_DATE))
 
     def test_duration_in_stock(self):
-        self.batch.out_of_stock_ratio = 0
+        self.batch.out_of_stock_rate = 0
         self.assertEqual(self.batch.duration_in_stock(), self.batch.duration)
         self.batch.stock = 30
         self.batch.sales_velocity = MagicMock(return_value=10)
         self.batch.duration = 4
-        self.batch.out_of_stock_ratio = 0.25
+        self.batch.out_of_stock_rate = 0.25
         self.assertEqual(self.batch.duration_in_stock(), 3)
         self.batch.sales_velocity = MagicMock(return_value=0)
         self.assertEqual(self.batch.duration_in_stock(), self.batch.duration)

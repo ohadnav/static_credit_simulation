@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -7,6 +8,7 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator
+from common.statistical_test import statistical_test_bool
 from seller.batch import PurchaseOrder
 from seller.merchant import Merchant
 
@@ -31,21 +33,25 @@ class TestMerchant(TestCase):
 
     def test_generate_simulated(self):
         self.data_generator.normal_ratio = MagicMock(return_value=1.1)
+        self.data_generator.random = MagicMock(return_value=constants.NO_VOLATILITY)
         self.data_generator.max_num_products = 11
         self.data_generator.num_products = 10
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.assertEqual(len(self.merchant.inventories), self.data_generator.num_products * 1.1)
-        self.assertAlmostEqual(
-            self.merchant.account_suspension_chance, self.data_generator.account_suspension_chance * 1.1)
+        self.assertIsNone(self.merchant.suspension_start_date)
+        self.data_generator.random = MagicMock(return_value=1 - constants.NO_VOLATILITY)
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        self.assertIsNotNone(self.merchant.suspension_start_date)
 
-    def test_calculate_suspension_start_date(self):
-        self.data_generator.simulated_duration = 4
-        self.data_generator.random = MagicMock(
-            side_effect=[constants.NO_VOLATILITY] * 3 + [1 - constants.NO_VOLATILITY])
-        self.assertEqual(self.merchant.calculate_suspension_start_date(), constants.START_DATE + 3)
-        self.data_generator.random = MagicMock(
-            side_effect=[constants.NO_VOLATILITY] * self.data_generator.simulated_duration)
-        self.assertIsNone(self.merchant.calculate_suspension_start_date())
+    @statistical_test_bool(num_lists=2)
+    def test_generated_makes_sense(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
+        self.data_generator.max_num_products = constants.MAX_NUM_PRODUCTS
+        self.data_generator.num_products = constants.NUM_PRODUCTS
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        is_true[0].append(
+            self.data_generator.num_products / 2 <= len(
+                self.merchant.inventories) <= self.data_generator.num_products * 4)
+        is_true[1].append((self.merchant.suspension_start_date is None, self.merchant.suspension_start_date))
 
     def test_annual_top_line(self):
         for inventory in self.merchant.inventories:
@@ -85,16 +91,20 @@ class TestMerchant(TestCase):
         self.assertEqual(self.merchant.max_inventory_cost(constants.START_DATE), len(self.merchant.inventories))
 
     def test_inventory_cost(self):
-        def new_cost_func(day, cash):
+        def mock_cost_func(day, cash):
             return 1 if cash > 0 else 0
 
         for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].inventory_cost = new_cost_func
+            inventory[constants.START_DATE].inventory_cost = mock_cost_func
         self.assertEqual(
             self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories)),
             len(self.merchant.inventories))
         self.assertEqual(
             self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories) - 1),
+            len(self.merchant.inventories) - 1)
+        self.merchant.cashflow_buffer = MagicMock(return_value=1)
+        self.assertEqual(
+            self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories)),
             len(self.merchant.inventories) - 1)
 
     def test_cashflow_buffer(self):
@@ -112,23 +122,23 @@ class TestMerchant(TestCase):
             inventory.current_inventory_valuation = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.inventory_value(constants.START_DATE), len(self.merchant.inventories))
 
-    def test_organic_ratio(self):
+    def test_organic_rate(self):
         for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].organic_ratio = 0.2
+            inventory[constants.START_DATE].organic_rate = 0.2
             inventory.annual_top_line = MagicMock(return_value=1)
-        self.assertAlmostEqual(self.merchant.organic_ratio(constants.START_DATE), 0.2)
+        self.assertAlmostEqual(self.merchant.organic_rate(constants.START_DATE), 0.2)
         self.merchant.inventories[0].annual_top_line.return_value = 10
-        self.merchant.inventories[0][constants.START_DATE].organic_ratio = 0.5
-        self.assertGreater(self.merchant.organic_ratio(constants.START_DATE), 0.2)
+        self.merchant.inventories[0][constants.START_DATE].organic_rate = 0.5
+        self.assertGreater(self.merchant.organic_rate(constants.START_DATE), 0.2)
 
     def test_out_of_stock(self):
         for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].out_of_stock_ratio = 0.2
+            inventory[constants.START_DATE].out_of_stock_rate = 0.2
             inventory.annual_top_line = MagicMock(return_value=1)
-        self.assertAlmostEqual(self.merchant.out_of_stock_ratio(constants.START_DATE), 0.2)
+        self.assertAlmostEqual(self.merchant.out_of_stock_rate(constants.START_DATE), 0.2)
         self.merchant.inventories[0].annual_top_line.return_value = 10
-        self.merchant.inventories[0][constants.START_DATE].out_of_stock_ratio = 0.5
-        self.assertGreater(self.merchant.out_of_stock_ratio(constants.START_DATE), 0.2)
+        self.merchant.inventories[0][constants.START_DATE].out_of_stock_rate = 0.5
+        self.assertGreater(self.merchant.out_of_stock_rate(constants.START_DATE), 0.2)
 
     def test_profit_margin(self):
         for inventory in self.merchant.inventories:

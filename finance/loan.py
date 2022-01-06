@@ -77,7 +77,7 @@ class Loan(Primitive):
         return self.loan_amount() * (1 + self.interest)
 
     def approved_amount(self) -> Dollar:
-        if not self.underwriting.approved() or self.projected_lender_profit() <= 0:
+        if not self.underwriting.approved(self.today) or self.projected_lender_profit() <= 0:
             return 0.0
         return self.loan_amount()
 
@@ -193,7 +193,7 @@ class Loan(Primitive):
         return earned_interest - total_costs
 
     def projected_lender_profit(self) -> Dollar:
-        if not self.underwriting.approved():
+        if not self.underwriting.approved(self.today):
             return 0
         projected_costs = self.context.merchant_cost_of_acquisition + self.loan_amount() * self.context.cost_of_capital
         projected_revenues = self.loan_amount() * self.interest * self.context.expected_loans_per_year

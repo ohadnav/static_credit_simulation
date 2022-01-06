@@ -4,7 +4,7 @@ from autologging import logged, traced
 
 from common import constants
 from common.context import SimulationContext, RiskConfiguration
-from common.util import Percent, Date, weighted_average, min_max
+from common.util import Percent, Date, weighted_average, min_max, Ratio
 from seller.merchant import Merchant
 
 
@@ -21,7 +21,7 @@ class Underwriting:
         for predictor, risk_configuration in vars(self.risk_context).items():
             risk_configuration.score = self.benchmark_score(predictor, day)
 
-    def benchmark_comparison(self, benchmark: float, value: float, higher_is_better: bool) -> Percent:
+    def benchmark_comparison(self, benchmark: Ratio, value: Ratio, higher_is_better: bool) -> Percent:
         if higher_is_better:
             assert benchmark > 0
             ratio = value / (benchmark * self.context.benchmark_factor)
@@ -43,10 +43,12 @@ class Underwriting:
         weights = [configuration.weight for configuration in vars(self.risk_context).values()]
         return weighted_average(scores, weights)
 
-    def approved(self) -> bool:
+    def approved(self, day: Date) -> bool:
         for _, configuration in vars(self.risk_context).items():
             if configuration.score < configuration.threshold:
                 return False
         if self.aggregated_score() < self.context.min_risk_score:
+            return False
+        if self.merchant.is_suspended(day):
             return False
         return True

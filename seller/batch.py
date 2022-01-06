@@ -7,7 +7,7 @@ from autologging import logged, traced
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Date, Duration, Stock, Dollar, min_max
+from common.util import Percent, Date, Duration, Stock, Dollar, min_max, Ratio
 from seller.product import Product
 
 
@@ -22,19 +22,19 @@ class PurchaseOrder:
 @logged
 class Batch(Primitive):
     def __init__(self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
-                 out_of_stock_ratio: Percent, inventory_turnover_ratio: float, roas: float, organic_ratio: Percent,
+                 out_of_stock_rate: Percent, inventory_turnover_ratio: Ratio, roas: Ratio, organic_rate: Percent,
                  growth_rate: Percent, start_date: Date, stock: Stock):
         super(Batch, self).__init__(data_generator)
         self.product = product
         self.shipping_duration = shipping_duration
         self.lead_time = self.shipping_duration + self.product.manufacturing_duration
         self.stock = stock
-        self.out_of_stock_ratio = out_of_stock_ratio
+        self.out_of_stock_rate = out_of_stock_rate
         self.inventory_turnover_ratio = inventory_turnover_ratio
         self.duration = math.ceil(constants.YEAR / self.inventory_turnover_ratio)
         self.roas = roas
         self.roas = roas
-        self.organic_ratio = organic_ratio
+        self.organic_rate = organic_rate
         self.growth_rate = growth_rate
         self.start_date = start_date
         self.last_date = self.start_date + self.duration - 1
@@ -44,54 +44,94 @@ class Batch(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None,
                            previous: Optional['Batch'] = None):
+        product = Batch.generate_product(data_generator, product, previous)
+        shipping_duration = Batch.generate_shipping_duration(data_generator, product)
+        lead_time = shipping_duration + product.manufacturing_duration
+        inventory_turnover_ratio = Batch.generate_inventory_turnover_ratio(data_generator, lead_time, previous)
+        stock = Batch.generate_initial_stock(data_generator, lead_time, product, previous)
+        out_of_stock_rate = Batch.generate_out_of_stock_rate(data_generator, previous)
+        growth_rate = Batch.generate_growth_rate(data_generator, previous)
+        roas = Batch.generate_roas(data_generator, previous)
+        organic_rate = Batch.generate_organic_rate(data_generator, previous, roas)
+        start_date = (previous.last_date + 1) if previous else constants.START_DATE
+        new_batch = Batch(
+            data_generator, product, shipping_duration, out_of_stock_rate, inventory_turnover_ratio, roas,
+            organic_rate, growth_rate, start_date, stock)
+        if previous:
+            previous.next_batch = new_batch
+        return new_batch
+
+    @classmethod
+    def generate_product(cls, data_generator: DataGenerator, product: Product, previous: Optional['Batch']):
         assert product is None or previous is None or product == previous.product
         if previous:
             product = previous.product
-        product = product or Product.generate_simulated(data_generator)
-        shipping_duration = Duration(
-            data_generator.shipping_duration_avg * data_generator.normal_ratio(
-                data_generator.shipping_duration_std))
-        max_shipping_duration = constants.MAX_LEAD_TIME_DURATION - product.manufacturing_duration
-        max_shipping_duration = min(constants.SHIPPING_DURATION_MAX, max_shipping_duration)
-        shipping_duration = min_max(shipping_duration, constants.MIN_SHIPPING_DURATION, max_shipping_duration)
-        lead_time = shipping_duration + product.manufacturing_duration
+        return product or Product.generate_simulated(data_generator)
+
+    @classmethod
+    def generate_organic_rate(cls, data_generator: DataGenerator, previous: Optional['Batch'], roas: Ratio) -> Percent:
+        organic_rate = (
+                           previous.organic_rate if previous else data_generator.organic_rate_median) * data_generator.normal_ratio(
+            data_generator.organic_rate_std)
+        if roas < data_generator.roas_median:
+            organic_rate = max(data_generator.organic_rate_median, organic_rate)
+        return organic_rate
+
+    @classmethod
+    def generate_roas(cls, data_generator: DataGenerator, previous: Optional['Batch']) -> Ratio:
+        roas = (previous.roas if previous else data_generator.roas_median) * data_generator.normal_ratio(
+            data_generator.roas_std)
+        roas = min_max(roas, constants.MIN_ROAS, constants.MAX_ROAS)
+        return roas
+
+    @classmethod
+    def generate_growth_rate(cls, data_generator: DataGenerator, previous: Optional['Batch']) -> Percent:
+        return (
+                   previous.growth_rate if previous else data_generator.growth_rate_avg) * data_generator.normal_ratio(
+            data_generator.growth_rate_std, chance_positive=constants.SHARE_OF_GROWERS)
+
+    @classmethod
+    def generate_out_of_stock_rate(cls, data_generator: DataGenerator, previous: Optional['Batch']) -> Percent:
+        return (
+                   previous.out_of_stock_rate if previous else data_generator.out_of_stock_rate_median) * data_generator.normal_ratio(
+            data_generator.out_of_stock_rate_std, chance_positive=0.2)
+
+    @classmethod
+    def generate_initial_stock(cls, data_generator: DataGenerator, lead_time: Duration, product: Product,
+                               previous: Optional['Batch']) -> Stock:
+        return 0 if previous else Stock(
+            max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
+                data_generator.initial_stock_std, chance_positive=1))
+
+    @classmethod
+    def generate_inventory_turnover_ratio(cls, data_generator: DataGenerator, lead_time: Duration,
+                                          previous: Optional['Batch']) -> Ratio:
         inventory_turnover_ratio = (
                                        previous.inventory_turnover_ratio if previous else
                                        data_generator.inventory_turnover_ratio_median) * data_generator.normal_ratio(
-            constants.INVENTORY_TURNOVER_RATIO_STD)
+            data_generator.inventory_turnover_ratio_std)
         max_inventory_turnover_ratio = min(
             constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX, constants.YEAR / lead_time)
         inventory_turnover_ratio = min_max(
             inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MIN,
             max_inventory_turnover_ratio)
-        stock = 0 if previous else Stock(
-            max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
-                constants.INITIAL_STOCK_STD, chance_positive=1))
-        out_of_stock_ratio = (
-                                 previous.out_of_stock_ratio if previous else data_generator.out_of_stock_ratio_median) * data_generator.normal_ratio(
-            constants.OUT_OF_STOCK_STD, chance_positive=0.2)
-        growth_rate = (
-                          previous.growth_rate if previous else data_generator.growth_rate_avg) * data_generator.normal_ratio(
-            std=constants.SALES_GROWTH_STD, chance_positive=constants.SHARE_OF_GROWERS)
-        roas = min_max(
-            (previous.roas if previous else data_generator.roas_median) * data_generator.normal_ratio(
-                data_generator.roas_variance), constants.MIN_ROAS, constants.MAX_ROAS)
-        organic_ratio = (
-                            previous.organic_ratio if previous else data_generator.organic_ratio_median) * data_generator.normal_ratio(
-            data_generator.organic_ratio_variance)
-        start_date = (previous.last_date + 1) if previous else constants.START_DATE
-        new_batch = Batch(
-            data_generator, product, shipping_duration, out_of_stock_ratio, inventory_turnover_ratio, roas,
-            organic_ratio, growth_rate, start_date, stock)
-        if previous:
-            previous.next_batch = new_batch
-        return new_batch
+        return inventory_turnover_ratio
+
+    @classmethod
+    def generate_shipping_duration(cls, data_generator: DataGenerator, product: Product) -> Duration:
+        shipping_duration = Duration(
+            data_generator.shipping_duration_avg * data_generator.normal_ratio(
+                data_generator.shipping_duration_std, chance_positive=0.8))
+        max_shipping_duration = constants.MAX_LEAD_TIME_DURATION - product.manufacturing_duration
+        max_shipping_duration = min(constants.SHIPPING_DURATION_MAX, max_shipping_duration)
+        shipping_duration = min_max(shipping_duration, constants.MIN_SHIPPING_DURATION, max_shipping_duration)
+        return shipping_duration
 
     def gp_margin(self) -> Percent:
         return max(0.0, self.revenue_margin() - self.marketing_margin() - self.data_generator.sgna_ratio)
 
     def marketing_margin(self) -> Percent:
-        return (self.acos() / self.product.price) * (1 - self.organic_ratio)
+        return (self.acos() / self.product.price) * (1 - self.organic_rate)
 
     def acos(self) -> Dollar:
         return self.product.price / self.roas
@@ -154,7 +194,7 @@ class Batch(Primitive):
         return day - self.start_date >= self.duration_in_stock()
 
     def sales_velocity(self) -> float:
-        return self.stock / (self.duration * (1 - self.out_of_stock_ratio))
+        return self.stock / (self.duration * (1 - self.out_of_stock_rate))
 
     def total_revenue_per_day(self, day: Date) -> Dollar:
         if self.is_out_of_stock(day):
@@ -169,7 +209,7 @@ class Batch(Primitive):
         return 1 - constants.MARKETPLACE_COMMISSION
 
     def profit_margin(self):
-        return 1 - self.gp_margin() - self.product.cogs_margin
+        return self.gp_margin() - self.product.cogs_margin
 
     def gp_per_day(self, day: Date) -> Dollar:
         return self.total_revenue_per_day(day) * self.gp_margin()

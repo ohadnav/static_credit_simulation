@@ -26,17 +26,17 @@ class Product(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator):
         price = data_generator.median_price * data_generator.normal_ratio(data_generator.price_std)
-        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(std=constants.COGS_MARGIN_STD)
+        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(data_generator.cogs_margin_std)
         cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)
         manufacturing_duration = Duration(
             data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
                 data_generator.manufacturing_duration_std))
         manufacturing_duration = min_max(
             manufacturing_duration, constants.MANUFACTURING_DURATION_MIN, constants.MANUFACTURING_DURATION_MAX)
-
-        min_purchase_order_size = Stock(round(data_generator.min_purchase_order_value / (cogs_margin * price)))
+        cost_per_unit = cogs_margin * price
+        min_purchase_order_size = Stock(round(data_generator.min_purchase_order_value / cost_per_unit))
         new_product = Product(
-            data_generator, price, data_generator.cogs_margin_median * price, min_purchase_order_size,
+            data_generator, price, cost_per_unit, min_purchase_order_size,
             manufacturing_duration, cogs_margin)
         return new_product
 

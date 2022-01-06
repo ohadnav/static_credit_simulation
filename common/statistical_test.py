@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Union, Optional
+from typing import Callable, List, Union, Optional, Tuple, Any
 from unittest import TestCase
 
 from autologging import TRACE
@@ -13,9 +13,10 @@ def statistical_test_mean_error(max_error: float = 0.1, mean_error: float = 0.01
         def wrapper(test_instance: TestCase):
             logging.getLogger().setLevel(logging.CRITICAL)
             errors = []
-            for _ in range(times):
+            for i in range(times):
                 test_case(test_instance, errors)
                 test_instance.assertLess(errors[-1], max_error)
+                assert len(errors) == i + 1
             test_instance.assertLess(sum(errors) / times, mean_error)
             logging.getLogger().setLevel(TRACE)
 
@@ -24,22 +25,29 @@ def statistical_test_mean_error(max_error: float = 0.1, mean_error: float = 0.01
     return decorator
 
 
-def statistical_test_bigger(times: int = 100, confidence: Percent = 0.95, num_lists: int = 1):
+def statistical_test_bool(times: int = 100, confidence: Percent = 0.8, num_lists: int = 1):
     def decorator(test_case: Callable):
         def wrapper(test_instance: TestCase):
             logging.getLogger().setLevel(logging.CRITICAL)
-            is_bigger: Union[List[bool], List[List[bool]]] = [] if num_lists == 1 else [[] for _ in range(num_lists)]
-            for _ in tqdm(range(times), desc=f'{test_instance._testMethodName}: '):
-                test_case(test_instance, is_bigger)
-            if num_lists == 1:
-                validate_bigger(is_bigger, test_instance)
-            else:
-                for i in range(len(is_bigger)):
-                    validate_bigger(is_bigger[i], test_instance, f'is_bigger list {i}')
+            is_true: List[List[Union[bool, Tuple[bool, Any]]]] = [[] for _ in range(num_lists)]
+            for i in tqdm(range(times), desc=f'{test_instance._testMethodName}: '):
+                test_case(test_instance, is_true)
+                for j in range(num_lists):
+                    assert len(is_true[j]) == i + 1, f'{i + 1} != len( {len(is_true[j])})'
+            for i in range(len(is_true)):
+                validate_bigger(is_true[i], test_instance, f'is_true list {i}')
 
-        def validate_bigger(is_bigger, test_instance, label: Optional[str] = None):
-            count_bigger = len([a for a in is_bigger if a])
-            test_instance.assertGreaterEqual(count_bigger / times, confidence, label)
+        def is_iteration_true(value: Union[bool, Tuple[bool, Any]]) -> bool:
+            if isinstance(value, bool):
+                return value
+            return value[0]
+
+        def validate_bigger(is_true: List[bool], test_instance: TestCase, label: Optional[str] = None):
+            count_bigger = len([a for a in is_true if is_iteration_true(a)])
+            true_ratio = count_bigger / times
+            # noinspection PyUnusedLocal
+            false_cases = [a for a in is_true if not is_iteration_true(a)]
+            test_instance.assertGreaterEqual(true_ratio, confidence, label)
             logging.getLogger().setLevel(TRACE)
 
         return wrapper

@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import Any, Tuple, List
 from unittest import TestCase, mock
 from unittest.mock import MagicMock
 
@@ -7,6 +8,7 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator
+from common.statistical_test import statistical_test_bool
 
 
 class TestDataGenerator(TestCase):
@@ -57,3 +59,12 @@ class TestDataGenerator(TestCase):
         normal_mock.return_value = 10
         random_mock.return_value = 0.09
         self.assertEqual(self.data_generator.normal_ratio(std=2, max_ratio=2), 5)
+
+    @statistical_test_bool(num_lists=3)
+    def test_normal_ratio_distribution(self, is_true: List[List[Tuple[bool, Any]]]):
+        value1 = self.data_generator.normal_ratio()
+        value2 = self.data_generator.normal_ratio(chance_positive=0.8)
+        value3 = self.data_generator.normal_ratio(chance_positive=0.2)
+        is_true[0].append((0.5 < value1 < 2, value1))
+        is_true[1].append((0.7 < value2 < 2, value2))
+        is_true[2].append((0.5 < value3 < 1.5, value3))

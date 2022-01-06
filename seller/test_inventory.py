@@ -53,7 +53,7 @@ class TestInventory(TestCase):
         inventory1: Inventory = Inventory.generate_simulated(self.data_generator)
         expected_sales = inventory1[
                              constants.START_DATE].sales_velocity() * constants.YEAR * inventory1.product.price * (
-                                 1 - inventory1[constants.START_DATE].out_of_stock_ratio)
+                1 - inventory1[constants.START_DATE].out_of_stock_rate)
         actual_top_line = inventory1.annual_top_line(constants.START_DATE)
         diff = abs(actual_top_line / expected_sales - 1)
         errors.append(diff)

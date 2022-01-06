@@ -1,3 +1,4 @@
+from random import randint
 from typing import Optional, List
 
 from autologging import logged, traced
@@ -5,7 +6,7 @@ from autologging import logged, traced
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Date, Dollar, weighted_average, min_max
+from common.util import Percent, Date, Dollar, weighted_average, min_max, Ratio
 from seller.inventory import Inventory
 
 
@@ -13,26 +14,25 @@ from seller.inventory import Inventory
 @logged
 class Merchant(Primitive):
     def __init__(self, data_generator: DataGenerator, inventories: List[Inventory],
-                 account_suspension_chance: Percent):
+                 suspension_start_date: Optional[Date]):
         super(Merchant, self).__init__(data_generator)
         self.inventories = inventories
-        self.account_suspension_chance = account_suspension_chance
-        self.suspension_start_date: Optional[Date] = self.calculate_suspension_start_date()
+        self.suspension_start_date: Optional[Date] = suspension_start_date
 
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None):
         num_products = round(data_generator.num_products * data_generator.normal_ratio())
         num_products = min_max(num_products, 1, data_generator.max_num_products)
         inventories = inventories or [Inventory.generate_simulated(data_generator) for _ in range(num_products)]
-        account_suspension_chance = data_generator.account_suspension_chance * data_generator.normal_ratio()
-        return Merchant(data_generator, inventories, account_suspension_chance)
+        account_suspension_date = Merchant.calculate_suspension_start_date(data_generator)
+        return Merchant(data_generator, inventories, account_suspension_date)
 
-    def calculate_suspension_start_date(self) -> Optional[Date]:
-        suspension_date = None
-        for i in range(constants.START_DATE, self.data_generator.simulated_duration + 1):
-            if self.data_generator.random() < self.account_suspension_chance:
-                suspension_date = i
-        return suspension_date
+    @classmethod
+    def calculate_suspension_start_date(cls, data_generator: DataGenerator) -> Optional[Date]:
+        suspension_start_date = None
+        if data_generator.random() < data_generator.account_suspension_chance:
+            suspension_start_date = randint(constants.START_DATE, data_generator.simulated_duration)
+        return suspension_start_date
 
     def annual_top_line(self, day: Date) -> Dollar:
         return sum([inventory.annual_top_line(day) for inventory in self.inventories])
@@ -82,27 +82,27 @@ class Merchant(Primitive):
     def inventory_value(self, day: Date) -> Dollar:
         return sum([inventory.current_inventory_valuation(day) for inventory in self.inventories])
 
-    def organic_ratio(self, day: Date) -> Percent:
+    def organic_rate(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
-        organic_ratios = [inventory[day].organic_ratio for inventory in self.inventories]
-        return weighted_average(organic_ratios, top_lines)
+        organic_rates = [inventory[day].organic_rate for inventory in self.inventories]
+        return weighted_average(organic_rates, top_lines)
 
-    def out_of_stock_ratio(self, day: Date) -> Percent:
+    def out_of_stock_rate(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
-        out_of_stock_ratios = [inventory[day].out_of_stock_ratio for inventory in self.inventories]
-        return weighted_average(out_of_stock_ratios, top_lines)
+        out_of_stock_rates = [inventory[day].out_of_stock_rate for inventory in self.inventories]
+        return weighted_average(out_of_stock_rates, top_lines)
 
     def profit_margin(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         profit_margins = [inventory[day].profit_margin() for inventory in self.inventories]
         return weighted_average(profit_margins, top_lines)
 
-    def inventory_turnover_ratio(self, day: Date) -> float:
+    def inventory_turnover_ratio(self, day: Date) -> Ratio:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         ratios = [inventory[day].inventory_turnover_ratio for inventory in self.inventories]
         return weighted_average(ratios, top_lines)
 
-    def roas(self, day: Date) -> float:
+    def roas(self, day: Date) -> Ratio:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         ratios = [inventory[day].roas for inventory in self.inventories]
         return weighted_average(ratios, top_lines)
