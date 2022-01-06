@@ -1,6 +1,7 @@
 import logging
 import math
 import sys
+from copy import deepcopy
 from random import uniform
 from typing import List, Union, Tuple, Any
 from unittest import TestCase
@@ -62,7 +63,7 @@ class TestLoan(TestCase):
         while not loan_with_capital.underwriting.approved(constants.START_DATE):
             merchant = Merchant.generate_simulated(self.data_generator)
             loan_with_capital = Loan(self.context, self.data_generator, merchant)
-        loan_without_capital = NoCapitalLoan(self.context, self.data_generator, merchant)
+        loan_without_capital = NoCapitalLoan(self.context, self.data_generator, deepcopy(merchant))
         loan_with_capital.simulate()
         loan_without_capital.simulate()
         only_funded_loan_bankrupt = loan_with_capital.is_bankrupt and not loan_without_capital.is_bankrupt
@@ -87,6 +88,9 @@ class TestLoan(TestCase):
         self.assertEqual(self.loan.total_debt, 0)
         self.assertIsNone(self.loan.current_loan_amount)
         self.assertIsNone(self.loan.current_loan_start_date)
+        self.assertListEqual(self.loan.cash_history, [])
+        self.assertListEqual(self.loan.apr_history, [])
+        self.assertListEqual(self.loan.amount_history, [])
 
     def test_default_repayment_rate(self):
         self.assertAlmostEqual(
@@ -162,22 +166,25 @@ class TestLoan(TestCase):
         self.loan.projected_lender_profit = MagicMock(return_value=-1)
         self.assertEqual(self.loan.approved_amount(), 0)
 
-    def test_simulate_next_day(self):
+    def test_simulate_day(self):
         self.loan.update_credit = MagicMock()
         self.loan.simulate_sales = MagicMock()
         self.loan.simulate_inventory_purchase = MagicMock()
         self.loan.marketplace_payout = MagicMock()
         self.loan.bankruptcy = MagicMock()
         self.loan.current_cash = 1
-        self.loan.simulate_next_day()
+        self.loan.simulate_day()
         self.loan.update_credit.assert_called()
         self.loan.simulate_sales.assert_called()
         self.loan.simulate_inventory_purchase.assert_called()
         self.loan.marketplace_payout.assert_called()
         self.loan.bankruptcy.assert_not_called()
+        self.assertListEqual(self.loan.cash_history, [1])
+        self.loan.today += 1
         self.loan.current_cash = -1
-        self.loan.simulate_next_day()
+        self.loan.simulate_day()
         self.loan.bankruptcy.assert_called()
+        self.assertListEqual(self.loan.cash_history, [1, -1])
 
     def test_simulate_sales(self):
         self.loan.marketplace_balance = 1
@@ -189,6 +196,14 @@ class TestLoan(TestCase):
         self.merchant.inventory_cost = MagicMock(return_value=1)
         self.loan.simulate_inventory_purchase()
         self.assertEqual(self.loan.current_cash, 2 - 1)
+
+    def test_marketplace_payout_bankruptcy(self):
+        self.loan.today = constants.MARKETPLACE_PAYMENT_CYCLE
+        self.loan.marketplace_balance = 0
+        self.loan.merchant.has_future_revenue = MagicMock(return_value=False)
+        self.loan.bankruptcy = MagicMock()
+        self.loan.marketplace_payout()
+        self.loan.bankruptcy.assert_called()
 
     def test_marketplace_payout(self):
         self.loan.today = constants.MARKETPLACE_PAYMENT_CYCLE + 1
@@ -207,19 +222,19 @@ class TestLoan(TestCase):
 
     def test_simulate(self):
         self.loan.calculate_results = MagicMock()
-        self.loan.simulate_next_day = MagicMock()
+        self.loan.simulate_day = MagicMock()
         self.loan.simulate()
         self.loan.calculate_results.assert_called()
-        self.assertEqual(self.loan.simulate_next_day.call_count, self.data_generator.simulated_duration)
-        self.assertEqual(self.loan.today, self.data_generator.simulated_duration + constants.START_DATE)
+        self.assertEqual(self.loan.simulate_day.call_count, self.data_generator.simulated_duration)
+        self.assertEqual(self.loan.today, self.data_generator.simulated_duration)
 
     def test_simulate_bankruptcy(self):
-        self.loan.simulate_next_day = MagicMock()
+        self.loan.simulate_day = MagicMock()
         self.loan.calculate_results = MagicMock()
         self.loan.is_bankrupt = True
         self.loan.simulate()
-        self.assertEqual(self.loan.simulate_next_day.call_count, 1)
-        self.assertEqual(self.loan.today, 1 + constants.START_DATE)
+        self.assertEqual(self.loan.simulate_day.call_count, 1)
+        self.assertEqual(self.loan.today, constants.START_DATE)
 
     def test_loan_repayment(self):
         self.loan.close_loan = MagicMock()
@@ -408,24 +423,24 @@ class TestNoCapitalLoan(TestCase):
         self.data_generator = DataGenerator()
         self.data_generator.num_products = 2
         self.data_generator.max_num_products = 5
-        self.data_generator.num_merchants = 10
         self.context = SimulationContext()
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = NoCapitalLoan(self.context, self.data_generator, self.merchant)
 
-    @statistical_test_bool(confidence=0.8, num_lists=4)
+    @statistical_test_bool(confidence=0.8, num_lists=4, times=10)
     def test_merchants_grow_slowly_without_capital(self, is_true: List[List[Tuple[bool, Any]]]):
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = NoCapitalLoan(self.context, self.data_generator, self.merchant)
         self.loan.simulate()
         is_true[0].append((not self.loan.is_bankrupt, self.loan))
         is_true[1].append(
-            (-0.05 < self.loan.simulation_results.revenues_cagr < 0.1, self.loan.simulation_results.revenues_cagr))
+            (-0.2 < self.loan.simulation_results.revenues_cagr < 0.5,
+             (self.loan.simulation_results.revenues_cagr, self.loan)))
         is_true[2].append(
-            (-0.05 < self.loan.simulation_results.net_cashflow_cagr < 0.1,
+            (-0.2 < self.loan.simulation_results.net_cashflow_cagr < 0.5,
              self.loan.simulation_results.net_cashflow_cagr))
         is_true[3].append(
-            (-0.05 < self.loan.simulation_results.valuation_cagr < 0.1, self.loan.simulation_results.valuation_cagr))
+            (-0.2 < self.loan.simulation_results.valuation_cagr < 0.5, self.loan.simulation_results.valuation_cagr))
 
     def test_add_debt(self):
         prev_cash = self.loan.current_cash

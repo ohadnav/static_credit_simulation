@@ -22,6 +22,12 @@ def calculate_cagr(first_value: float, last_value: float, duration: Duration) ->
     return math.pow(last_value / first_value, constants.YEAR / duration) - 1
 
 
+def inverse_cagr(cagr: Percent, duration: Duration) -> Optional[Percent]:
+    if cagr <= 0:
+        return -1
+    return math.pow(1 + cagr, duration / constants.YEAR) - 1
+
+
 def min_max(value: Union[float, int], min_value: Union[float, int], max_value: Union[float, int]) -> Union[float, int]:
     value = max(min_value, value)
     value = min(max_value, value)

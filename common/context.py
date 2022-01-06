@@ -43,8 +43,6 @@ class DataGenerator:
     median_price = constants.MEDIAN_PRICE
     price_std = constants.PRICE_STD
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
-    growth_rate_avg = constants.GROWTH_RATE_AVG
-    growth_rate_std = constants.GROWTH_RATE_STD
     roas_std = constants.ROAS_STD
     organic_rate_std = constants.ORGANIC_RATE_STD
     roas_median = constants.ROAS_MEDIAN

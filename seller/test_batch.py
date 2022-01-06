@@ -1,5 +1,6 @@
 import logging
 import sys
+from random import randint
 from typing import List, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -37,7 +38,6 @@ class TestBatch(TestCase):
         self.assertAlmostEqual(
             self.batch.inventory_turnover_ratio, self.data_generator.inventory_turnover_ratio_median * ratio)
         self.assertAlmostEqual(self.batch.out_of_stock_rate, self.data_generator.out_of_stock_rate_median * ratio)
-        self.assertAlmostEqual(self.batch.growth_rate, self.data_generator.growth_rate_avg * ratio)
         self.assertAlmostEqual(self.batch.roas, self.data_generator.roas_median * ratio)
         self.assertAlmostEqual(self.batch.organic_rate, self.data_generator.organic_rate_median * ratio)
         self.assertEqual(self.batch.shipping_duration, int(self.data_generator.shipping_duration_avg * ratio))
@@ -56,7 +56,6 @@ class TestBatch(TestCase):
         self.assertAlmostEqual(
             batch2.inventory_turnover_ratio, self.batch.inventory_turnover_ratio * ratio)
         self.assertAlmostEqual(batch2.out_of_stock_rate, self.batch.out_of_stock_rate * ratio)
-        self.assertAlmostEqual(batch2.growth_rate, self.batch.growth_rate * ratio)
         self.assertAlmostEqual(batch2.roas, self.batch.roas * ratio)
         self.assertAlmostEqual(batch2.organic_rate, self.batch.organic_rate * ratio)
         self.assertEqual(batch2.stock, 0)
@@ -84,12 +83,27 @@ class TestBatch(TestCase):
                 2 * self.data_generator.organic_rate_median, self.batch.organic_rate))
         is_true[5].append(
             (
-                constants.MIN_PURCHASE_ORDER_SIZE * 5 < self.batch.stock < constants.MIN_PURCHASE_ORDER_SIZE * 1000,
+                constants.MIN_PURCHASE_ORDER_SIZE * 3 < self.batch.stock < constants.MIN_PURCHASE_ORDER_SIZE * 2000,
                 self.batch.stock))
         is_true[6].append(
-            (0.01 < self.batch.gp_margin() - self.batch.product.cogs_margin < 0.3,
+            (0.01 < self.batch.gp_margin() - self.batch.product.cogs_margin < 0.15,
              (round(self.batch.gp_margin(), 2), round(self.batch.product.cogs_margin, 2))))
-        is_true[7].append((0.01 < self.batch.profit_margin() < 0.3, round(self.batch.profit_margin(), 2)))
+        is_true[7].append((0.01 < self.batch.profit_margin() < 0.15, round(self.batch.profit_margin(), 2)))
+
+    def test_has_future_revenue(self):
+        self.batch.is_out_of_stock = MagicMock(return_value=True)
+        self.batch.stock = 0
+        self.batch.purchase_order = None
+        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.batch.purchase_order = PurchaseOrder(1, 1, 1)
+        self.assertTrue(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.batch.purchase_order = None
+        self.batch.stock = 1
+        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.batch.is_out_of_stock = MagicMock(return_value=False)
+        self.assertTrue(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.batch.stock = 0
+        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
 
     def test_margins(self):
         self.assertGreater(self.batch.revenue_margin(), self.batch.gp_margin())
@@ -128,6 +142,7 @@ class TestBatch(TestCase):
 
     def test_initiate_new_purchase_order(self):
         self.data_generator.remove_randomness()
+        self.data_generator.conservative_cash_management = False
         batch2 = Batch.generate_simulated(self.data_generator, previous=self.batch)
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
         self.assertIsNone(self.batch.initiate_new_purchase_order(post - 1))
@@ -152,6 +167,7 @@ class TestBatch(TestCase):
 
     def test_max_inventory_cost(self):
         self.data_generator.remove_randomness()
+        self.data_generator.conservative_cash_management = False
         self.assertEqual(self.batch.max_inventory_cost(constants.START_DATE - 1), 0)
         self.assertEqual(
             self.batch.max_inventory_cost(self.batch.get_purchase_order_start_date()),
@@ -165,6 +181,7 @@ class TestBatch(TestCase):
 
     def test_inventory_cost(self):
         self.data_generator.remove_randomness()
+        self.data_generator.conservative_cash_management = False
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
         self.assertEqual(self.batch.inventory_cost(self.data_generator.simulated_duration + 1, 1000000), 0)
         self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), post - 1), 0)

@@ -36,19 +36,20 @@ def statistical_test_bool(times: int = 100, confidence: Percent = 0.8, num_lists
                     assert len(is_true[j]) == i + 1, f'{i + 1} != len( {len(is_true[j])})'
             for i in range(len(is_true)):
                 validate_bigger(is_true[i], test_instance, f'is_true list {i}')
+            logging.getLogger().setLevel(TRACE)
 
         def is_iteration_true(value: Union[bool, Tuple[bool, Any]]) -> bool:
             if isinstance(value, bool):
                 return value
             return value[0]
 
+        # noinspection PyUnusedLocal
         def validate_bigger(is_true: List[bool], test_instance: TestCase, msg: Optional[str] = None):
             count_bigger = len([a for a in is_true if is_iteration_true(a)])
             true_ratio = count_bigger / times
-            # noinspection PyUnusedLocal
             false_cases = [a for a in is_true if not is_iteration_true(a)]
+            true_cases = [a for a in is_true if is_iteration_true(a)]
             test_instance.assertGreaterEqual(true_ratio, confidence, msg)
-            logging.getLogger().setLevel(TRACE)
 
         return wrapper
 

@@ -37,12 +37,7 @@ class TestInventory(TestCase):
             self.assertEqual(batch.product, self.inventory.product)
         for i in range(len(self.inventory.batches) - 1):
             self.assertEqual(self.inventory.batches[i].last_date + 1, self.inventory.batches[i + 1].start_date)
-        total_duration = sum([batch.duration for batch in self.inventory.batches])
-        self.assertGreaterEqual(total_duration, self.data_generator.simulated_duration)
-
-    def test_contains(self):
-        self.assertTrue(constants.START_DATE in self.inventory)
-        self.assertFalse(self.data_generator.simulated_duration * 10 in self.inventory)
+        self.assertGreater(self.inventory.batches[-1].start_date, self.data_generator.simulated_duration)
 
     def test_current_batch(self):
         self.assertEqual(self.inventory[constants.START_DATE], self.inventory.batches[0])
@@ -67,7 +62,6 @@ class TestInventory(TestCase):
         self.assertEqual(
             self.inventory.gp_per_day(next_batch_day),
             self.inventory.batches[1].gp_per_day(next_batch_day))
-        self.assertEqual(self.inventory.gp_per_day(self.data_generator.simulated_duration * 10), 0)
 
     def test_revenue_per_day(self):
         self.assertEqual(
@@ -78,7 +72,6 @@ class TestInventory(TestCase):
         self.assertEqual(
             self.inventory.revenue_per_day(next_batch_day),
             self.inventory.batches[1].revenue_per_day(next_batch_day))
-        self.assertEqual(self.inventory.revenue_per_day(self.data_generator.simulated_duration * 10), 0)
 
     def test_current_inventory_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
@@ -91,7 +84,6 @@ class TestInventory(TestCase):
         self.assertAlmostEqual(self.inventory.current_inventory_valuation(constants.START_DATE + 1), 10)
         batch.sales_velocity = MagicMock(return_value=0)
         self.assertAlmostEqual(self.inventory.current_inventory_valuation(constants.START_DATE), 0)
-        self.assertEqual(self.inventory.current_inventory_valuation(self.data_generator.simulated_duration * 10), 0)
 
     def test_purchase_order_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
@@ -110,7 +102,6 @@ class TestInventory(TestCase):
             dv * math.pow(r, 1) + dv * math.pow(r, 2))
         batch.sales_velocity = MagicMock(return_value=0)
         self.assertAlmostEqual(self.inventory.purchase_order_valuation(constants.START_DATE), 0)
-        self.assertEqual(self.inventory.purchase_order_valuation(self.data_generator.simulated_duration * 10), 0)
 
     def test_valuation(self):
         day = constants.START_DATE
@@ -125,11 +116,12 @@ class TestInventory(TestCase):
         self.data_generator.remove_randomness()
         self.data_generator.inventory_turnover_ratio_median = 5
         self.inventory = Inventory.generate_simulated(self.data_generator)
-        total_duration = sum([batch.duration for batch in self.inventory.batches])
-        self.assertEqual(total_duration, self.data_generator.simulated_duration)
+        ratio = self.data_generator.simulated_duration / constants.YEAR
+        if ratio < 1:
+            ratio = 1 / ratio
         self.assertEqual(
             len(self.inventory.batches),
-            self.data_generator.inventory_turnover_ratio_median * constants.YEAR / self.data_generator.simulated_duration)
+            self.data_generator.inventory_turnover_ratio_median * ratio + 1)
 
     def test_discounted_inventory_value(self):
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR

@@ -102,7 +102,7 @@ class TestMerchant(TestCase):
         self.assertEqual(
             self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories) - 1),
             len(self.merchant.inventories) - 1)
-        self.merchant.cashflow_buffer = MagicMock(return_value=1)
+        self.merchant.committed_purchase_orders = MagicMock(return_value=1)
         self.assertEqual(
             self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories)),
             len(self.merchant.inventories) - 1)
@@ -110,7 +110,16 @@ class TestMerchant(TestCase):
     def test_cashflow_buffer(self):
         for inventory in self.merchant.inventories:
             inventory[constants.START_DATE].purchase_order = PurchaseOrder(1, 1, 1)
-        self.assertAlmostEqual(self.merchant.cashflow_buffer(constants.START_DATE), len(self.merchant.inventories))
+        self.assertAlmostEqual(
+            self.merchant.committed_purchase_orders(constants.START_DATE), len(self.merchant.inventories))
+
+    def test_has_future_revenue(self):
+        self.assertTrue(self.merchant.has_future_revenue(constants.START_DATE))
+        for inventory in self.merchant.inventories:
+            inventory[constants.START_DATE].has_future_revenue = MagicMock(return_value=False)
+        self.assertFalse(self.merchant.has_future_revenue(constants.START_DATE))
+        self.merchant.inventories[-1][constants.START_DATE].has_future_revenue.return_value = True
+        self.assertTrue(self.merchant.has_future_revenue(constants.START_DATE))
 
     def test_valuation(self):
         for inventory in self.merchant.inventories:

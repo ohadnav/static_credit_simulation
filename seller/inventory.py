@@ -24,10 +24,10 @@ class Inventory(Primitive):
                            product: Optional[Product] = None):
         product = product or Product.generate_simulated(data_generator)
         batches = [Batch.generate_simulated(data_generator, product)]
-        total_duration = batches[0].duration
-        while total_duration < data_generator.simulated_duration:
+        start_date = batches[0].start_date
+        while start_date <= data_generator.simulated_duration:
             next_batch = Batch.generate_simulated(data_generator, previous=batches[-1])
-            total_duration += next_batch.duration
+            start_date = next_batch.start_date
             batches.append(next_batch)
         new_inventory = Inventory(data_generator, product, batches)
         return new_inventory
@@ -35,27 +35,16 @@ class Inventory(Primitive):
     def __getitem__(self, day) -> Batch:
         return [batch for batch in self.batches if batch.start_date <= day <= batch.last_date][0]
 
-    def __contains__(self, day) -> bool:
-        return len([batch for batch in self.batches if batch.start_date <= day <= batch.last_date]) > 0
-
     def annual_top_line(self, day: Date) -> Dollar:
-        if day not in self:
-            return 0
         return self[day].inventory_turnover_ratio * self[day].stock * self.product.price
 
     def gp_per_day(self, day: Date) -> Dollar:
-        if day not in self:
-            return 0
         return self[day].gp_per_day(day)
 
     def revenue_per_day(self, day: Date) -> Dollar:
-        if day not in self:
-            return 0
         return self[day].revenue_per_day(day)
 
     def purchase_order_valuation(self, day: Date) -> Dollar:
-        if day not in self:
-            return 0
         if not self[day].purchase_order:
             return 0
         if self[day].sales_velocity() == 0:
@@ -67,8 +56,6 @@ class Inventory(Primitive):
         return Inventory.discounted_inventory_value(next_purchase_order_value, time_to_sell, remaining_lead_time)
 
     def current_inventory_valuation(self, day: Date):
-        if day not in self:
-            return 0
         if self[day].sales_velocity() == 0:
             return 0
         remaining_stock = self[day].remaining_stock(day)

@@ -1,11 +1,13 @@
 import logging
+import math
 import sys
+from random import uniform
 from unittest import TestCase
 
 from autologging import traced, logged, TRACE
 
 from common import constants
-from common.util import calculate_cagr, min_max, weighted_average
+from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr
 
 
 @traced
@@ -43,3 +45,10 @@ class TestUtil(TestCase):
         self.assertAlmostEqual(weighted_average([1, 1], [2, 2]), 1)
         self.assertAlmostEqual(weighted_average([1, 2], [2, 2]), 1.5)
         self.assertAlmostEqual(weighted_average([1, 2], [1, 2]), 5 / 3)
+
+    def test_inverse_cagr(self):
+        cagr = uniform(0.1, 100)
+        self.assertAlmostEqual(inverse_cagr(cagr, constants.YEAR), cagr)
+        self.assertAlmostEqual(inverse_cagr(cagr, constants.YEAR / 2), math.pow(1 + cagr, 0.5) - 1)
+        self.assertAlmostEqual(inverse_cagr(0, constants.YEAR), -1)
+        self.assertAlmostEqual(inverse_cagr(-1, constants.YEAR), -1)

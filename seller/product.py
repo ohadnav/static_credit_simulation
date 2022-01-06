@@ -69,8 +69,8 @@ class Product(Primitive):
 
     def purchase_order_cost(self, purchase_order_size: Stock) -> Tuple[Dollar, Dollar]:
         new_inventory_cost = self.discounted_cost_per_unit(purchase_order_size) * purchase_order_size
-        new_inventory_cost *= self.data_generator.normal_ratio(
-            self.data_generator.inventory_cost_std, chance_positive=1)
+        # new_inventory_cost *= self.data_generator.normal_ratio(
+        #     self.data_generator.inventory_cost_std, chance_positive=1)
         upfront_cost = new_inventory_cost * constants.INVENTORY_UPFRONT_PAYMENT
         post_manufacturing_cost = new_inventory_cost - upfront_cost
         return upfront_cost, post_manufacturing_cost
