@@ -9,7 +9,7 @@ from autologging import traced, logged, TRACE
 
 from common.context import SimulationContext, DataGenerator
 from common.statistical_test import statistical_test_bool
-from finance.lender import Lender, LenderSimulationResults
+from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults
 from finance.loan import LoanSimulationResults
 from seller.merchant import Merchant
 
@@ -45,14 +45,14 @@ class TestLender(TestCase):
         self.assertEqual(
             Lender.aggregate_results(
                 [
-                    LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1),
-                    LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5)
-                ]), LoanSimulationResults(None, 4, 4, 4, 4, 6, 4, 4))
+                    LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, True),
+                    LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5, False)
+                ]), AggregatedLoanSimulationResults(4, 4, 4, 4, 6, 4, 4, 0.5))
 
     def test_calculate_sharpe(self):
         results = [
-            LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1),
-            LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5)
+            LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, True),
+            LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5, False)
         ]
         std = np.std([1, 5])
         self.context.cost_of_capital = 3
@@ -64,8 +64,8 @@ class TestLender(TestCase):
             self.lender.loans[merchant] = self.lender.loan_from_merchant(merchant)
             self.lender.loans[merchant].simulate()
             self.lender.loans[merchant].simulation_results.lender_profit = 1
-        lsr_all = LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1)
-        lsr_portfolio = LoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2)
+        lsr_all = AggregatedLoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 0.2)
+        lsr_portfolio = AggregatedLoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 0.5)
         self.lender.aggregate_results = MagicMock(side_effect=[lsr_all, lsr_portfolio])
         self.lender.calculate_sharpe = MagicMock(return_value=5)
         self.lender.calculate_results()
@@ -80,7 +80,7 @@ class TestLender(TestCase):
         for merchant in self.merchants:
             self.assertIsNotNone(self.lender.loans[merchant].simulation_results)
 
-    @statistical_test_bool(num_lists=4, times=5, confidence=0.8)
+    @statistical_test_bool(num_lists=5, times=5, confidence=0.8)
     def test_lender_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
         self.data_generator.num_merchants = 100
         self.data_generator.num_products = 5
@@ -95,3 +95,5 @@ class TestLender(TestCase):
             self.lender.simulation_results.portfolio_merchants.revenues_cagr > self.lender.simulation_results.all_merchants.revenues_cagr)
         is_true[3].append(
             self.lender.simulation_results.portfolio_merchants.net_cashflow_cagr > self.lender.simulation_results.all_merchants.net_cashflow_cagr)
+        is_true[4].append(
+            self.lender.simulation_results.portfolio_merchants.bankruptcy_rate < self.lender.simulation_results.all_merchants.bankruptcy_rate)

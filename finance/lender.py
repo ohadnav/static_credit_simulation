@@ -1,5 +1,5 @@
-from dataclasses import fields
-from typing import List, MutableMapping, Iterable, Optional
+from dataclasses import fields, dataclass
+from typing import List, MutableMapping, Optional
 
 import dacite as dacite
 import numpy as np
@@ -7,14 +7,26 @@ from autologging import logged, traced
 
 from common.context import SimulationContext, DataGenerator
 from common.primitives import Primitive
-from common.util import Dollar, weighted_average
+from common.util import Dollar, weighted_average, Percent
 from finance.loan import LoanSimulationResults, Loan
 from seller.merchant import Merchant
 
 
+@dataclass
+class AggregatedLoanSimulationResults:
+    revenues_cagr: Percent
+    inventory_cagr: Percent
+    net_cashflow_cagr: Percent
+    valuation_cagr: Percent
+    lender_profit: Dollar
+    debt_to_valuation: Percent
+    apr: Percent
+    bankruptcy_rate: Percent
+
+
 class LenderSimulationResults:
     def __init__(self, lender_gross_profit: Dollar, sharpe: float,
-                 all_merchants: LoanSimulationResults, portfolio_merchants: LoanSimulationResults):
+                 all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
         self.lender_gross_profit = lender_gross_profit
         self.sharpe = sharpe
         self.all_merchants = all_merchants
@@ -43,13 +55,19 @@ class Lender(Primitive):
         return Loan(self.context, self.data_generator, merchant)
 
     @staticmethod
-    def aggregate_results(loan_results: Iterable[LoanSimulationResults]) -> LoanSimulationResults:
+    def aggregate_results(loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
         result = {}
         for field in fields(LoanSimulationResults):
             if field.name == 'valuation':
-                result[field.name] = None
+                continue
             elif field.name == 'lender_profit':
                 result[field.name] = sum([lsr.lender_profit for lsr in loan_results])
+            elif field.name == 'bankruptcy':
+                if len(loan_results) == 0:
+                    bankruptcy_rate = 0
+                else:
+                    bankruptcy_rate = len([lsr for lsr in loan_results if lsr.bankruptcy]) / len(loan_results)
+                result['bankruptcy_rate'] = bankruptcy_rate
             else:
                 values = []
                 weights = []
@@ -57,9 +75,9 @@ class Lender(Primitive):
                     values.append(getattr(lsr, field.name))
                     weights.append(lsr.valuation)
                 result[field.name] = weighted_average(values, weights)
-        return dacite.from_dict(LoanSimulationResults, result)
+        return dacite.from_dict(AggregatedLoanSimulationResults, result)
 
-    def calculate_sharpe(self, portfolio_results: Iterable[LoanSimulationResults]) -> float:
+    def calculate_sharpe(self, portfolio_results: List[LoanSimulationResults]) -> float:
         aggregated = Lender.aggregate_results(portfolio_results)
         portfolio_return = aggregated.apr
         risk_free_return = self.context.cost_of_capital

@@ -228,8 +228,9 @@ class TestLoan(TestCase):
         self.loan.lender_profit = MagicMock(return_value=5)
         self.loan.debt_to_valuation = MagicMock(return_value=6)
         self.loan.average_apr = MagicMock(return_value=7)
+        self.loan.is_bankrupt = True
         self.loan.calculate_results()
-        self.assertEqual(self.loan.simulation_results, LoanSimulationResults(0, 1, 2, 3, 4, 5, 6, 7))
+        self.assertEqual(self.loan.simulation_results, LoanSimulationResults(0, 1, 2, 3, 4, 5, 6, 7, True))
 
     def test_net_cashflow(self):
         self.loan.outstanding_debt = 1
@@ -361,12 +362,14 @@ class TestLoan(TestCase):
             self.merchant = Merchant.generate_simulated(self.data_generator)
             self.loan = Loan(self.context, self.data_generator, self.merchant)
         self.loan.simulate()
-        is_true[0].append((self.loan.simulation_results.lender_profit > 0, self.loan.simulation_results.lender_profit))
+        is_true[0].append(
+            (self.loan.simulation_results.lender_profit > 0, (self.loan.simulation_results.lender_profit, self.loan)))
         is_true[1].append((self.loan.simulation_results.revenues_cagr > 0, self.loan.simulation_results.revenues_cagr))
         is_true[2].append(
             (self.loan.simulation_results.net_cashflow_cagr > 0, self.loan.simulation_results.net_cashflow_cagr))
         is_true[3].append(
             (self.loan.simulation_results.valuation_cagr > 0, self.loan.simulation_results.valuation_cagr))
+        is_true[4].append((not self.loan.is_bankrupt, self.loan))
 
     def test_apr(self):
         self.loan.apr_history = [0.5]

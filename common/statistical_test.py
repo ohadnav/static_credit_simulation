@@ -42,12 +42,12 @@ def statistical_test_bool(times: int = 100, confidence: Percent = 0.8, num_lists
                 return value
             return value[0]
 
-        def validate_bigger(is_true: List[bool], test_instance: TestCase, label: Optional[str] = None):
+        def validate_bigger(is_true: List[bool], test_instance: TestCase, msg: Optional[str] = None):
             count_bigger = len([a for a in is_true if is_iteration_true(a)])
             true_ratio = count_bigger / times
             # noinspection PyUnusedLocal
             false_cases = [a for a in is_true if not is_iteration_true(a)]
-            test_instance.assertGreaterEqual(true_ratio, confidence, label)
+            test_instance.assertGreaterEqual(true_ratio, confidence, msg)
             logging.getLogger().setLevel(TRACE)
 
         return wrapper

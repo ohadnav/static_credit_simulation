@@ -22,6 +22,7 @@ class LoanSimulationResults:
     lender_profit: Dollar
     debt_to_valuation: Percent
     apr: Percent
+    bankruptcy: bool
 
 
 @traced
@@ -147,7 +148,7 @@ class Loan(Primitive):
         self.simulation_results = LoanSimulationResults(
             self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.inventory_cagr(),
             self.net_cashflow_cagr(), self.valuation_cagr(),
-            self.lender_profit(), self.debt_to_valuation(), self.average_apr())
+            self.lender_profit(), self.debt_to_valuation(), self.average_apr(), self.is_bankrupt)
 
     def current_duration(self) -> Duration:
         return self.today - constants.START_DATE + 1
