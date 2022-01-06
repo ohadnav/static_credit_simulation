@@ -19,12 +19,18 @@ class TestUtil(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
 
     def test_calculate_cagr(self):
+        self.assertAlmostEqual(calculate_cagr(0, 2, constants.YEAR), 1)
+        self.assertAlmostEqual(calculate_cagr(1, 0, constants.YEAR), -1)
+        self.assertAlmostEqual(calculate_cagr(0, 0, constants.YEAR), 0)
+        self.assertAlmostEqual(calculate_cagr(-1, 0, constants.YEAR), 0)
+        self.assertAlmostEqual(calculate_cagr(0, -1, constants.YEAR), 0)
+        self.assertAlmostEqual(calculate_cagr(-1, 1, constants.YEAR), 1)
         self.assertAlmostEqual(calculate_cagr(1, 2, constants.YEAR), 1)
         self.assertAlmostEqual(calculate_cagr(1, 2, constants.YEAR / 2), 3)
 

@@ -7,6 +7,7 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator
+from seller.batch import PurchaseOrder
 from seller.merchant import Merchant
 
 
@@ -19,26 +20,31 @@ class TestMerchant(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
         self.data_generator = DataGenerator()
+        self.data_generator.max_num_products = 2
+        self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
         self.merchant = Merchant.generate_simulated(self.data_generator)
 
     def test_generate_simulated(self):
         self.data_generator.normal_ratio = MagicMock(return_value=1.1)
+        self.data_generator.max_num_products = 11
+        self.data_generator.num_products = 10
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.assertEqual(len(self.merchant.inventories), self.data_generator.num_products * 1.1)
         self.assertAlmostEqual(
             self.merchant.account_suspension_chance, self.data_generator.account_suspension_chance * 1.1)
 
     def test_calculate_suspension_start_date(self):
-        constants.SIMULATION_DURATION = 4
+        self.data_generator.simulated_duration = 4
         self.data_generator.random = MagicMock(
             side_effect=[constants.NO_VOLATILITY] * 3 + [1 - constants.NO_VOLATILITY])
         self.assertEqual(self.merchant.calculate_suspension_start_date(), constants.START_DATE + 3)
-        self.data_generator.random = MagicMock(side_effect=[constants.NO_VOLATILITY] * constants.SIMULATION_DURATION)
+        self.data_generator.random = MagicMock(
+            side_effect=[constants.NO_VOLATILITY] * self.data_generator.simulated_duration)
         self.assertIsNone(self.merchant.calculate_suspension_start_date())
 
     def test_annual_top_line(self):
@@ -90,6 +96,11 @@ class TestMerchant(TestCase):
         self.assertEqual(
             self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories) - 1),
             len(self.merchant.inventories) - 1)
+
+    def test_cashflow_buffer(self):
+        for inventory in self.merchant.inventories:
+            inventory[constants.START_DATE].purchase_order = PurchaseOrder(1, 1, 1)
+        self.assertAlmostEqual(self.merchant.cashflow_buffer(constants.START_DATE), len(self.merchant.inventories))
 
     def test_valuation(self):
         for inventory in self.merchant.inventories:

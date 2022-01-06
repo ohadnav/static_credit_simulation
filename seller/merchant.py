@@ -22,14 +22,14 @@ class Merchant(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None):
         num_products = round(data_generator.num_products * data_generator.normal_ratio())
-        num_products = min_max(num_products, 1, 100)
+        num_products = min_max(num_products, 1, data_generator.max_num_products)
         inventories = inventories or [Inventory.generate_simulated(data_generator) for _ in range(num_products)]
         account_suspension_chance = data_generator.account_suspension_chance * data_generator.normal_ratio()
         return Merchant(data_generator, inventories, account_suspension_chance)
 
     def calculate_suspension_start_date(self) -> Optional[Date]:
         suspension_date = None
-        for i in range(constants.START_DATE, constants.SIMULATION_DURATION + 1):
+        for i in range(constants.START_DATE, self.data_generator.simulated_duration + 1):
             if self.data_generator.random() < self.account_suspension_chance:
                 suspension_date = i
         return suspension_date
@@ -54,18 +54,27 @@ class Merchant(Primitive):
         return total_revenue
 
     def max_inventory_cost(self, day: Date) -> Dollar:
-        current_batches = [inventory[day] for inventory in self.inventories]
-        max_cost = sum([batch.max_inventory_cost(day) for batch in current_batches])
+        max_cost = sum([batch.max_inventory_cost(day) for batch in self.current_active_batches(day)])
         return max_cost
 
+    def current_active_batches(self, day):
+        return [inventory[day] for inventory in self.inventories if day in inventory]
+
     def inventory_cost(self, day: Date, current_cash: Dollar) -> Dollar:
-        current_batches = [inventory[day] for inventory in self.inventories]
         total_to_pay = 0.0
-        for batch in current_batches:
-            batch_cost = batch.inventory_cost(day, current_cash)
+        available_cash = max(0.0, current_cash - self.cashflow_buffer(day))
+        for batch in self.current_active_batches(day):
+            batch_cost = batch.inventory_cost(day, available_cash)
             total_to_pay += batch_cost
-            current_cash -= batch_cost
+            available_cash -= batch_cost
         return total_to_pay
+
+    def cashflow_buffer(self, day: Date) -> Dollar:
+        # TODO: embed cashdlow forecasting into the calculation
+        committed_purchase_orders = [batch.purchase_order for batch in self.current_active_batches(day) if
+                                     batch.purchase_order]
+        total_future_costs = sum([po.post_manufacturing_cost for po in committed_purchase_orders])
+        return total_future_costs
 
     def valuation(self, day: Date, net_cashflow: Dollar) -> Dollar:
         return net_cashflow + sum([inventory.valuation(day) for inventory in self.inventories])

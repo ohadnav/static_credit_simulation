@@ -11,9 +11,13 @@ from common.util import Percent, min_max
 @dataclass
 class DataGenerator:
     randomness = True
+    simulated_duration = constants.SIMULATION_DURATION
+    num_merchants = constants.NUM_SIMULATED_MERCHANTS
+    num_products = constants.NUM_PRODUCTS
+    max_num_products = constants.MAX_NUM_PRODUCTS
 
     # Costs
-    num_products = constants.NUM_PRODUCTS
+    min_purchase_order_value = constants.MIN_PURCHASE_ORDER_VALUE
     shipping_duration_avg = constants.SHIPPING_DURATION_AVG
     shipping_duration_std = constants.SHIPPING_DURATION_AVG
     manufacturing_duration_avg = constants.MANUFACTURING_DURATION_AVG
@@ -27,6 +31,7 @@ class DataGenerator:
     inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     sgna_ratio_median = constants.SGNA_RATIO_MIN
     include_purchase_order_in_valuation = True
+    conservative_cash_management = False
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO
@@ -101,9 +106,8 @@ class RiskContext:
 
 @dataclass
 class SimulationContext:
-    loan_type: LoanType = LoanType.DEFAULT
-
     # Loan
+    loan_type: LoanType = LoanType.DEFAULT
     rbf_flat_fee = constants.RBF_FLAT_FEE
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
@@ -115,6 +119,7 @@ class SimulationContext:
     just_in_time_funding = False
     revenue_collateralization = False
     risk_context = RiskContext()
+    expected_loans_per_year = constants.EXPECTED_LOANS_PER_YEAR
 
     # Underwriting
     organic_ratio_benchmark = constants.ORGANIC_SALES_RATIO_BENCHMARK_MIN

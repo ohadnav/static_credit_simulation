@@ -44,7 +44,6 @@ class Batch(Primitive):
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None,
                            previous: Optional['Batch'] = None):
-        # TODO: adjust variance per annual top line
         assert product is None or previous is None or product == previous.product
         if previous:
             product = previous.product
@@ -115,11 +114,11 @@ class Batch(Primitive):
             self.product.min_purchase_order_size, Stock(
                 self.sales_velocity() * self.lead_time * (1 + self.growth_rate)))
 
-    def initiate_new_purchase_order(self, current_cash) -> Optional[PurchaseOrder]:
+    def initiate_new_purchase_order(self, current_cash: Dollar) -> Optional[PurchaseOrder]:
         current_cash += constants.FLOAT_ADJUSTMENT
         new_purchase_order = self.max_purchase_order()
-        if new_purchase_order.upfront_cost > current_cash:
-            stock = self.product.batch_size_from_upfront_cost(current_cash)
+        if not self.can_afford_purchase_order(new_purchase_order, current_cash):
+            stock = self.product.batch_size_from_cost(current_cash)
             upfront_cost, post_cost = self.product.purchase_order_cost(stock)
             new_purchase_order = PurchaseOrder(stock, upfront_cost, post_cost)
         if new_purchase_order.stock >= self.product.min_purchase_order_size:
@@ -127,6 +126,11 @@ class Batch(Primitive):
             if self.next_batch:
                 self.next_batch.stock = self.purchase_order.stock
         return self.purchase_order
+
+    def can_afford_purchase_order(self, purchase_order: PurchaseOrder, current_cash: Dollar) -> bool:
+        if self.data_generator.conservative_cash_management:
+            return purchase_order.upfront_cost + purchase_order.post_manufacturing_cost <= current_cash
+        return purchase_order.post_manufacturing_cost <= current_cash
 
     def max_inventory_cost(self, day: Date) -> Dollar:
         if day == self.get_purchase_order_start_date():
@@ -171,7 +175,12 @@ class Batch(Primitive):
         return self.total_revenue_per_day(day) * self.gp_margin()
 
     def duration_in_stock(self) -> Duration:
-        return math.ceil(self.stock / self.sales_velocity())
+        if self.sales_velocity() == 0:
+            if self.stock > 0:
+                return self.duration
+            else:
+                return 0
+        return math.ceil(self.stock / self.sales_velocity() - constants.FLOAT_ADJUSTMENT)
 
     # at the beginning of the day
     def remaining_stock(self, day: Date) -> Stock:

@@ -22,7 +22,7 @@ class TestBatch(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
@@ -93,16 +93,25 @@ class TestBatch(TestCase):
         self.data_generator.remove_randomness()
         batch2 = Batch.generate_simulated(self.data_generator, previous=self.batch)
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
-        self.assertIsNone(self.batch.initiate_new_purchase_order(upfront - 1))
-        self.assertIsNotNone(self.batch.initiate_new_purchase_order(upfront))
+        self.assertIsNone(self.batch.initiate_new_purchase_order(post - 1))
+        self.assertIsNotNone(self.batch.initiate_new_purchase_order(post))
         self.assertEqual(
             self.batch.purchase_order, PurchaseOrder(self.batch.product.min_purchase_order_size, upfront, post))
         self.assertEqual(batch2.stock, self.batch.product.min_purchase_order_size)
         upfront2, post2 = self.batch.product.purchase_order_cost(self.batch.max_stock_for_next_purchase_order())
-        self.assertIsNotNone(self.batch.initiate_new_purchase_order(upfront2))
+        self.assertIsNotNone(self.batch.initiate_new_purchase_order(post2))
         self.assertEqual(
             self.batch.purchase_order, PurchaseOrder(self.batch.max_stock_for_next_purchase_order(), upfront2, post2))
         self.assertEqual(self.batch.purchase_order.stock, batch2.stock)
+
+    def test_can_afford_purchase_order(self):
+        self.data_generator.conservative_cash_management = False
+        po = self.batch.max_purchase_order()
+        self.assertTrue(self.batch.can_afford_purchase_order(po, po.post_manufacturing_cost))
+        self.assertFalse(self.batch.can_afford_purchase_order(po, po.post_manufacturing_cost - 1))
+        self.data_generator.conservative_cash_management = True
+        self.assertTrue(self.batch.can_afford_purchase_order(po, po.post_manufacturing_cost + po.upfront_cost))
+        self.assertFalse(self.batch.can_afford_purchase_order(po, po.post_manufacturing_cost + po.upfront_cost - 1))
 
     def test_max_inventory_cost(self):
         self.data_generator.remove_randomness()
@@ -114,19 +123,19 @@ class TestBatch(TestCase):
             self.batch.max_inventory_cost(self.batch.get_purchase_order_start_date()),
             self.batch.max_purchase_order().upfront_cost)
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
-        self.assertIsNotNone(self.batch.initiate_new_purchase_order(upfront))
+        self.assertIsNotNone(self.batch.initiate_new_purchase_order(post))
         self.assertEqual(self.batch.max_inventory_cost(self.batch.get_manufacturing_done_date()), post)
 
     def test_inventory_cost(self):
         self.data_generator.remove_randomness()
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
-        self.assertEqual(self.batch.inventory_cost(constants.SIMULATION_DURATION + 1, 1000000), 0)
-        self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), upfront - 1), 0)
+        self.assertEqual(self.batch.inventory_cost(self.data_generator.simulated_duration + 1, 1000000), 0)
+        self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), post - 1), 0)
         self.assertIsNone(self.batch.purchase_order)
-        self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), upfront), upfront)
+        self.assertAlmostEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), post), upfront)
         self.assertEqual(
             self.batch.purchase_order, PurchaseOrder(self.batch.product.min_purchase_order_size, upfront, post))
-        self.assertEqual(self.batch.inventory_cost(self.batch.get_manufacturing_done_date(), 0), post)
+        self.assertAlmostEqual(self.batch.inventory_cost(self.batch.get_manufacturing_done_date(), 0), post)
 
     def test_is_out_of_stock(self):
         self.assertFalse(self.batch.is_out_of_stock(constants.START_DATE))
@@ -173,6 +182,10 @@ class TestBatch(TestCase):
         self.batch.duration = 4
         self.batch.out_of_stock_ratio = 0.25
         self.assertEqual(self.batch.duration_in_stock(), 3)
+        self.batch.sales_velocity = MagicMock(return_value=0)
+        self.assertEqual(self.batch.duration_in_stock(), self.batch.duration)
+        self.batch.stock = 0
+        self.assertEqual(self.batch.duration_in_stock(), 0)
 
     def test_remaining_stock(self):
         self.assertEqual(self.batch.remaining_stock(constants.START_DATE), self.batch.stock)

@@ -25,7 +25,7 @@ class TestInventory(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
@@ -38,7 +38,11 @@ class TestInventory(TestCase):
         for i in range(len(self.inventory.batches) - 1):
             self.assertEqual(self.inventory.batches[i].last_date + 1, self.inventory.batches[i + 1].start_date)
         total_duration = sum([batch.duration for batch in self.inventory.batches])
-        self.assertGreaterEqual(total_duration, constants.SIMULATION_DURATION)
+        self.assertGreaterEqual(total_duration, self.data_generator.simulated_duration)
+
+    def test_contains(self):
+        self.assertTrue(constants.START_DATE in self.inventory)
+        self.assertFalse(self.data_generator.simulated_duration * 10 in self.inventory)
 
     def test_current_batch(self):
         self.assertEqual(self.inventory[constants.START_DATE], self.inventory.batches[0])
@@ -46,33 +50,35 @@ class TestInventory(TestCase):
 
     @statistical_test_mean_error(times=10)
     def test_annual_top_line(self, errors: List[float]):
-        self.inventory = Inventory.generate_simulated(self.data_generator)
-        expected_sales = self.inventory[
-                             constants.START_DATE].sales_velocity() * constants.YEAR * self.inventory.product.price * (
-                                 1 - self.inventory[constants.START_DATE].out_of_stock_ratio)
-        actual_top_line = self.inventory.annual_top_line(constants.START_DATE)
+        inventory1: Inventory = Inventory.generate_simulated(self.data_generator)
+        expected_sales = inventory1[
+                             constants.START_DATE].sales_velocity() * constants.YEAR * inventory1.product.price * (
+                                 1 - inventory1[constants.START_DATE].out_of_stock_ratio)
+        actual_top_line = inventory1.annual_top_line(constants.START_DATE)
         diff = abs(actual_top_line / expected_sales - 1)
         errors.append(diff)
 
     def test_gp_per_day(self):
         self.assertEqual(
-            self.inventory[constants.START_DATE].gp_per_day(constants.START_DATE),
+            self.inventory.gp_per_day(constants.START_DATE),
             self.inventory.batches[0].gp_per_day(constants.START_DATE))
         self.inventory.batches[0].initiate_new_purchase_order(10000000)
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
-            self.inventory[next_batch_day].gp_per_day(next_batch_day),
+            self.inventory.gp_per_day(next_batch_day),
             self.inventory.batches[1].gp_per_day(next_batch_day))
+        self.assertEqual(self.inventory.gp_per_day(self.data_generator.simulated_duration * 10), 0)
 
     def test_revenue_per_day(self):
         self.assertEqual(
-            self.inventory[constants.START_DATE].revenue_per_day(constants.START_DATE),
+            self.inventory.revenue_per_day(constants.START_DATE),
             self.inventory.batches[0].revenue_per_day(constants.START_DATE))
         self.inventory.batches[0].initiate_new_purchase_order(10000000)
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
-            self.inventory[next_batch_day].revenue_per_day(next_batch_day),
+            self.inventory.revenue_per_day(next_batch_day),
             self.inventory.batches[1].revenue_per_day(next_batch_day))
+        self.assertEqual(self.inventory.revenue_per_day(self.data_generator.simulated_duration * 10), 0)
 
     def test_current_inventory_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
@@ -83,8 +89,11 @@ class TestInventory(TestCase):
             self.inventory.current_inventory_valuation(constants.START_DATE),
             10 + 10 * constants.INVENTORY_NPV_DISCOUNT_FACTOR)
         self.assertAlmostEqual(self.inventory.current_inventory_valuation(constants.START_DATE + 1), 10)
+        batch.sales_velocity = MagicMock(return_value=0)
+        self.assertAlmostEqual(self.inventory.current_inventory_valuation(constants.START_DATE), 0)
+        self.assertEqual(self.inventory.current_inventory_valuation(self.data_generator.simulated_duration * 10), 0)
 
-    def test_purhcase_order_valuation(self):
+    def test_purchase_order_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
         batch.initiate_new_purchase_order(1000000)
         velocity = 4
@@ -99,6 +108,9 @@ class TestInventory(TestCase):
         self.assertAlmostEqual(
             self.inventory.purchase_order_valuation(constants.START_DATE + 1),
             dv * math.pow(r, 1) + dv * math.pow(r, 2))
+        batch.sales_velocity = MagicMock(return_value=0)
+        self.assertAlmostEqual(self.inventory.purchase_order_valuation(constants.START_DATE), 0)
+        self.assertEqual(self.inventory.purchase_order_valuation(self.data_generator.simulated_duration * 10), 0)
 
     def test_valuation(self):
         day = constants.START_DATE
@@ -114,12 +126,14 @@ class TestInventory(TestCase):
         self.data_generator.inventory_turnover_ratio_median = 5
         self.inventory = Inventory.generate_simulated(self.data_generator)
         total_duration = sum([batch.duration for batch in self.inventory.batches])
-        self.assertEqual(total_duration, constants.SIMULATION_DURATION)
+        self.assertEqual(total_duration, self.data_generator.simulated_duration)
         self.assertEqual(
             len(self.inventory.batches),
-            self.data_generator.inventory_turnover_ratio_median * constants.YEAR / constants.SIMULATION_DURATION)
+            self.data_generator.inventory_turnover_ratio_median * constants.YEAR / self.data_generator.simulated_duration)
 
     def test_discounted_inventory_value(self):
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
         self.assertAlmostEqual(Inventory.discounted_inventory_value(2, 2), 1 + r)
         self.assertAlmostEqual(Inventory.discounted_inventory_value(9, 3), 3 + 3 * r + 3 * r * r)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(9, 3, 1), 3 * r + 3 * r * r + 3 * r * r * r)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(2, 0), 0)

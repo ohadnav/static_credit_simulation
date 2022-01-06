@@ -4,7 +4,7 @@ from typing import List, Union
 
 from common import constants
 from common.context import SimulationContext
-from simulation import Simulation
+from simulation.simulation import Simulation
 
 
 class SensitivitySimulation(Simulation):

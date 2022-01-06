@@ -1,5 +1,5 @@
 import math
-from typing import Union, List
+from typing import Union, List, Optional
 
 from common import constants
 
@@ -10,9 +10,14 @@ Stock = int
 Dollar = float
 
 
-def calculate_cagr(first_value: float, last_value: float, duration: Duration) -> Percent:
-    if first_value == 0:
-        return float('inf') if last_value > 0 else 0
+def calculate_cagr(first_value: float, last_value: float, duration: Duration) -> Optional[Percent]:
+    if first_value <= 0:
+        if last_value <= 0:
+            return 0
+        else:
+            return 1
+    elif last_value <= 0:
+        return -1
     return math.pow(last_value / first_value, constants.YEAR / duration) - 1
 
 

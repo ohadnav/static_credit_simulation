@@ -1,8 +1,10 @@
 import dataclasses
+import time
 from dataclasses import fields
 from typing import List
-from tqdm import tqdm
+
 import pandas as pd
+from tqdm import tqdm
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
@@ -43,8 +45,9 @@ class Simulation:
         return results_df
 
     def compare(self):
+        # TODO: correlation between underwriting parameter and Lender performance
         self.simulate()
         results_df = self.to_dataframe()
         print(results_df)
         if self.to_save:
-            results_df.to_csv(f'{constants.OUT_DIR}/results.csv')
+            results_df.to_csv(f'{constants.OUT_DIR}/results_{time.time()}.csv')

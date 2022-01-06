@@ -34,7 +34,7 @@ class Product(Primitive):
         manufacturing_duration = min_max(
             manufacturing_duration, constants.MANUFACTURING_DURATION_MIN, constants.MANUFACTURING_DURATION_MAX)
 
-        min_purchase_order_size = Stock(round(constants.MIN_PURCHASE_ORDER_VALUE / (cogs_margin * price)))
+        min_purchase_order_size = Stock(round(data_generator.min_purchase_order_value / (cogs_margin * price)))
         new_product = Product(
             data_generator, price, data_generator.cogs_margin_median * price, min_purchase_order_size,
             manufacturing_duration, cogs_margin)
@@ -49,8 +49,12 @@ class Product(Primitive):
     def discounted_cost_per_unit(self, volume: Stock) -> Dollar:
         return self.cost_per_unit * (1 - self.volume_discount(volume))
 
-    def batch_size_from_upfront_cost(self, upfront_cost: Dollar) -> Stock:
-        total_cost = upfront_cost * (1 / constants.INVENTORY_UPFRONT_PAYMENT) + constants.FLOAT_ADJUSTMENT
+    def batch_size_from_cost(self, cost: Dollar) -> Stock:
+        if self.data_generator.conservative_cash_management:
+            total_cost = cost
+        else:
+            total_cost = cost * (1 / (1 - constants.INVENTORY_UPFRONT_PAYMENT))
+        total_cost += constants.FLOAT_ADJUSTMENT
         estimated_batch_size = int(total_cost / self.cost_per_unit)
         estimated_discounted_cpu = self.cost_per_unit
         change = 2 * CHANGE_THRESHOLD

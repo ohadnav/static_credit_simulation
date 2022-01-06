@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 from autologging import TRACE, logged, traced
 
 from common import constants
+from common.constants import LoanType
 from common.context import SimulationContext, DataGenerator
 from finance.line_of_credit import DynamicLineOfCredit, LineOfCredit
 from seller.merchant import Merchant
@@ -22,12 +23,12 @@ class TestLineOfCredit(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
         self.data_generator = DataGenerator()
-        self.context = SimulationContext()
+        self.context = SimulationContext(loan_type=LoanType.LINE_OF_CREDIT)
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.line_of_credit = LineOfCredit(self.context, self.data_generator, self.merchant)
         self.line_of_credit.underwriting.approved = MagicMock(return_value=True)
@@ -38,6 +39,7 @@ class TestLineOfCredit(TestCase):
         self.assertEqual(self.line_of_credit.remaining_credit(), self.line_of_credit.loan_amount() - 1)
 
     def test_update_credit(self):
+        self.line_of_credit.credit_needed = MagicMock(return_value=0)
         self.line_of_credit.update_credit()
         self.assertEqual(self.line_of_credit.outstanding_debt, 0)
         self.line_of_credit.credit_needed = MagicMock(return_value=1)
@@ -60,12 +62,12 @@ class TestDynamicLineOfCredit(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
         self.data_generator = DataGenerator()
-        self.context = SimulationContext()
+        self.context = SimulationContext(loan_type=LoanType.DYNAMIC_LINE_OF_CREDIT)
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.dynamic_line_of_credit = DynamicLineOfCredit(self.context, self.data_generator, self.merchant)
         self.dynamic_line_of_credit.underwriting.approved = MagicMock(return_value=True)

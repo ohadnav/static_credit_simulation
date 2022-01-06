@@ -22,7 +22,7 @@ class TestProduct(TestCase):
                     '%(funcName)s(): '
                     '%(lineno)d:\t'
                     '%(message)s'),
-            level=TRACE, stream=sys.stderr)
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
 
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
@@ -55,16 +55,22 @@ class TestProduct(TestCase):
             self.product.discounted_cost_per_unit(10 * self.product.min_purchase_order_size),
             self.product.cost_per_unit * (1 - constants.VOLUME_DISCOUNT))
 
-    def test_batch_size_from_upfront_cost(self):
+    def test_batch_size_from_cost(self):
         self.data_generator.remove_randomness()
+        self.data_generator.conservative_cash_management = False
         self.assertEqual(
-            self.product.batch_size_from_upfront_cost(
-                self.product.purchase_order_cost(self.product.min_purchase_order_size)[0]),
+            self.product.batch_size_from_cost(
+                self.product.purchase_order_cost(self.product.min_purchase_order_size)[1]),
             self.product.min_purchase_order_size)
         self.assertGreater(
-            self.product.batch_size_from_upfront_cost(
-                self.product.purchase_order_cost(self.product.min_purchase_order_size * 11)[0]),
+            self.product.batch_size_from_cost(
+                self.product.purchase_order_cost(self.product.min_purchase_order_size * 11)[1]),
             self.product.min_purchase_order_size * 10)
+        self.data_generator.conservative_cash_management = True
+        upfront, post = self.product.purchase_order_cost(self.product.min_purchase_order_size)
+        total_cost = upfront + post
+        self.assertEqual(self.product.min_purchase_order_size, self.product.batch_size_from_cost(total_cost))
+        self.assertLess(self.product.batch_size_from_cost(total_cost - 1), self.product.min_purchase_order_size)
 
     def test_purchase_order_cost(self):
         self.data_generator.remove_randomness()

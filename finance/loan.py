@@ -14,6 +14,7 @@ from seller.merchant import Merchant
 
 @dataclass
 class LoanSimulationResults:
+    valuation: Optional[Dollar]
     revenues_cagr: Percent
     inventory_cagr: Percent
     net_cashflow_cagr: Percent
@@ -50,6 +51,8 @@ class Loan(Primitive):
 
     def default_repayment_rate(self) -> Percent:
         revenue_in_duration = self.expected_revenue_during_loan()
+        if revenue_in_duration == 0:
+            return constants.MAX_REPAYMENT_RATE
         rate = self.max_debt() / revenue_in_duration
         return min_max(rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
 
@@ -74,7 +77,7 @@ class Loan(Primitive):
         return self.loan_amount() * (1 + self.interest)
 
     def approved_amount(self) -> Dollar:
-        if not self.underwriting.approved():
+        if not self.underwriting.approved() or self.projected_lender_profit() <= 0:
             return 0.0
         return self.loan_amount()
 
@@ -111,7 +114,7 @@ class Loan(Primitive):
             self.marketplace_balance = 0
 
     def simulate(self):
-        for _ in range(constants.SIMULATION_DURATION):
+        for _ in range(self.data_generator.simulated_duration):
             self.today += 1
             self.simulate_next_day()
             if self.is_bankrupt:
@@ -134,18 +137,19 @@ class Loan(Primitive):
         self.current_loan_amount = None
         self.current_loan_start_date = None
 
-    def current_loan_apr(self):
+    def current_loan_apr(self) -> Percent:
         return math.pow(1 + self.interest, constants.YEAR / self.current_loan_duration()) - 1
 
     def bankruptcy(self):
         self.is_bankrupt = True
 
     def calculate_results(self):
-        return LoanSimulationResults(
-            self.revenue_cagr(), self.inventory_cagr(), self.net_cashflow_cagr(), self.valuation_cagr(),
+        self.simulation_results = LoanSimulationResults(
+            self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.inventory_cagr(),
+            self.net_cashflow_cagr(), self.valuation_cagr(),
             self.lender_profit(), self.debt_to_valuation(), self.average_apr())
 
-    def current_duration(self):
+    def current_duration(self) -> Duration:
         return self.today - constants.START_DATE + 1
 
     def net_cashflow(self) -> Dollar:
@@ -169,7 +173,7 @@ class Loan(Primitive):
             self.merchant.valuation(constants.START_DATE, self.initial_cash),
             self.merchant.valuation(self.today, self.net_cashflow()), self.current_duration())
 
-    def is_default(self):
+    def is_default(self) -> bool:
         return self.is_bankrupt or (
                 self.outstanding_debt > 0 and self.current_loan_duration() > self.context.loan_duration)
 
@@ -188,6 +192,13 @@ class Loan(Primitive):
         total_costs = self.loss() + self.cost_of_capital() + self.context.merchant_cost_of_acquisition
         return earned_interest - total_costs
 
+    def projected_lender_profit(self) -> Dollar:
+        if not self.underwriting.approved():
+            return 0
+        projected_costs = self.context.merchant_cost_of_acquisition + self.loan_amount() * self.context.cost_of_capital
+        projected_revenues = self.loan_amount() * self.interest * self.context.expected_loans_per_year
+        return projected_revenues - projected_costs
+
     def projected_remaining_debt(self) -> Dollar:
         if self.outstanding_debt == 0:
             return 0
@@ -199,10 +210,10 @@ class Loan(Primitive):
             remaining_debt = max(0.0, self.outstanding_debt - repayment_in_duration)
         return remaining_debt
 
-    def remaining_duration(self):
+    def remaining_duration(self) -> Duration:
         return self.current_loan_start_date + self.current_loan_duration() - self.today
 
-    def repaid_debt(self, outstanding_debt: Optional[Dollar] = None):
+    def repaid_debt(self, outstanding_debt: Optional[Dollar] = None) -> Dollar:
         outstanding_debt = outstanding_debt if outstanding_debt else self.outstanding_debt
         repaid = self.total_debt - outstanding_debt
         return repaid
