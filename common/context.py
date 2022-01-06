@@ -34,7 +34,7 @@ class DataGenerator:
     inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     inventory_turnover_ratio_std = constants.INVENTORY_TURNOVER_RATIO_STD
     include_purchase_order_in_valuation = True
-    conservative_cash_management = False
+    conservative_cash_management = True
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO

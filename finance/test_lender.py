@@ -81,7 +81,7 @@ class TestLender(TestCase):
             self.assertIsNotNone(self.lender.loans[merchant].simulation_results)
 
     @statistical_test_bool(num_lists=5, times=5, confidence=0.8)
-    def test_lender_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
+    def test_lending_helps_and_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
         self.data_generator.num_merchants = 100
         self.data_generator.num_products = 5
         self.merchants = [Merchant.generate_simulated(self.data_generator) for _ in

@@ -11,7 +11,7 @@ from autologging import traced, logged, TRACE
 from common import constants
 from common.context import DataGenerator, SimulationContext
 from common.statistical_test import statistical_test_bool
-from finance.loan import Loan, LoanSimulationResults
+from finance.loan import Loan, LoanSimulationResults, NoCapitalLoan
 from seller.merchant import Merchant
 
 
@@ -36,6 +36,51 @@ class TestLoan(TestCase):
         self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = Loan(self.context, self.data_generator, self.merchant)
+
+    @statistical_test_bool(confidence=0.6)
+    def test_big_merchants_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
+        self.data_generator.min_purchase_order_value = 100000
+        self.data_generator.num_products = 10
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        self.loan = Loan(self.context, self.data_generator, self.merchant)
+        is_true[0].append(self.loan.projected_lender_profit() > 0)
+
+    @statistical_test_bool(confidence=0.6)
+    def test_small_merchants_not_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
+        self.data_generator.min_purchase_order_value = 1000
+        self.data_generator.max_num_products = 2
+        self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        self.loan = Loan(self.context, self.data_generator, self.merchant)
+        is_true[0].append(self.loan.projected_lender_profit() < 0)
+
+    @statistical_test_bool(confidence=0.8, num_lists=5)
+    def test_funded_merchants_grow_faster(self, is_true: List[List[Tuple[bool, Any]]]):
+        self.data_generator.num_products = 10
+        merchant = Merchant.generate_simulated(self.data_generator)
+        loan_with_capital = Loan(self.context, self.data_generator, merchant)
+        while not loan_with_capital.underwriting.approved(constants.START_DATE):
+            merchant = Merchant.generate_simulated(self.data_generator)
+            loan_with_capital = Loan(self.context, self.data_generator, merchant)
+        loan_without_capital = NoCapitalLoan(self.context, self.data_generator, merchant)
+        loan_with_capital.simulate()
+        loan_without_capital.simulate()
+        only_funded_loan_bankrupt = loan_with_capital.is_bankrupt and not loan_without_capital.is_bankrupt
+        is_true[0].append((only_funded_loan_bankrupt, only_funded_loan_bankrupt))
+        is_true[1].append(
+            (loan_with_capital.simulation_results.revenues_cagr > loan_without_capital.simulation_results.revenues_cagr,
+             loan_with_capital.simulation_results.revenues_cagr - loan_without_capital.simulation_results.revenues_cagr))
+        is_true[2].append(
+            (
+            loan_with_capital.simulation_results.net_cashflow_cagr > loan_without_capital.simulation_results.net_cashflow_cagr,
+            loan_with_capital.simulation_results.net_cashflow_cagr - loan_without_capital.simulation_results.net_cashflow_cagr))
+        is_true[3].append(
+            (
+            loan_with_capital.simulation_results.valuation_cagr > loan_without_capital.simulation_results.valuation_cagr,
+            loan_with_capital.simulation_results.valuation_cagr - loan_without_capital.simulation_results.valuation_cagr))
+        is_true[4].append(
+            (loan_with_capital.simulation_results.lender_profit > 0,
+             (loan_with_capital.simulation_results.lender_profit, loan_with_capital)))
 
     def test_init(self):
         self.assertEqual(self.loan.outstanding_debt, 0)
@@ -336,41 +381,6 @@ class TestLoan(TestCase):
         projected_revenues = 10 * 0.08 * 6
         self.assertAlmostEqual(self.loan.projected_lender_profit(), projected_revenues - projected_costs)
 
-    @statistical_test_bool(confidence=0.6)
-    def test_big_merchants_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
-        self.data_generator.min_purchase_order_value = 100000
-        self.data_generator.num_products = 10
-        self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.loan = Loan(self.context, self.data_generator, self.merchant)
-        is_true[0].append(self.loan.projected_lender_profit() > 0)
-
-    @statistical_test_bool(confidence=0.6)
-    def test_small_merchants_not_profitable(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
-        self.data_generator.min_purchase_order_value = 1000
-        self.data_generator.max_num_products = 2
-        self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
-        self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.loan = Loan(self.context, self.data_generator, self.merchant)
-        is_true[0].append(self.loan.projected_lender_profit() < 0)
-
-    @statistical_test_bool(confidence=0.8, num_lists=4)
-    def test_funded_merchants_profitable_and_growing(self, is_true: List[List[Tuple[bool, Any]]]):
-        self.data_generator.num_products = 10
-        self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.loan = Loan(self.context, self.data_generator, self.merchant)
-        while self.loan.projected_lender_profit() < 0:
-            self.merchant = Merchant.generate_simulated(self.data_generator)
-            self.loan = Loan(self.context, self.data_generator, self.merchant)
-        self.loan.simulate()
-        is_true[0].append(
-            (self.loan.simulation_results.lender_profit > 0, (self.loan.simulation_results.lender_profit, self.loan)))
-        is_true[1].append((self.loan.simulation_results.revenues_cagr > 0, self.loan.simulation_results.revenues_cagr))
-        is_true[2].append(
-            (self.loan.simulation_results.net_cashflow_cagr > 0, self.loan.simulation_results.net_cashflow_cagr))
-        is_true[3].append(
-            (self.loan.simulation_results.valuation_cagr > 0, self.loan.simulation_results.valuation_cagr))
-        is_true[4].append((not self.loan.is_bankrupt, self.loan))
-
     def test_apr(self):
         self.loan.apr_history = [0.5]
         self.loan.amount_history = [1]
@@ -380,3 +390,60 @@ class TestLoan(TestCase):
         self.loan.current_loan_start_date = self.loan.today
         self.loan.current_loan_amount = 3
         self.assertEqual(self.loan.average_apr(), 0.2)
+
+
+class TestNoCapitalLoan(TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        logging.basicConfig(
+            format=('%(filename)s: '
+                    '%(levelname)s: '
+                    '%(funcName)s(): '
+                    '%(lineno)d:\t'
+                    '%(message)s'),
+            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
+
+    def setUp(self) -> None:
+        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
+        self.data_generator = DataGenerator()
+        self.data_generator.num_products = 2
+        self.data_generator.max_num_products = 5
+        self.data_generator.num_merchants = 10
+        self.context = SimulationContext()
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        self.loan = NoCapitalLoan(self.context, self.data_generator, self.merchant)
+
+    @statistical_test_bool(confidence=0.8, num_lists=4)
+    def test_merchants_grow_slowly_without_capital(self, is_true: List[List[Tuple[bool, Any]]]):
+        self.merchant = Merchant.generate_simulated(self.data_generator)
+        self.loan = NoCapitalLoan(self.context, self.data_generator, self.merchant)
+        self.loan.simulate()
+        is_true[0].append((not self.loan.is_bankrupt, self.loan))
+        is_true[1].append(
+            (-0.05 < self.loan.simulation_results.revenues_cagr < 0.1, self.loan.simulation_results.revenues_cagr))
+        is_true[2].append(
+            (-0.05 < self.loan.simulation_results.net_cashflow_cagr < 0.1,
+             self.loan.simulation_results.net_cashflow_cagr))
+        is_true[3].append(
+            (-0.05 < self.loan.simulation_results.valuation_cagr < 0.1, self.loan.simulation_results.valuation_cagr))
+
+    def test_add_debt(self):
+        prev_cash = self.loan.current_cash
+        amount1 = uniform(1, self.loan.max_debt())
+        self.loan.add_debt(amount1)
+        self.assertAlmostEqual(self.loan.current_cash, prev_cash)
+        self.assertAlmostEqual(self.loan.outstanding_debt, 0)
+        self.assertAlmostEqual(self.loan.total_debt, 0)
+        self.assertIsNone(self.loan.current_loan_start_date)
+        self.assertIsNone(self.loan.current_loan_amount)
+
+    def test_simulate(self):
+        self.loan.simulate()
+        self.assertAlmostEqual(self.loan.outstanding_debt, 0)
+        self.assertAlmostEqual(self.loan.total_debt, 0)
+        self.assertAlmostEqual(self.loan.simulation_results.apr, 0)
+        self.assertAlmostEqual(self.loan.simulation_results.debt_to_valuation, 0)
+        self.assertAlmostEqual(self.loan.simulation_results.lender_profit, 0)
+
+    def test_loan_amount(self):
+        self.assertEqual(self.loan.loan_amount(), 0)

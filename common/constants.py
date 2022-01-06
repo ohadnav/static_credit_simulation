@@ -112,3 +112,4 @@ class LoanType(Enum):
     FLAT_FEE = 'FlatFeeRBF'
     LINE_OF_CREDIT = 'LineOfCredit'
     DYNAMIC_LINE_OF_CREDIT = 'DynamicLineOfCredit'
+    NO_CAPITAL = 'NoCapitalLoan'

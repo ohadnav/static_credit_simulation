@@ -57,7 +57,7 @@ class Loan(Primitive):
         rate = self.max_debt() / revenue_in_duration
         return min_max(rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
 
-    def expected_revenue_during_loan(self):
+    def expected_revenue_during_loan(self) -> Dollar:
         duration_in_years = self.context.loan_duration / constants.YEAR
         return self.merchant.annual_top_line(self.today) * duration_in_years
 
@@ -82,7 +82,7 @@ class Loan(Primitive):
             return 0.0
         return self.loan_amount()
 
-    def loan_amount(self):
+    def loan_amount(self) -> Dollar:
         return self.context.loan_amount_per_monthly_income * self.merchant.annual_top_line(
             self.today) / constants.NUM_MONTHS
 
@@ -241,3 +241,14 @@ class FlatFeeRBF(Loan):
         if self.today > self.context.loan_duration:
             return self.default_repayment_rate() + self.context.delayed_loan_repayment_increase
         return self.default_repayment_rate()
+
+
+class NoCapitalLoan(Loan):
+    def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
+        super(NoCapitalLoan, self).__init__(context, data_generator, merchant)
+
+    def add_debt(self, amount: Dollar):
+        pass
+
+    def loan_amount(self) -> Dollar:
+        return 0
