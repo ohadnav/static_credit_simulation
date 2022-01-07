@@ -1,6 +1,5 @@
 import logging
 import sys
-from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -8,7 +7,6 @@ from autologging import TRACE, traced, logged
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test_bool
 from common.util import Dollar
 from seller.product import Product
 
@@ -42,17 +40,6 @@ class TestProduct(TestCase):
             self.product.manufacturing_duration, int(self.data_generator.manufacturing_duration_avg * ratio))
         self.assertGreater(
             self.product.min_purchase_order_size, constants.MIN_PURCHASE_ORDER_SIZE)
-
-    @statistical_test_bool(num_lists=4)
-    def test_generated_makes_sense(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
-        self.product = Product.generate_simulated(self.data_generator)
-        is_true[0].append(
-            self.data_generator.cogs_margin_median / 1.5 < self.product.cogs_margin < 1.5 * self.data_generator.cogs_margin_median)
-        is_true[1].append(1.5 * constants.WEEK < self.product.manufacturing_duration < 2 * constants.MONTH)
-        is_true[2].append(
-            self.data_generator.median_price / 4 < self.product.price < 4 * self.data_generator.median_price)
-        is_true[3].append(
-            constants.MIN_PURCHASE_ORDER_SIZE * 3 < self.product.min_purchase_order_size < constants.MIN_PURCHASE_ORDER_SIZE * 200)
 
     def test__discount(self):
         self.assertEqual(self.product.volume_discount(self.product.min_purchase_order_size), 0)
@@ -95,6 +82,7 @@ class TestProduct(TestCase):
         self.assertAlmostEqual(post, total_cost * (1 - constants.INVENTORY_UPFRONT_PAYMENT))
         self.assertLess(
             self.product.purchase_order_cost(10 * self.product.min_purchase_order_size), (
-                10 * self.product.min_purchase_order_size * self.product.cost_per_unit * constants.INVENTORY_UPFRONT_PAYMENT,
+                10 * self.product.min_purchase_order_size * self.product.cost_per_unit *
+                constants.INVENTORY_UPFRONT_PAYMENT,
                 10 * self.product.min_purchase_order_size * self.product.cost_per_unit * (
                         1 - constants.INVENTORY_UPFRONT_PAYMENT)))

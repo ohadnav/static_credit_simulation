@@ -18,7 +18,7 @@ class Simulation:
         self.data_generator = data_generator
         self.merchants = self.generate_merchants()
         self.lenders: List[Lender] = [Lender(context, self.merchants) for context in
-                                      self.contexts]
+            self.contexts]
         self.to_save = False
 
     def generate_merchants(self) -> List[Merchant]:

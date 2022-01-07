@@ -1,7 +1,6 @@
 import logging
 import sys
 from random import randint
-from typing import List, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -9,7 +8,6 @@ from autologging import TRACE, traced, logged
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test_mean_error, statistical_test_bool
 from seller.batch import Batch, PurchaseOrder
 
 
@@ -60,35 +58,6 @@ class TestBatch(TestCase):
         self.assertAlmostEqual(batch2.organic_rate, self.batch.organic_rate * ratio)
         self.assertEqual(batch2.stock, 0)
         self.assertEqual(batch2.start_date, self.batch.last_date + 1)
-
-    @statistical_test_bool(num_lists=8)
-    def test_generated_makes_sense(self, is_true: List[List[Tuple[bool, Any]]]):
-        self.batch = Batch.generate_simulated(self.data_generator)
-        is_true[0].append(
-            (
-                self.data_generator.shipping_duration_avg / 2 < self.batch.shipping_duration < 2 * self.data_generator.shipping_duration_avg,
-                self.batch.shipping_duration))
-        is_true[1].append((constants.MONTH < self.batch.lead_time < 3 * constants.MONTH, self.batch.lead_time))
-        is_true[2].append(
-            (
-                self.data_generator.inventory_turnover_ratio_median / 2 < self.batch.inventory_turnover_ratio < \
-                2 * self.data_generator.inventory_turnover_ratio_median, self.batch.inventory_turnover_ratio))
-        is_true[3].append(
-            (
-                self.data_generator.roas_median / 1.5 < self.batch.roas < \
-                1.5 * self.data_generator.roas_median, self.batch.roas))
-        is_true[4].append(
-            (
-                self.data_generator.organic_rate_median / 2 < self.batch.organic_rate < \
-                2 * self.data_generator.organic_rate_median, self.batch.organic_rate))
-        is_true[5].append(
-            (
-                constants.MIN_PURCHASE_ORDER_SIZE * 3 < self.batch.stock < constants.MIN_PURCHASE_ORDER_SIZE * 2000,
-                self.batch.stock))
-        is_true[6].append(
-            (0.01 < self.batch.gp_margin() - self.batch.product.cogs_margin < 0.15,
-             (round(self.batch.gp_margin(), 2), round(self.batch.product.cogs_margin, 2))))
-        is_true[7].append((0.01 < self.batch.profit_margin() < 0.15, round(self.batch.profit_margin(), 2)))
 
     def test_has_future_revenue(self):
         self.batch.is_out_of_stock = MagicMock(return_value=True)
@@ -167,17 +136,27 @@ class TestBatch(TestCase):
 
     def test_max_inventory_cost(self):
         self.data_generator.remove_randomness()
+        self.data_generator.conservative_cash_management = True
+        self.assertEqual(
+            self.batch.max_cash_needed(self.batch.get_purchase_order_start_date()),
+            self.batch.max_purchase_order().total_cost())
         self.data_generator.conservative_cash_management = False
-        self.assertEqual(self.batch.max_inventory_cost(constants.START_DATE - 1), 0)
+        self.assertEqual(self.batch.max_cash_needed(constants.START_DATE - 1), 0)
         self.assertEqual(
-            self.batch.max_inventory_cost(self.batch.get_purchase_order_start_date()),
-            self.batch.max_purchase_order().upfront_cost)
+            self.batch.max_cash_needed(self.batch.get_purchase_order_start_date()),
+            self.batch.max_purchase_order().post_manufacturing_cost)
         self.assertEqual(
-            self.batch.max_inventory_cost(self.batch.get_purchase_order_start_date()),
-            self.batch.max_purchase_order().upfront_cost)
+            self.batch.max_cash_needed(self.batch.get_purchase_order_start_date()),
+            self.batch.max_purchase_order().post_manufacturing_cost)
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
         self.assertIsNotNone(self.batch.initiate_new_purchase_order(post))
-        self.assertEqual(self.batch.max_inventory_cost(self.batch.get_manufacturing_done_date()), post)
+        self.assertEqual(self.batch.max_cash_needed(self.batch.get_manufacturing_done_date()), post)
+
+    def test_cash_needed_to_afford_purchase_order(self):
+        self.data_generator.conservative_cash_management = True
+        self.assertEqual(self.batch.cash_needed_to_afford_purchase_order(PurchaseOrder(1, 2, 3)), 5)
+        self.data_generator.conservative_cash_management = False
+        self.assertEqual(self.batch.cash_needed_to_afford_purchase_order(PurchaseOrder(1, 2, 3)), 3)
 
     def test_inventory_cost(self):
         self.data_generator.remove_randomness()
@@ -196,16 +175,6 @@ class TestBatch(TestCase):
         self.assertFalse(
             self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock() - 1))
         self.assertTrue(self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock()))
-
-    @statistical_test_mean_error
-    def test_out_of_stock_statistical_test(self, errors):
-        count_oos = 0
-        self.batch = Batch.generate_simulated(self.data_generator)
-        for day in range(self.batch.start_date, self.batch.last_date + 1):
-            if self.batch.is_out_of_stock(day):
-                count_oos += 1
-        oos_error = abs(count_oos / self.batch.duration - self.batch.out_of_stock_rate)
-        errors.append(oos_error)
 
     def test_sales_velocity(self):
         self.batch.stock = 30

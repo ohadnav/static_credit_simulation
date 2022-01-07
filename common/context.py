@@ -6,7 +6,7 @@ from numpy.random import mtrand
 
 from common import constants
 from common.constants import LoanType
-from common.util import Percent, min_max
+from common.util import Percent
 
 
 @logged
@@ -27,7 +27,7 @@ class DataGenerator:
     manufacturing_duration_std = constants.MANUFACTURING_DURATION_STD
     sgna_ratio = constants.SGNA_RATIO_MIN
     inventory_cost_std = constants.INVENTORY_COST_STD
-    out_of_stock_rate_median = constants.OUT_OF_STOCK_RATE_BENCHMARK
+    out_of_stock_rate_median = constants.OUT_OF_STOCK_RATE_MEDIAN
     out_of_stock_rate_std = constants.OUT_OF_STOCK_RATE_STD
     cogs_margin_median = constants.COGS_MARGIN_BENCHMARK_AVG
     cogs_margin_std = constants.COGS_MARGIN_STD
@@ -38,7 +38,6 @@ class DataGenerator:
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO
-    initial_cash_std = constants.INITIAL_CASH_STD
     initial_stock_std = constants.INITIAL_STOCK_STD
     median_price = constants.MEDIAN_PRICE
     price_std = constants.PRICE_STD
@@ -56,16 +55,6 @@ class DataGenerator:
         if self.randomness:
             return mtrand.random()
         return constants.NO_VOLATILITY
-
-    def normal(self, mean: float = 0, std: float = 1, min_value: Optional[float] = None,
-               max_value: Optional[float] = None) -> float:
-        if self.randomness:
-            random_value = mtrand.normal(mean, std)
-            max_value = max_value or mean + constants.MAX_RANDOM_DEVIATION * std
-            min_value = min_value or mean - constants.MAX_RANDOM_DEVIATION * std
-            random_value = min_max(random_value, min_value, max_value)
-            return random_value
-        return mean
 
     def normal_ratio(self, std: float = 0.5, chance_positive: Percent = 0.5, max_ratio: float = 3) -> float:
         if self.randomness:
@@ -96,7 +85,7 @@ class RiskContext:
     def __init__(self):
         self.out_of_stock_rate = RiskConfiguration(higher_is_better=False)
         self.inventory_turnover_ratio = RiskConfiguration()
-        self.profit_margin = RiskConfiguration()
+        self.adjusted_profit_margin = RiskConfiguration()
         self.roas = RiskConfiguration()
         self.organic_rate = RiskConfiguration()
 
@@ -118,10 +107,10 @@ class SimulationContext:
     expected_loans_per_year = constants.EXPECTED_LOANS_PER_YEAR
 
     # Underwriting
-    organic_rate_benchmark = constants.ORGANIC_SALES_RATIO_BENCHMARK_MIN
-    out_of_stock_rate_benchmark = constants.OUT_OF_STOCK_RATE_BENCHMARK
-    profit_margin_benchmark = constants.PROFIT_MARGIN_BENCHMARK_MIN
+    organic_rate_benchmark = constants.ORGANIC_SALES_RATIO_MEDIAN
+    out_of_stock_rate_benchmark = constants.OUT_OF_STOCK_RATE_MEDIAN
+    adjusted_profit_margin_benchmark = constants.PROFIT_MARGIN_ADJUSTMENT
     inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
-    roas_benchmark = constants.ROAS_BENCHMARK_MIN
+    roas_benchmark = constants.ROAS_MEDIAN
     benchmark_factor = constants.BENCHMARK_FACTOR
     min_risk_score = constants.MIN_RISK_SCORE

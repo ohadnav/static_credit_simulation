@@ -25,8 +25,9 @@ class AggregatedLoanSimulationResults:
 
 
 class LenderSimulationResults:
-    def __init__(self, lender_gross_profit: Dollar, sharpe: float,
-                 all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
+    def __init__(
+            self, lender_gross_profit: Dollar, sharpe: float,
+            all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
         self.lender_gross_profit = lender_gross_profit
         self.sharpe = sharpe
         self.all_merchants = all_merchants
@@ -40,6 +41,10 @@ class LenderSimulationResults:
                and self.all_merchants == other.all_merchants \
                and self.portfolio_merchants == other.portfolio_merchants
 
+    def __str__(self):
+        return f'GP: {self.lender_gross_profit} sharpe: {self.sharpe} all_lsr: {self.all_merchants} portfolio: ' \
+               f'{self.portfolio_merchants}'
+
 
 @traced
 @logged
@@ -52,7 +57,8 @@ class Lender(Primitive):
         self.loans: MutableMapping[Merchant, Loan] = {}
 
     def loan_from_merchant(self, merchant: Merchant) -> Loan:
-        return Loan(self.context, self.data_generator, merchant)
+
+        return globals()[self.context.loan_type.value](self.context, self.data_generator, merchant)
 
     @staticmethod
     def aggregate_results(loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
@@ -62,12 +68,6 @@ class Lender(Primitive):
                 continue
             elif field.name == 'lender_profit':
                 result[field.name] = sum([lsr.lender_profit for lsr in loan_results])
-            elif field.name == 'bankruptcy':
-                if len(loan_results) == 0:
-                    bankruptcy_rate = 0
-                else:
-                    bankruptcy_rate = len([lsr for lsr in loan_results if lsr.bankruptcy]) / len(loan_results)
-                result['bankruptcy_rate'] = bankruptcy_rate
             else:
                 values = []
                 weights = []

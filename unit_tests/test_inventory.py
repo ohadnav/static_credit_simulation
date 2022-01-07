@@ -1,7 +1,6 @@
 import logging
 import math
 import sys
-from typing import List
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -9,7 +8,6 @@ from autologging import TRACE, logged, traced
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test_mean_error
 from seller.batch import Batch
 from seller.inventory import Inventory
 
@@ -42,16 +40,6 @@ class TestInventory(TestCase):
     def test_current_batch(self):
         self.assertEqual(self.inventory[constants.START_DATE], self.inventory.batches[0])
         self.assertEqual(self.inventory[self.inventory.batches[0].last_date + 1], self.inventory.batches[1])
-
-    @statistical_test_mean_error(times=10)
-    def test_annual_top_line(self, errors: List[float]):
-        inventory1: Inventory = Inventory.generate_simulated(self.data_generator)
-        expected_sales = inventory1[
-                             constants.START_DATE].sales_velocity() * constants.YEAR * inventory1.product.price * (
-                1 - inventory1[constants.START_DATE].out_of_stock_rate)
-        actual_top_line = inventory1.annual_top_line(constants.START_DATE)
-        diff = abs(actual_top_line / expected_sales - 1)
-        errors.append(diff)
 
     def test_gp_per_day(self):
         self.assertEqual(

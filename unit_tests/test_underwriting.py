@@ -1,7 +1,6 @@
 import logging
 import sys
 from random import random
-from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -9,7 +8,6 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.statistical_test import statistical_test_bool
 from common.util import weighted_average
 from finance.underwriting import Underwriting
 from seller.merchant import Merchant
@@ -83,20 +81,3 @@ class TestUnderwriting(TestCase):
             configuration.score = 1
         self.underwriting.aggregated_score = MagicMock(return_value=self.context.min_risk_score - 0.01)
         self.assertFalse(self.underwriting.approved(constants.START_DATE))
-
-    def test_risk_factors(self):
-        for predictor, configuration in vars(self.context.risk_context).items():
-            @statistical_test_bool(confidence=0.6)
-            def test_factor(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
-                merchant1 = Merchant.generate_simulated(self.data_generator)
-                merchant2 = Merchant.generate_simulated(self.data_generator)
-                benchmark = getattr(self.context, f'{predictor}_benchmark')
-                setattr(merchant1, predictor, MagicMock(return_value=benchmark))
-                setattr(
-                    merchant2, predictor,
-                    MagicMock(return_value=benchmark / 2 if configuration.higher_is_better else benchmark * 2))
-                underwriting1 = Underwriting(self.context, merchant1)
-                underwriting2 = Underwriting(self.context, merchant2)
-                is_true[0].append(underwriting1.aggregated_score() > underwriting2.aggregated_score())
-
-            test_factor(self)

@@ -20,8 +20,9 @@ class Inventory(Primitive):
         self.batches = batches
 
     @classmethod
-    def generate_simulated(cls, data_generator: DataGenerator,
-                           product: Optional[Product] = None):
+    def generate_simulated(
+            cls, data_generator: DataGenerator,
+            product: Optional[Product] = None):
         product = product or Product.generate_simulated(data_generator)
         batches = [Batch.generate_simulated(data_generator, product)]
         start_date = batches[0].start_date
@@ -65,14 +66,14 @@ class Inventory(Primitive):
 
     def valuation(self, day: Date) -> Dollar:
         current_value = self.current_inventory_valuation(day)
-        next_po_value = self.purchase_order_valuation(day)
         if self.data_generator.include_purchase_order_in_valuation:
+            next_po_value = self.purchase_order_valuation(day)
             return current_value + next_po_value
         return current_value
 
     @staticmethod
-    def discounted_inventory_value(stock_value: Dollar, duration_to_sell: Duration,
-                                   remaining_lead_time: Duration = 0) -> Dollar:
+    def discounted_inventory_value(
+            stock_value: Dollar, duration_to_sell: Duration, remaining_lead_time: Duration = 0) -> Dollar:
         if duration_to_sell == 0:
             return 0
         value_per_day = stock_value / duration_to_sell

@@ -3,17 +3,17 @@ from copy import deepcopy
 from typing import List, Union
 
 from common import constants
-from common.context import SimulationContext
+from common.context import SimulationContext, DataGenerator
 from simulation.simulation import Simulation
 
 
 class SensitivitySimulation(Simulation):
-    def __init__(self, context: SimulationContext, sensitive_attribute: str):
+    def __init__(self, context: SimulationContext, data_generator: DataGenerator, sensitive_attribute: str):
         self.sensitive_attribute = sensitive_attribute
         self.central_context = context
         assert hasattr(self.central_context, sensitive_attribute)
         sensitivity_contexts = self.generate_sensitivity_contexts()
-        super(SensitivitySimulation, self).__init__(sensitivity_contexts)
+        super(SensitivitySimulation, self).__init__(sensitivity_contexts, data_generator)
 
     def generate_sensitivity_contexts(self) -> List[SimulationContext]:
         sensitivity_contexts = [self.central_context]

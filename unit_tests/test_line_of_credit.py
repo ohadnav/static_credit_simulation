@@ -45,7 +45,7 @@ class TestLineOfCredit(TestCase):
         self.line_of_credit.credit_needed = MagicMock(return_value=1)
         prev_cash = self.line_of_credit.current_cash
         self.line_of_credit.update_credit()
-        self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
+        self.assertAlmostEqual(self.line_of_credit.current_cash, prev_cash + 1)
         self.line_of_credit.remaining_credit = MagicMock(return_value=0)
         self.line_of_credit.update_credit()
         self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
@@ -105,7 +105,8 @@ class TestDynamicLineOfCredit(TestCase):
             self.dynamic_line_of_credit.default_repayment_rate())
 
     def test_repayment_rate_decrease(self):
-        self.dynamic_line_of_credit.underwriting.aggregated_score = MagicMock(return_value=constants.REPAYMENT_FACTOR * 1.1)
+        self.dynamic_line_of_credit.underwriting.aggregated_score = MagicMock(
+            return_value=constants.REPAYMENT_FACTOR * 1.1)
         self.dynamic_line_of_credit.update_repayment_rate()
         self.assertLess(
             self.dynamic_line_of_credit.current_repayment_rate,

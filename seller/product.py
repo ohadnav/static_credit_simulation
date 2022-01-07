@@ -14,8 +14,9 @@ CHANGE_THRESHOLD = 1.02
 @traced
 @logged
 class Product(Primitive):
-    def __init__(self, data_generator: DataGenerator, price: Dollar, cost_per_unit: Dollar,
-                 min_purchase_order_size: Stock, manufacturing_duration: Duration, cogs_margin: Percent):
+    def __init__(
+            self, data_generator: DataGenerator, price: Dollar, cost_per_unit: Dollar,
+            min_purchase_order_size: Stock, manufacturing_duration: Duration, cogs_margin: Percent):
         super(Product, self).__init__(data_generator)
         self.price = price
         self.cost_per_unit = cost_per_unit

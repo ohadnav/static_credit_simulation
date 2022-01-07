@@ -36,7 +36,8 @@ class Underwriting:
         configuration: RiskConfiguration = getattr(self.context.risk_context, predictor)
         benchmark = getattr(self.context, f'{predictor}_benchmark')
         value = getattr(self.merchant, predictor)(day)
-        return self.benchmark_comparison(benchmark, value, configuration.higher_is_better)
+        score = self.benchmark_comparison(benchmark, value, configuration.higher_is_better)
+        return score
 
     def aggregated_score(self) -> Percent:
         scores = [configuration.score for configuration in vars(self.risk_context).values()]

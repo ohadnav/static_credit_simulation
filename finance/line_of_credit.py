@@ -32,7 +32,7 @@ class DynamicLineOfCredit(LineOfCredit):
         self.update_repayment_rate()
 
     def update_repayment_rate(self):
-        if self.underwriting.approved():
+        if self.underwriting.approved(self.today):
             repayment_ratio = constants.REPAYMENT_FACTOR / self.underwriting.aggregated_score()
             # repayment_ratio = constants.REPAYMENT_FACTOR / self.underwriting.benchmark_score(
             #     'debt_to_inventory', self.today)

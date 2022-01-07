@@ -1,6 +1,5 @@
 import logging
 import sys
-from typing import List, Union, Tuple, Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -8,7 +7,6 @@ from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator
-from common.statistical_test import statistical_test_bool
 from seller.batch import PurchaseOrder
 from seller.merchant import Merchant
 
@@ -27,7 +25,7 @@ class TestMerchant(TestCase):
     def setUp(self) -> None:
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
         self.data_generator = DataGenerator()
-        self.data_generator.max_num_products = 2
+        self.data_generator.max_num_products = 10
         self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
         self.merchant = Merchant.generate_simulated(self.data_generator)
 
@@ -42,16 +40,6 @@ class TestMerchant(TestCase):
         self.data_generator.random = MagicMock(return_value=1 - constants.NO_VOLATILITY)
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.assertIsNotNone(self.merchant.suspension_start_date)
-
-    @statistical_test_bool(num_lists=2)
-    def test_generated_makes_sense(self, is_true: List[List[Union[bool, Tuple[bool, Any]]]]):
-        self.data_generator.max_num_products = constants.MAX_NUM_PRODUCTS
-        self.data_generator.num_products = constants.NUM_PRODUCTS
-        self.merchant = Merchant.generate_simulated(self.data_generator)
-        is_true[0].append(
-            self.data_generator.num_products / 2 <= len(
-                self.merchant.inventories) <= self.data_generator.num_products * 4)
-        is_true[1].append((self.merchant.suspension_start_date is None, self.merchant.suspension_start_date))
 
     def test_annual_top_line(self):
         for inventory in self.merchant.inventories:
@@ -87,27 +75,28 @@ class TestMerchant(TestCase):
 
     def test_max_inventory_cost(self):
         for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].max_inventory_cost = MagicMock(return_value=1)
-        self.assertEqual(self.merchant.max_inventory_cost(constants.START_DATE), len(self.merchant.inventories))
+            inventory[constants.START_DATE].max_cash_needed = MagicMock(return_value=1)
+        self.assertEqual(self.merchant.max_cash_needed(constants.START_DATE), len(self.merchant.inventories))
 
     def test_inventory_cost(self):
-        def mock_cost_func(day, cash):
-            return 1 if cash > 0 else 0
-
-        for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].inventory_cost = mock_cost_func
-        self.assertEqual(
-            self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories)),
-            len(self.merchant.inventories))
-        self.assertEqual(
-            self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories) - 1),
-            len(self.merchant.inventories) - 1)
+        self.data_generator.remove_randomness()
+        day = constants.START_DATE
+        for day in range(constants.START_DATE, self.data_generator.simulated_duration):
+            if max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
+                break
+        cash = sum([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories])
+        max_spend = self.merchant.inventory_cost(day, cash)
         self.merchant.committed_purchase_orders = MagicMock(return_value=1)
-        self.assertEqual(
-            self.merchant.inventory_cost(constants.START_DATE, len(self.merchant.inventories)),
-            len(self.merchant.inventories) - 1)
+        self.assertLess(self.merchant.inventory_cost(day, cash), max_spend)
 
-    def test_cashflow_buffer(self):
+    def test_committed_purchase_orders(self):
+        day = constants.START_DATE
+        for day in range(constants.START_DATE, self.data_generator.simulated_duration):
+            if max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
+                break
+        for inventory in self.merchant.inventories:
+            self.assertIsNone(inventory[day].purchase_order)
+        self.assertEqual(self.merchant.committed_purchase_orders(day), 0)
         for inventory in self.merchant.inventories:
             inventory[constants.START_DATE].purchase_order = PurchaseOrder(1, 1, 1)
         self.assertAlmostEqual(
