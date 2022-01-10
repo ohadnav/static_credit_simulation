@@ -1,15 +1,11 @@
 from copy import deepcopy
 
-from autologging import logged, traced
-
 from common import constants
 from common.context import SimulationContext, RiskConfiguration
 from common.util import Percent, Date, weighted_average, min_max, Ratio
 from seller.merchant import Merchant
 
 
-@traced
-@logged
 class Underwriting:
     def __init__(self, context: SimulationContext, merchant: Merchant):
         self.context = context

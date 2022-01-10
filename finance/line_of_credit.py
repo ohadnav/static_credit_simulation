@@ -18,7 +18,8 @@ class LineOfCredit(Loan):
 
     def update_credit(self):
         max_credit = min(self.credit_needed(), self.remaining_credit())
-        self.add_debt(max_credit)
+        if max_credit > 0:
+            self.add_debt(max_credit)
 
 
 @traced

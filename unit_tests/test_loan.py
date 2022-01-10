@@ -45,7 +45,7 @@ class TestLoan(TestCase):
         self.assertEqual(self.loan.total_duration_in_debt, 0)
         self.assertIsNone(self.loan.current_loan_amount)
         self.assertIsNone(self.loan.current_loan_start_date)
-        self.assertListEqual(self.loan.cash_history, [])
+        self.assertDictEqual(self.loan.cash_history, {self.loan.today: self.loan.initial_cash})
         self.assertListEqual(self.loan.apr_history, [])
         self.assertListEqual(self.loan.amount_history, [])
 
@@ -66,12 +66,8 @@ class TestLoan(TestCase):
             self.merchant.annual_top_line(constants.START_DATE) * 0.5)
 
     def test_add_debt_0_amount(self):
-        self.loan.add_debt(0)
-        self.assertEqual(self.loan.outstanding_debt, 0)
-        self.assertEqual(self.loan.total_debt, 0)
-        self.assertEqual(self.loan.total_duration_in_debt, 0)
-        self.assertIsNone(self.loan.current_loan_start_date)
-        self.assertIsNone(self.loan.current_loan_amount)
+        with self.assertRaises(AssertionError):
+            self.loan.add_debt(0)
 
     def test_add_debt(self):
         prev_cash = self.loan.current_cash
@@ -108,6 +104,7 @@ class TestLoan(TestCase):
         self.loan.outstanding_debt = 0
         self.loan.current_repayment_rate = 0.1
         self.loan.credit_needed = MagicMock(return_value=self.loan.loan_amount())
+        self.loan.approved_amount = MagicMock(return_value=self.loan.loan_amount())
         self.loan.default_repayment_rate = MagicMock(return_value=0.3)
         self.loan.add_debt = MagicMock()
         self.loan.update_credit()
@@ -141,12 +138,11 @@ class TestLoan(TestCase):
         self.loan.simulate_inventory_purchase.assert_called()
         self.loan.marketplace_payout.assert_called()
         self.loan.on_bankruptcy.assert_not_called()
-        self.assertListEqual(self.loan.cash_history, [1])
+        self.assertDictEqual(self.loan.cash_history, {self.loan.today: self.loan.initial_cash})
         self.loan.today += 1
         self.loan.current_cash = -1
         self.loan.simulate_day()
         self.loan.on_bankruptcy.assert_called()
-        self.assertListEqual(self.loan.cash_history, [1, -1])
 
     def test_simulate_sales(self):
         self.loan.marketplace_balance = 1
@@ -160,6 +156,7 @@ class TestLoan(TestCase):
         self.merchant.inventory_cost = MagicMock(return_value=1)
         self.loan.simulate_inventory_purchase()
         self.assertEqual(self.loan.current_cash, 2 - 1)
+        self.assertDictEqual(self.loan.cash_history, {constants.START_DATE: 1})
 
     def test_marketplace_payout_bankruptcy(self):
         self.loan.today = constants.MARKETPLACE_PAYMENT_CYCLE
@@ -183,6 +180,7 @@ class TestLoan(TestCase):
         self.loan.loan_repayment.assert_called()
         self.assertEqual(self.loan.current_cash, 2 + 1)
         self.assertEqual(self.loan.marketplace_balance, 0)
+        self.assertDictEqual(self.loan.cash_history, {constants.START_DATE: self.loan.initial_cash, self.loan.today: 3})
 
     def test_simulate(self):
         self.loan.calculate_results = MagicMock()
@@ -211,8 +209,8 @@ class TestLoan(TestCase):
             if isinstance(val1, bool):
                 self.assertEqual(val1, val2)
             self.assertAlmostEqual(val1, val2)
-        for i in range(len(self.loan.cash_history)):
-            self.assertAlmostEqual(self.loan.cash_history[i], loan2.cash_history[i])
+        for day in self.loan.cash_history.keys():
+            self.assertAlmostEqual(self.loan.cash_history[day], loan2.cash_history[day])
 
     def test_simulate_bankruptcy(self):
         self.loan.simulate_day = MagicMock()
@@ -323,10 +321,13 @@ class TestLoan(TestCase):
         self.loan.on_bankruptcy()
         self.assertTrue(self.loan.is_default())
         self.loan.bankruptcy_date = None
+        self.context.duration_based_default = True
         self.loan.add_debt(1)
         self.assertFalse(self.loan.is_default())
         self.loan.today = self.context.loan_duration + 1
         self.assertTrue(self.loan.is_default())
+        self.context.duration_based_default = False
+        self.assertFalse(self.loan.is_default())
 
     def test_loss_default(self):
         self.assertEqual(self.loan.loss(), 0)
@@ -342,8 +343,8 @@ class TestLoan(TestCase):
         self.loan.is_default = MagicMock(return_value=False)
         self.context.loan_duration = 1
         self.assertAlmostEqual(
-            self.loan.loss(), self.loan.loan_amount() - self.merchant.revenue_per_day(
-                self.loan.today) * self.loan.current_repayment_rate)
+            self.loan.loss(), self.loan.loan_amount() - self.merchant.annual_top_line(
+                self.loan.today) * self.loan.current_repayment_rate / constants.YEAR)
 
     def test_cost_of_capital(self):
         self.loan.add_debt(self.loan.loan_amount())
@@ -359,8 +360,9 @@ class TestLoan(TestCase):
         self.loan.is_default = MagicMock(return_value=False)
         self.assertAlmostEqual(
             self.loan.projected_remaining_debt(), max(
-                0, self.loan.max_debt() - self.merchant.revenue_per_day(
-                    constants.START_DATE) * self.context.loan_duration * self.loan.current_repayment_rate))
+                0, self.loan.max_debt() - self.merchant.annual_top_line(
+                    constants.START_DATE) * (
+                           self.context.loan_duration / constants.YEAR) * self.loan.current_repayment_rate))
         self.loan.is_default = MagicMock(return_value=True)
         self.assertAlmostEqual(self.loan.projected_remaining_debt(), self.loan.max_debt())
         self.loan.outstanding_debt -= 1
@@ -383,17 +385,16 @@ class TestLoan(TestCase):
         self.loan.outstanding_debt -= 2
         self.assertAlmostEqual(
             self.loan.lender_profit(),
-            prev_profit + 2 * (1 + self.loan.interest))
+            prev_profit + 2 * (1 + self.loan.average_apr()))
 
     def test_projected_lender_profit(self):
         self.loan.loan_amount = MagicMock(return_value=10)
         self.context.merchant_cost_of_acquisition = 1
         self.context.cost_of_capital = 0.5
         self.context.loan_duration = 60
-        self.loan.interest = 0.08
         self.context.expected_loans_per_year = 6
         projected_costs = 1 + 10 * inverse_cagr(0.5, 60)
-        projected_revenues = 10 * 0.08 * 6
+        projected_revenues = 10 * self.context.expected_apr * 6
         self.assertAlmostEqual(self.loan.projected_lender_profit(), projected_revenues - projected_costs)
         self.loan.total_debt = 1
         self.assertAlmostEqual(
@@ -435,6 +436,7 @@ class TestNoCapitalLoan(TestCase):
         prev_cash = self.loan.current_cash
         amount1 = uniform(1, self.loan.max_debt())
         self.loan.add_debt(amount1)
+        self.assertDictEqual(self.loan.cash_history, {self.loan.today: self.loan.current_cash})
         self.assertAlmostEqual(self.loan.current_cash, prev_cash)
         self.assertAlmostEqual(self.loan.outstanding_debt, 0)
         self.assertAlmostEqual(self.loan.total_debt, 0)

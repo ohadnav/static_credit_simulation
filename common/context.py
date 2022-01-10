@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from autologging import logged, traced
 from numpy.random import mtrand
 
 from common import constants
@@ -9,8 +8,6 @@ from common.constants import LoanType
 from common.util import Percent
 
 
-@logged
-@traced
 @dataclass
 class DataGenerator:
     randomness = True
@@ -64,11 +61,6 @@ class DataGenerator:
             return 1 + random_value if positive else 1 / (1 + random_value)
         return constants.NO_VOLATILITY
 
-    def randint(self, _from: int, _to: int) -> int:
-        if self.randomness:
-            return mtrand.randint(_from, _to)
-        return _from
-
     def remove_randomness(self):
         self.randomness = False
 
@@ -101,8 +93,10 @@ class SimulationContext:
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL
+    expected_apr = constants.EXPECTED_APR
     merchant_cost_of_acquisition = constants.MERCHANT_COST_OF_ACQUISITION
     revenue_collateralization = False
+    duration_based_default = False
     risk_context = RiskContext()
     expected_loans_per_year = constants.EXPECTED_LOANS_PER_YEAR
 

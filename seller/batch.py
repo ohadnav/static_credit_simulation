@@ -2,8 +2,6 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 
-from autologging import logged, traced
-
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
@@ -21,8 +19,6 @@ class PurchaseOrder:
         return self.upfront_cost + self.post_manufacturing_cost
 
 
-@traced
-@logged
 class Batch(Primitive):
     def __init__(
             self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
@@ -30,19 +26,19 @@ class Batch(Primitive):
             start_date: Date, stock: Stock):
         super(Batch, self).__init__(data_generator)
         self.product = product
+        self.inventory_turnover_ratio = inventory_turnover_ratio
+        self.duration = self.calculate_duration(self.inventory_turnover_ratio)
+        self.start_date = start_date
+        self.last_date = self.start_date + self.duration - 1
         self.shipping_duration = shipping_duration
         self.lead_time = self.shipping_duration + self.product.manufacturing_duration
         self.stock = stock
         self.out_of_stock_rate = out_of_stock_rate
-        self.inventory_turnover_ratio = inventory_turnover_ratio
-        self.duration = self.calculate_duration(self.inventory_turnover_ratio)
         self.roas = roas
         self.roas = roas
         self.organic_rate = organic_rate
-        self.start_date = start_date
-        self.last_date = self.start_date + self.duration - 1
         self.purchase_order: Optional[PurchaseOrder] = None
-        self.next_batch = None
+        self.next_batch: Optional['Batch'] = None
 
     @staticmethod
     def calculate_duration(inventory_turnover_ratio: Ratio) -> Duration:
@@ -140,10 +136,14 @@ class Batch(Primitive):
         return False
 
     def gp_margin(self) -> Percent:
-        return max(0.0, self.revenue_margin() - self.marketing_margin() - self.data_generator.sgna_ratio)
+        # TODO: gradual organic ratio
+        # TODO: sell only organic if margin is negative
+        margin = self.revenue_margin() - self.marketing_margin() - self.data_generator.sgna_ratio
+        return max(0.0, margin)
 
     def marketing_margin(self) -> Percent:
-        return (self.acos() / self.product.price) * (1 - self.organic_rate)
+        margin = (self.acos() / self.product.price) * (1 - self.organic_rate)
+        return margin
 
     def acos(self) -> Dollar:
         return self.product.price / self.roas
@@ -166,7 +166,7 @@ class Batch(Primitive):
             self.product.min_purchase_order_size, Stock(
                 self.sales_velocity() * self.lead_time * constants.GROWTH_RATIO_MAX))
 
-    def initiate_new_purchase_order(self, available_cash: Dollar) -> Optional[PurchaseOrder]:
+    def initiate_new_purchase_order(self, day: Date, available_cash: Dollar) -> Optional[PurchaseOrder]:
         available_cash += constants.FLOAT_ADJUSTMENT
         new_purchase_order = self.max_purchase_order()
         if not self.can_afford_purchase_order(new_purchase_order, available_cash):
@@ -177,33 +177,49 @@ class Batch(Primitive):
             self.purchase_order = new_purchase_order
             if self.next_batch:
                 self.next_batch.stock = self.purchase_order.stock
+            if day > self.get_purchase_order_start_date():
+                self.extend_duration(day)
         return self.purchase_order
+
+    def extend_duration(self, day: Date):
+        extension = day - self.get_purchase_order_start_date()
+        self.duration += extension
+        self.last_date += extension
+        if self.next_batch:
+            self.next_batch.push_start_date(extension)
+
+    def push_start_date(self, extension: Duration):
+        self.start_date += extension
+        self.last_date += extension
+        if self.next_batch:
+            self.next_batch.push_start_date(extension)
 
     def can_afford_purchase_order(self, purchase_order: PurchaseOrder, current_cash: Dollar) -> bool:
         if self.data_generator.conservative_cash_management:
             return purchase_order.total_cost() <= current_cash
         return purchase_order.post_manufacturing_cost <= current_cash
 
-    def cash_needed_to_afford_purchase_order(self, purchse_order: PurchaseOrder) -> Dollar:
-        return purchse_order.total_cost() if self.data_generator.conservative_cash_management else \
-            purchse_order.post_manufacturing_cost
+    def cash_needed_to_afford_purchase_order(self, purchase_order: PurchaseOrder) -> Dollar:
+        return purchase_order.total_cost() if self.data_generator.conservative_cash_management else \
+            purchase_order.post_manufacturing_cost
 
     def max_cash_needed(self, day: Date) -> Dollar:
-        if day == self.get_purchase_order_start_date():
+        if day >= self.get_purchase_order_start_date() and self.purchase_order is None:
             return self.cash_needed_to_afford_purchase_order(self.max_purchase_order())
         elif day == self.get_manufacturing_done_date() and self.purchase_order:
             return self.purchase_order.post_manufacturing_cost
         return 0
 
     def inventory_cost(self, day: Date, cash_for_new_orders: Dollar) -> Dollar:
-        if day == self.get_purchase_order_start_date():
-            self.initiate_new_purchase_order(cash_for_new_orders)
+        assert self.start_date <= day <= self.last_date
+        if day == self.get_manufacturing_done_date():
+            return self.purchase_order.post_manufacturing_cost
+        if day >= self.get_purchase_order_start_date() and self.purchase_order is None:
+            self.initiate_new_purchase_order(day, cash_for_new_orders)
             if self.purchase_order:
                 return self.purchase_order.upfront_cost
             else:
                 return 0
-        elif day == self.get_manufacturing_done_date():
-            return self.purchase_order.post_manufacturing_cost
         return 0
 
     def is_out_of_stock(self, day: Date) -> bool:

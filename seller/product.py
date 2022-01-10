@@ -1,8 +1,6 @@
 import math
 from typing import Tuple
 
-from autologging import traced, logged
-
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
@@ -11,8 +9,6 @@ from common.util import Percent, Duration, Stock, Dollar, min_max
 CHANGE_THRESHOLD = 1.02
 
 
-@traced
-@logged
 class Product(Primitive):
     def __init__(
             self, data_generator: DataGenerator, price: Dollar, cost_per_unit: Dollar,

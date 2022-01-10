@@ -28,7 +28,6 @@ class TestDataGenerator(TestCase):
         self.data_generator.remove_randomness()
         self.assertEqual(self.data_generator.random(), constants.NO_VOLATILITY)
         self.assertEqual(self.data_generator.normal_ratio(), constants.NO_VOLATILITY)
-        self.assertEqual(self.data_generator.randint(1, 1000), 1)
 
     @mock.patch('numpy.random.mtrand.normal')
     @mock.patch('numpy.random.mtrand.random')

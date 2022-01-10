@@ -1,8 +1,6 @@
 from random import randint
 from typing import Optional, List
 
-from autologging import logged, traced
-
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
@@ -11,8 +9,6 @@ from seller.batch import Batch
 from seller.inventory import Inventory
 
 
-@traced
-@logged
 class Merchant(Primitive):
     def __init__(
             self, data_generator: DataGenerator, inventories: List[Inventory],
@@ -66,19 +62,20 @@ class Merchant(Primitive):
 
     def inventory_cost(self, day: Date, current_cash: Dollar) -> Dollar:
         total_to_pay = 0.0
-        buffer = self.committed_purchase_orders(day)
-        cash_for_new_orders = max(0.0, current_cash - buffer)
+        committed = self.committed_purchase_orders(day)
+        cash_for_new_orders = max(0.0, current_cash - committed)
         for batch in self.current_batches(day):
             # TODO: allocate budget per profitable product lines
             batch_cost = batch.inventory_cost(day, cash_for_new_orders)
-            total_to_pay += batch_cost
-            cash_for_new_orders -= batch_cost
+            if batch_cost > 0:
+                total_to_pay += batch_cost
+                cash_for_new_orders -= batch.purchase_order.total_cost()
         return total_to_pay
 
     def committed_purchase_orders(self, day: Date) -> Dollar:
         # TODO: embed cashdlow forecasting into the calculation
         committed_purchase_orders = [batch.purchase_order for batch in self.current_batches(day) if
-            batch.purchase_order]
+            batch.purchase_order and day <= batch.get_manufacturing_done_date()]
         total_committed_costs = sum([po.post_manufacturing_cost for po in committed_purchase_orders])
         return total_committed_costs
 

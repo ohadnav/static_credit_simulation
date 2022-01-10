@@ -7,11 +7,13 @@ from tqdm import tqdm
 from common.util import Percent, Ratio
 
 
-def statistical_test_mean_error(max_error: float = 0.1, mean_error: float = 0.01, times: int = 100):
+def statistical_test_mean_error(
+        max_error: float = 0.1, mean_error: float = 0.01, times: int = 100, disable_tracing: bool = True):
     def decorator(test_case: Callable):
         def wrapper(test_instance: TestCase):
             logging_level = logging.getLogger().getEffectiveLevel()
-            logging.getLogger().setLevel(logging.CRITICAL)
+            if disable_tracing:
+                logging.getLogger().setLevel(logging.CRITICAL)
             errors = []
             for i in tqdm(range(times), desc=f'{test_instance._testMethodName}: '):
                 test_case(test_instance, errors)
@@ -25,11 +27,13 @@ def statistical_test_mean_error(max_error: float = 0.1, mean_error: float = 0.01
     return decorator
 
 
-def statistical_test_bool(times: int = 100, confidence: Percent = 0.8, num_lists: int = 1):
+def statistical_test_bool(
+        times: int = 100, confidence: Percent = 0.8, num_lists: int = 1, disable_tracing: bool = True):
     def decorator(test_case: Callable):
         def wrapper(test_instance: TestCase):
             logging_level = logging.getLogger().getEffectiveLevel()
-            logging.getLogger().setLevel(logging.CRITICAL)
+            if disable_tracing:
+                logging.getLogger().setLevel(logging.CRITICAL)
             is_true: List[List[Union[bool, Tuple[bool, Any]]]] = [[] for _ in range(num_lists)]
             for i in tqdm(range(times), desc=f'{test_instance._testMethodName}: '):
                 test_case(test_instance, is_true)
@@ -64,11 +68,14 @@ def statistical_test_bool(times: int = 100, confidence: Percent = 0.8, num_lists
     return decorator
 
 
-def statistical_test_frequency(times: int = 100, frequency: Percent = 0.5, margin: Ratio = 0.25, num_lists: int = 1):
+def statistical_test_frequency(
+        times: int = 100, frequency: Percent = 0.5, margin: Ratio = 0.25, num_lists: int = 1,
+        disable_tracing: bool = True):
     def decorator(test_case: Callable):
         def wrapper(test_instance: TestCase):
             logging_level = logging.getLogger().getEffectiveLevel()
-            logging.getLogger().setLevel(logging.CRITICAL)
+            if disable_tracing:
+                logging.getLogger().setLevel(logging.CRITICAL)
             is_true: List[List[Union[bool, Tuple[bool, Any]]]] = [[] for _ in range(num_lists)]
             for i in tqdm(range(times), desc=f'{test_instance._testMethodName}: '):
                 test_case(test_instance, is_true)

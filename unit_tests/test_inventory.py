@@ -45,7 +45,8 @@ class TestInventory(TestCase):
         self.assertEqual(
             self.inventory.gp_per_day(constants.START_DATE),
             self.inventory.batches[0].gp_per_day(constants.START_DATE))
-        self.inventory.batches[0].initiate_new_purchase_order(10000000)
+        self.inventory.batches[0].initiate_new_purchase_order(
+            self.inventory.batches[0].get_purchase_order_start_date(), 10000000)
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
             self.inventory.gp_per_day(next_batch_day),
@@ -55,7 +56,8 @@ class TestInventory(TestCase):
         self.assertEqual(
             self.inventory.revenue_per_day(constants.START_DATE),
             self.inventory.batches[0].revenue_per_day(constants.START_DATE))
-        self.inventory.batches[0].initiate_new_purchase_order(10000000)
+        self.inventory.batches[0].initiate_new_purchase_order(
+            self.inventory.batches[0].get_purchase_order_start_date(), 10000000)
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
             self.inventory.revenue_per_day(next_batch_day),
@@ -75,7 +77,7 @@ class TestInventory(TestCase):
 
     def test_purchase_order_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
-        batch.initiate_new_purchase_order(1000000)
+        batch.initiate_new_purchase_order(batch.get_purchase_order_start_date(), 1000000)
         velocity = 4
         batch.purchase_order.stock = 2 * velocity
         batch.last_date = 2

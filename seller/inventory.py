@@ -1,8 +1,6 @@
 import math
 from typing import Optional, List
 
-from autologging import logged, traced
-
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
@@ -11,8 +9,6 @@ from seller.batch import Batch
 from seller.product import Product
 
 
-@traced
-@logged
 class Inventory(Primitive):
     def __init__(self, data_generator: DataGenerator, product: Product, batches: List[Batch]):
         super(Inventory, self).__init__(data_generator)
@@ -34,7 +30,12 @@ class Inventory(Primitive):
         return new_inventory
 
     def __getitem__(self, day) -> Batch:
+        assert day in self, f'{day} not in {[(batch.start_date, batch.last_date) for batch in self.batches]}'
         return [batch for batch in self.batches if batch.start_date <= day <= batch.last_date][0]
+
+    def __contains__(self, day):
+        assert isinstance(day, int)
+        return len([batch for batch in self.batches if batch.start_date <= day <= batch.last_date]) > 0
 
     def annual_top_line(self, day: Date) -> Dollar:
         return self[day].inventory_turnover_ratio * self[day].stock * self.product.price

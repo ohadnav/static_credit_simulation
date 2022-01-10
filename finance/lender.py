@@ -5,10 +5,12 @@ import dacite as dacite
 import numpy as np
 from autologging import logged, traced
 
+from common.constants import LoanType
 from common.context import SimulationContext, DataGenerator
 from common.primitives import Primitive
 from common.util import Dollar, weighted_average, Percent
-from finance.loan import LoanSimulationResults, Loan
+from finance.line_of_credit import LineOfCredit, DynamicLineOfCredit
+from finance.loan import LoanSimulationResults, Loan, FlatFeeRBF, NoCapitalLoan
 from seller.merchant import Merchant
 
 
@@ -22,6 +24,15 @@ class AggregatedLoanSimulationResults:
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
+
+
+LOAN_TYPES_MAPPING = {
+    LoanType.FLAT_FEE: FlatFeeRBF,
+    LoanType.DYNAMIC_LINE_OF_CREDIT: DynamicLineOfCredit,
+    LoanType.LINE_OF_CREDIT: LineOfCredit,
+    LoanType.NO_CAPITAL: NoCapitalLoan,
+    LoanType.DEFAULT: Loan,
+}
 
 
 class LenderSimulationResults:
@@ -58,7 +69,7 @@ class Lender(Primitive):
 
     def loan_from_merchant(self, merchant: Merchant) -> Loan:
 
-        return globals()[self.context.loan_type.value](self.context, self.data_generator, merchant)
+        return LOAN_TYPES_MAPPING[self.context.loan_type](self.context, self.data_generator, merchant)
 
     @staticmethod
     def aggregate_results(loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
