@@ -1,22 +1,22 @@
 from dataclasses import is_dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Tuple
 
 from common.context import DataGenerator
 
 NEXT_ID = {}
 
 
-def generate_id(obj) -> str:
+def generate_id(obj) -> Tuple[str, int]:
     class_name = obj.__class__.__name__
     id_count = NEXT_ID[class_name] if class_name in NEXT_ID else 1
     NEXT_ID[class_name] = id_count + 1
-    return f'{class_name}_{id_count}'
+    return f'{class_name}_{id_count}', id_count
 
 
 class Primitive:
     def __init__(self, data_generator: DataGenerator):
-        self.id = generate_id(self)
+        self.id, self.int_id = generate_id(self)
         self.data_generator = data_generator
 
     def str_type_encoder(self, value: Any) -> str:

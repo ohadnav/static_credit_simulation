@@ -21,6 +21,28 @@ class TestLineOfCredit(BaseTestCase):
         self.line_of_credit = LineOfCredit(self.context, self.data_generator, self.merchant)
         self.line_of_credit.underwriting.approved = MagicMock(return_value=True)
 
+    def test_apr_non_concurrent_loan(self):
+        self.line_of_credit.approved_amount = MagicMock(return_value=10)
+        self.line_of_credit.credit_needed = MagicMock(return_value=5)
+        self.line_of_credit.update_credit()
+        self.assertAlmostEqual(self.line_of_credit.debt_to_loan_amount(self.line_of_credit.outstanding_debt), 5)
+        self.assertAlmostEqual(
+            self.line_of_credit.average_apr(), self.line_of_credit.calculate_apr(self.context.loan_duration))
+
+    def test_apr_concurrent_loan(self):
+        self.line_of_credit.approved_amount = MagicMock(return_value=3)
+        self.line_of_credit.credit_needed = MagicMock(return_value=2)
+        self.line_of_credit.update_credit()
+        self.assertAlmostEqual(self.line_of_credit.debt_to_loan_amount(self.line_of_credit.outstanding_debt), 5)
+        duration = self.context.loan_duration / 2
+        self.line_of_credit.today += duration
+        self.line_of_credit.credit_needed = MagicMock(return_value=1)
+        self.line_of_credit.update_credit()
+        self.assertAlmostEqual(self.line_of_credit.debt_to_loan_amount(self.line_of_credit.outstanding_debt), 10)
+        self.assertAlmostEqual(
+            self.line_of_credit.average_apr(),
+            (self.line_of_credit.calculate_apr(duration) + 2 * self.line_of_credit.calculate_apr(duration * 2)) / 3)
+
     def test_remaining_credit(self):
         self.assertEqual(self.line_of_credit.remaining_credit(), self.line_of_credit.loan_amount())
         self.line_of_credit.add_debt(1)

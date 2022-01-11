@@ -90,12 +90,12 @@ class SimulationContext:
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
     delayed_loan_repayment_increase = constants.DELAYED_LOAN_REPAYMENT_INCREASE
+    repayment_factor = constants.REPAYMENT_FACTOR
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL
-    expected_apr = constants.EXPECTED_APR
     merchant_cost_of_acquisition = constants.MERCHANT_COST_OF_ACQUISITION
-    revenue_collateralization = False
+    revenue_collateralization = True
     duration_based_default = False
     risk_context = RiskContext()
     expected_loans_per_year = constants.EXPECTED_LOANS_PER_YEAR

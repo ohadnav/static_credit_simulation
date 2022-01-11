@@ -13,7 +13,7 @@ from tests.util_test import StatisticalTestCase
 OUT_DIR = '../out/'
 
 
-class TestStatisticalFinance(StatisticalTestCase):
+class TestStatisticalLoan(StatisticalTestCase):
     def test_big_merchants_loans_profitable(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
             is_true = []
@@ -61,7 +61,7 @@ class TestStatisticalFinance(StatisticalTestCase):
             merchant = Merchant.generate_simulated(data_generator)
             loan = Loan(context, data_generator, merchant)
             loan.simulate()
-            is_true.append((loan.total_debt > 0, loan))
+            is_true.append((loan.total_credit > 0, loan))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.2)
@@ -88,7 +88,7 @@ class TestStatisticalFinance(StatisticalTestCase):
             is_true = []
             loan = Loan(context, data_generator, merchant)
             loan.simulate()
-            is_true.append((loan.total_debt > 0, loan))
+            is_true.append((loan.total_credit > 0, loan))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.3)
@@ -105,8 +105,8 @@ class TestStatisticalFinance(StatisticalTestCase):
             loan2 = Loan(context2, data_generator, deepcopy(merchant))
             loan.simulate()
             loan2.simulate()
-            only1 = loan.total_debt > 0 and loan2.total_debt == 0
-            only2 = loan.total_debt == 0 and loan2.total_debt > 0
+            only1 = loan.total_credit > 0 and loan2.total_credit == 0
+            only2 = loan.total_credit == 0 and loan2.total_credit > 0
             is_true.append((not only1, merchant))
             is_true.append((not only2, merchant))
             return is_true

@@ -129,13 +129,13 @@ class Lender(Primitive):
         self.underwriting_correlation()
 
     def portfolio_loan_simulation_results(self) -> List[LoanSimulationResults]:
-        return [loan.simulation_results for loan in self.loans.values() if loan.total_debt > 0]
+        return [loan.simulation_results for loan in self.loans.values() if loan.total_credit > 0]
 
     def portfolio_loans(self) -> List[Loan]:
-        return [loan for loan in self.loans.values() if loan.total_debt > 0]
+        return [loan for loan in self.loans.values() if loan.total_credit > 0]
 
     def simulate(self):
-        simulated_loans = TqdmParallel(desc=f'{self.id}', total=len(self.merchants))(
+        simulated_loans = TqdmParallel(desc=f'{self.id}({self.context.loan_type.value})', total=len(self.merchants))(
             delayed(self.simulate_merchant)(merchant) for merchant in self.merchants)
         for loan in simulated_loans:
             self.loans[loan.merchant] = loan
