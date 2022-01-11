@@ -1,32 +1,18 @@
-import logging
-import sys
 from random import randint
-from unittest import TestCase
 from unittest.mock import MagicMock
 
-from autologging import TRACE, traced, logged
+from autologging import traced, logged
 
 from common import constants
-from common.context import DataGenerator
 from seller.batch import Batch, PurchaseOrder
+from tests.util_test import BaseTestCase
 
 
 @traced
 @logged
-class TestBatch(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestBatch(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
+        super(TestBatch, self).setUp()
         self.batch: Batch = Batch.generate_simulated(self.data_generator)
 
     def test_generate_simulated(self):

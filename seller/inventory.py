@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from typing import Optional, List
 
@@ -16,9 +18,7 @@ class Inventory(Primitive):
         self.batches = batches
 
     @classmethod
-    def generate_simulated(
-            cls, data_generator: DataGenerator,
-            product: Optional[Product] = None):
+    def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None) -> Inventory:
         product = product or Product.generate_simulated(data_generator)
         batches = [Batch.generate_simulated(data_generator, product)]
         start_date = batches[0].start_date

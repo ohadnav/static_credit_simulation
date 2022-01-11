@@ -1,31 +1,15 @@
-import logging
 import math
-import sys
 from random import uniform
-from unittest import TestCase
+from time import time, sleep
 
-from autologging import traced, logged, TRACE
+from joblib import delayed
 
 from common import constants
-from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr
+from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel
+from tests.util_test import BaseTestCase
 
 
-@traced
-@logged
-class TestUtil(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
-    def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-
+class TestUtil(BaseTestCase):
     def test_calculate_cagr(self):
         self.assertAlmostEqual(calculate_cagr(0, 2, constants.YEAR), 1)
         self.assertAlmostEqual(calculate_cagr(1, 0, constants.YEAR), -1)
@@ -52,3 +36,18 @@ class TestUtil(TestCase):
         self.assertAlmostEqual(inverse_cagr(cagr, constants.YEAR / 2), math.pow(1 + cagr, 0.5) - 1)
         self.assertAlmostEqual(inverse_cagr(0, constants.YEAR), -1)
         self.assertAlmostEqual(inverse_cagr(-1, constants.YEAR), -1)
+
+    def test_parallel(self):
+        def sleep_func(i):
+            sleep(0.2)
+            return i
+
+        times = 5
+        start_time = time()
+        [sleep_func(i) for i in range(times)]
+        unparallel_time = time() - start_time
+        start_time2 = time()
+        result = TqdmParallel(use_tqdm=False)(delayed(sleep_func)(i) for i in range(times))
+        parallel_time = time() - start_time2
+        self.assertLess(parallel_time, unparallel_time)
+        self.assertListEqual(result, [0, 1, 2, 3, 4])

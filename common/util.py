@@ -1,5 +1,9 @@
 import math
+import multiprocessing
 from typing import Union, List, Optional
+
+from joblib import Parallel
+from tqdm.auto import tqdm
 
 from common import constants
 
@@ -41,3 +45,21 @@ def weighted_average(values: List[float], weights: List[float]):
     if total_weights == 0:
         return 0
     return weighted_values / total_weights
+
+
+class TqdmParallel(Parallel):
+    def __init__(self, use_tqdm=True, total: int = None, desc: str = '', *args, **kwargs):
+        self._use_tqdm = use_tqdm
+        self._total = total
+        self.desc = desc
+        super().__init__(n_jobs=multiprocessing.cpu_count(), *args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        with tqdm(disable=not self._use_tqdm, total=self._total, desc=self.desc) as self._pbar:
+            return Parallel.__call__(self, *args, **kwargs)
+
+    def print_progress(self):
+        if self._total is None:
+            self._pbar.total = self.n_dispatched_tasks
+        self._pbar.n = self.n_completed_tasks
+        self._pbar.refresh()

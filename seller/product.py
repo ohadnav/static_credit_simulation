@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from typing import Tuple
 
@@ -21,7 +23,7 @@ class Product(Primitive):
         self.cogs_margin = cogs_margin
 
     @classmethod
-    def generate_simulated(cls, data_generator: DataGenerator):
+    def generate_simulated(cls, data_generator: DataGenerator) -> Product:
         price = data_generator.median_price * data_generator.normal_ratio(data_generator.price_std)
         cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(data_generator.cogs_margin_std)
         cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)

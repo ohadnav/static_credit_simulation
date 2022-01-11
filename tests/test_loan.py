@@ -4,37 +4,23 @@ import sys
 from copy import deepcopy
 from dataclasses import fields
 from random import uniform, randint
-from unittest import TestCase
 from unittest.mock import MagicMock
 
-from autologging import traced, logged, TRACE
+from autologging import TRACE
 
 from common import constants
 from common.context import DataGenerator, SimulationContext
 from common.util import inverse_cagr
 from finance.loan import Loan, LoanSimulationResults, NoCapitalLoan
 from seller.merchant import Merchant
+from tests.util_test import BaseTestCase
 
 
-@traced
-@logged
-class TestLoan(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestLoan(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
-        self.context = SimulationContext()
-        self.data_generator.max_num_products = 2
-        self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
+        super(TestLoan, self).setUp()
+        self.data_generator.max_num_products = 4
+        self.data_generator.num_products = 2
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.loan = Loan(self.context, self.data_generator, self.merchant)
 
@@ -68,6 +54,8 @@ class TestLoan(TestCase):
     def test_add_debt_0_amount(self):
         with self.assertRaises(AssertionError):
             self.loan.add_debt(0)
+        with self.assertRaises(AssertionError):
+            self.loan.add_debt(-1)
 
     def test_add_debt(self):
         prev_cash = self.loan.current_cash
@@ -81,11 +69,13 @@ class TestLoan(TestCase):
         self.assertEqual(self.loan.total_duration_in_debt, 1)
         self.assertAlmostEqual(self.loan.current_loan_amount, amount1)
         self.loan.outstanding_debt = 0
+        self.loan.today += 1
         self.loan.add_debt(amount2)
         self.assertAlmostEqual(self.loan.outstanding_debt, amount2 * (1 + self.loan.interest))
         self.assertAlmostEqual(self.loan.total_debt, (amount1 + amount2) * (1 + self.loan.interest))
         self.assertEqual(self.loan.current_loan_start_date, self.loan.today)
-        self.assertAlmostEqual(self.loan.current_loan_amount, amount1 + amount2)
+        self.assertAlmostEqual(self.loan.current_loan_amount, amount2)
+        self.assertEqual(self.loan.current_loan_start_date, self.loan.today)
 
     def test_max_debt(self):
         self.assertGreater(self.loan.max_debt(), self.loan.loan_amount())
@@ -271,11 +261,12 @@ class TestLoan(TestCase):
         self.loan.net_cashflow_cagr = MagicMock(return_value=3)
         self.loan.valuation_cagr = MagicMock(return_value=4)
         self.loan.lender_profit = MagicMock(return_value=5)
-        self.loan.debt_to_valuation = MagicMock(return_value=6)
-        self.loan.average_apr = MagicMock(return_value=7)
-        self.loan.calculate_bankruptcy_rate = MagicMock(return_value=8)
+        self.loan.debt_to_loan_amount = MagicMock(return_value=6)
+        self.loan.debt_to_valuation = MagicMock(return_value=7)
+        self.loan.average_apr = MagicMock(return_value=8)
+        self.loan.calculate_bankruptcy_rate = MagicMock(return_value=9)
         self.loan.calculate_results()
-        self.assertEqual(self.loan.simulation_results, LoanSimulationResults(0, 1, 2, 3, 4, 5, 6, 7, 8))
+        self.assertEqual(self.loan.simulation_results, LoanSimulationResults(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
 
     def test_calculate_bankruptcy_rate(self):
         self.loan.bankruptcy_date = None
@@ -412,7 +403,7 @@ class TestLoan(TestCase):
         self.assertEqual(self.loan.average_apr(), 0.2)
 
 
-class TestNoCapitalLoan(TestCase):
+class TestNoCapitalLoan(BaseTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         logging.basicConfig(

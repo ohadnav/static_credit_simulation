@@ -1,6 +1,5 @@
 import logging
 import sys
-from unittest import TestCase
 from unittest.mock import MagicMock
 
 from autologging import TRACE, logged, traced
@@ -10,25 +9,14 @@ from common.constants import LoanType
 from common.context import SimulationContext, DataGenerator
 from finance.line_of_credit import DynamicLineOfCredit, LineOfCredit
 from seller.merchant import Merchant
+from tests.util_test import BaseTestCase
 
 
 @traced
 @logged
-class TestLineOfCredit(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestLineOfCredit(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
-        self.context = SimulationContext(loan_type=LoanType.LINE_OF_CREDIT)
+        super(TestLineOfCredit, self).setUp()
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.line_of_credit = LineOfCredit(self.context, self.data_generator, self.merchant)
         self.line_of_credit.underwriting.approved = MagicMock(return_value=True)
@@ -53,7 +41,7 @@ class TestLineOfCredit(TestCase):
 
 @traced
 @logged
-class TestDynamicLineOfCredit(TestCase):
+class TestDynamicLineOfCredit(BaseTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         logging.basicConfig(

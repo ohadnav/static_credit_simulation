@@ -1,29 +1,11 @@
-import logging
-import sys
-from unittest import TestCase, mock
+from unittest import mock
 from unittest.mock import MagicMock
 
-from autologging import TRACE
-
 from common import constants
-from common.context import DataGenerator
+from tests.util_test import BaseTestCase
 
 
-class TestDataGenerator(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
-    def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
-
+class TestDataGenerator(BaseTestCase):
     def test_remove_randomness(self):
         self.data_generator.remove_randomness()
         self.assertEqual(self.data_generator.random(), constants.NO_VOLATILITY)

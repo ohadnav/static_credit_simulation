@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 from typing import Optional
@@ -38,7 +40,7 @@ class Batch(Primitive):
         self.roas = roas
         self.organic_rate = organic_rate
         self.purchase_order: Optional[PurchaseOrder] = None
-        self.next_batch: Optional['Batch'] = None
+        self.next_batch: Optional[Batch] = None
 
     @staticmethod
     def calculate_duration(inventory_turnover_ratio: Ratio) -> Duration:
@@ -47,7 +49,7 @@ class Batch(Primitive):
     @classmethod
     def generate_simulated(
             cls, data_generator: DataGenerator, product: Optional[Product] = None,
-            previous: Optional['Batch'] = None):
+            previous: Optional[Batch] = None) -> Batch:
         product = Batch.generate_product(data_generator, product, previous)
         shipping_duration = Batch.generate_shipping_duration(data_generator, product)
         lead_time = shipping_duration + product.manufacturing_duration
@@ -65,14 +67,14 @@ class Batch(Primitive):
         return new_batch
 
     @classmethod
-    def generate_product(cls, data_generator: DataGenerator, product: Product, previous: Optional['Batch']):
+    def generate_product(cls, data_generator: DataGenerator, product: Product, previous: Optional[Batch]):
         assert product is None or previous is None or product == previous.product
         if previous:
             product = previous.product
         return product or Product.generate_simulated(data_generator)
 
     @classmethod
-    def generate_organic_rate(cls, data_generator: DataGenerator, previous: Optional['Batch'], roas: Ratio) -> Percent:
+    def generate_organic_rate(cls, data_generator: DataGenerator, previous: Optional[Batch], roas: Ratio) -> Percent:
         organic_rate = previous.organic_rate if previous else data_generator.organic_rate_median
         organic_rate *= data_generator.normal_ratio(data_generator.organic_rate_std)
         if roas < data_generator.roas_median:
@@ -81,14 +83,14 @@ class Batch(Primitive):
         return organic_rate
 
     @classmethod
-    def generate_roas(cls, data_generator: DataGenerator, previous: Optional['Batch']) -> Ratio:
+    def generate_roas(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Ratio:
         roas = previous.roas if previous else data_generator.roas_median
         roas *= data_generator.normal_ratio(data_generator.roas_std)
         roas = min_max(roas, constants.MIN_ROAS, constants.MAX_ROAS)
         return roas
 
     @classmethod
-    def generate_out_of_stock_rate(cls, data_generator: DataGenerator, previous: Optional['Batch']) -> Percent:
+    def generate_out_of_stock_rate(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Percent:
         out_of_stock_rate = previous.out_of_stock_rate if previous else data_generator.out_of_stock_rate_median
         out_of_stock_rate *= data_generator.normal_ratio(
             data_generator.out_of_stock_rate_std, chance_positive=0.2)
@@ -98,7 +100,7 @@ class Batch(Primitive):
     @classmethod
     def generate_initial_stock(
             cls, data_generator: DataGenerator, lead_time: Duration, product: Product,
-            previous: Optional['Batch']) -> Stock:
+            previous: Optional[Batch]) -> Stock:
         return 0 if previous else Stock(
             max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
                 data_generator.initial_stock_std, chance_positive=1))
@@ -106,7 +108,7 @@ class Batch(Primitive):
     @classmethod
     def generate_inventory_turnover_ratio(
             cls, data_generator: DataGenerator, lead_time: Duration,
-            previous: Optional['Batch']) -> Ratio:
+            previous: Optional[Batch]) -> Ratio:
         inventory_turnover_ratio = previous.inventory_turnover_ratio if previous else \
             data_generator.inventory_turnover_ratio_median
         inventory_turnover_ratio *= data_generator.normal_ratio(data_generator.inventory_turnover_ratio_std)

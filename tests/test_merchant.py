@@ -1,32 +1,18 @@
-import logging
-import sys
-from unittest import TestCase
 from unittest.mock import MagicMock
 
-from autologging import TRACE
-
 from common import constants
-from common.context import DataGenerator
-from seller.batch import PurchaseOrder
+from seller.batch import PurchaseOrder, Batch
+from seller.inventory import Inventory
 from seller.merchant import Merchant
+from seller.product import Product
+from tests.util_test import BaseTestCase
 
 
-class TestMerchant(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestMerchant(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
-        self.data_generator.max_num_products = 10
-        self.data_generator.num_products = min(self.data_generator.num_products, self.data_generator.max_num_products)
+        super(TestMerchant, self).setUp()
+        self.data_generator.max_num_products = 4
+        self.data_generator.num_products = 2
         self.merchant = Merchant.generate_simulated(self.data_generator)
 
     def test_generate_simulated(self):
@@ -79,7 +65,6 @@ class TestMerchant(TestCase):
         self.assertEqual(self.merchant.max_cash_needed(constants.START_DATE), len(self.merchant.inventories))
 
     def test_inventory_cost(self):
-        self.data_generator.remove_randomness()
         day = constants.START_DATE
         for day in range(constants.START_DATE, self.data_generator.simulated_duration):
             if max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
@@ -88,6 +73,21 @@ class TestMerchant(TestCase):
         max_spend = self.merchant.inventory_cost(day, cash)
         self.merchant.committed_purchase_orders = MagicMock(return_value=1)
         self.assertLess(self.merchant.inventory_cost(day, cash), max_spend)
+
+    def test_inventory_cost_multiple_PO_same_date(self):
+        product = Product.generate_simulated(self.data_generator)
+        batch1 = Batch.generate_simulated(self.data_generator, product)
+        batch2 = Batch.generate_simulated(self.data_generator, product)
+        batch1.get_purchase_order_start_date = MagicMock(return_value=constants.START_DATE)
+        batch2.get_purchase_order_start_date = MagicMock(return_value=constants.START_DATE)
+        max_cost = batch1.max_cash_needed(constants.START_DATE) + batch2.max_cash_needed(constants.START_DATE)
+        upfront_max_cost = batch1.max_purchase_order().upfront_cost + batch2.max_purchase_order().upfront_cost
+        single_max_cost = max(
+            batch1.max_cash_needed(constants.START_DATE), batch2.max_cash_needed(constants.START_DATE))
+        inventories = [Inventory(self.data_generator, product, [batch1]),
+            Inventory(self.data_generator, product, [batch2])]
+        self.merchant = Merchant(self.data_generator, inventories, None)
+        self.assertLess(self.merchant.inventory_cost(constants.START_DATE, single_max_cost), upfront_max_cost)
 
     def test_committed_purchase_orders(self):
         day = constants.START_DATE
@@ -107,7 +107,7 @@ class TestMerchant(TestCase):
         for inventory in self.merchant.inventories:
             inventory[constants.START_DATE].has_future_revenue = MagicMock(return_value=False)
         self.assertFalse(self.merchant.has_future_revenue(constants.START_DATE))
-        self.merchant.inventories[-1][constants.START_DATE].has_future_revenue.return_value = True
+        self.merchant.inventories[-1][constants.START_DATE].has_future_revenue = MagicMock(return_value=True)
         self.assertTrue(self.merchant.has_future_revenue(constants.START_DATE))
 
     def test_valuation(self):
@@ -125,7 +125,7 @@ class TestMerchant(TestCase):
             inventory[constants.START_DATE].organic_rate = 0.2
             inventory.annual_top_line = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.organic_rate(constants.START_DATE), 0.2)
-        self.merchant.inventories[0].annual_top_line.return_value = 10
+        self.merchant.inventories[0].annual_top_line = MagicMock(return_value=10)
         self.merchant.inventories[0][constants.START_DATE].organic_rate = 0.5
         self.assertGreater(self.merchant.organic_rate(constants.START_DATE), 0.2)
 
@@ -134,7 +134,7 @@ class TestMerchant(TestCase):
             inventory[constants.START_DATE].out_of_stock_rate = 0.2
             inventory.annual_top_line = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.out_of_stock_rate(constants.START_DATE), 0.2)
-        self.merchant.inventories[0].annual_top_line.return_value = 10
+        self.merchant.inventories[0].annual_top_line = MagicMock(return_value=10)
         self.merchant.inventories[0][constants.START_DATE].out_of_stock_rate = 0.5
         self.assertGreater(self.merchant.out_of_stock_rate(constants.START_DATE), 0.2)
 
@@ -143,8 +143,8 @@ class TestMerchant(TestCase):
             inventory[constants.START_DATE].profit_margin = MagicMock(return_value=0.1)
             inventory.annual_top_line = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.profit_margin(constants.START_DATE), 0.1)
-        self.merchant.inventories[0].annual_top_line.return_value = 10
-        self.merchant.inventories[0][constants.START_DATE].profit_margin.return_value = 0.2
+        self.merchant.inventories[0].annual_top_line = MagicMock(return_value=10)
+        self.merchant.inventories[0][constants.START_DATE].profit_margin = MagicMock(return_value=0.2)
         self.assertGreater(self.merchant.profit_margin(constants.START_DATE), 0.1)
 
     def test_inventory_turnover_ratio(self):
@@ -152,7 +152,7 @@ class TestMerchant(TestCase):
             inventory[constants.START_DATE].inventory_turnover_ratio = 3
             inventory.annual_top_line = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.inventory_turnover_ratio(constants.START_DATE), 3)
-        self.merchant.inventories[0].annual_top_line.return_value = 10
+        self.merchant.inventories[0].annual_top_line = MagicMock(return_value=10)
         self.merchant.inventories[0][constants.START_DATE].inventory_turnover_ratio = 6
         self.assertGreater(self.merchant.inventory_turnover_ratio(constants.START_DATE), 3)
 
@@ -161,6 +161,6 @@ class TestMerchant(TestCase):
             inventory[constants.START_DATE].roas = 2.2
             inventory.annual_top_line = MagicMock(return_value=1)
         self.assertAlmostEqual(self.merchant.roas(constants.START_DATE), 2.2)
-        self.merchant.inventories[0].annual_top_line.return_value = 10
+        self.merchant.inventories[0].annual_top_line = MagicMock(return_value=10)
         self.merchant.inventories[0][constants.START_DATE].roas = 3.5
         self.assertGreater(self.merchant.roas(constants.START_DATE), 2.2)

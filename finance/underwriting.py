@@ -12,6 +12,7 @@ class Underwriting:
         self.merchant = merchant
         self.risk_context = deepcopy(self.context.risk_context)
         self.update_score(constants.START_DATE)
+        self.initial_risk_context = deepcopy(self.risk_context)
 
     def update_score(self, day: Date):
         for predictor, risk_configuration in vars(self.risk_context).items():

@@ -10,7 +10,7 @@ from finance.underwriting import Underwriting
 from seller.merchant import Merchant
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class LoanSimulationResults:
     valuation: Dollar
     revenues_cagr: Percent
@@ -18,6 +18,7 @@ class LoanSimulationResults:
     net_cashflow_cagr: Percent
     valuation_cagr: Percent
     lender_profit: Dollar
+    total_credit: Dollar
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
@@ -69,9 +70,9 @@ class Loan(Primitive):
     def add_debt(self, amount: Dollar):
         assert amount > 0
         if self.outstanding_debt == 0:
-            self.current_loan_start_date = self.today
             self.total_duration_in_debt += 1
-        self.current_loan_amount = amount if self.current_loan_amount is None else self.current_loan_amount + amount
+        self.current_loan_start_date = self.today
+        self.current_loan_amount = amount
         self.current_cash += amount
         self.cash_history[self.today] = self.current_cash
         new_debt = amount * (1 + self.interest)
@@ -165,7 +166,6 @@ class Loan(Primitive):
         self.current_loan_start_date = None
 
     def current_loan_apr(self) -> Percent:
-        # TODO: calculate per actual interest payments
         apr = math.pow(1 + self.interest, constants.YEAR / self.current_loan_duration()) - 1
         return apr
 
@@ -176,7 +176,8 @@ class Loan(Primitive):
         self.simulation_results = LoanSimulationResults(
             self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.inventory_cagr(),
             self.net_cashflow_cagr(), self.valuation_cagr(),
-            self.lender_profit(), self.debt_to_valuation(), self.average_apr(), self.calculate_bankruptcy_rate())
+            self.lender_profit(), self.debt_to_loan_amount(self.total_debt), self.debt_to_valuation(),
+            self.average_apr(), self.calculate_bankruptcy_rate())
 
     def calculate_bankruptcy_rate(self) -> Percent:
         if self.bankruptcy_date is None:
@@ -269,7 +270,7 @@ class Loan(Primitive):
         return repaid
 
     def cost_of_capital(self) -> Dollar:
-        # TODO: calculate per actual interest payments
+        # TODO: calculate cost of capital and APR per each daily outstanding debt
         coc = self.debt_to_loan_amount(self.total_debt) * inverse_cagr(
             self.context.cost_of_capital, self.total_duration_in_debt)
         return coc
@@ -281,9 +282,7 @@ class Loan(Primitive):
     def average_apr(self) -> Percent:
         if self.outstanding_debt > 0:
             self.close_loan()
-        aprs = self.apr_history
-        loan_amounts = self.amount_history
-        apr = weighted_average(aprs, loan_amounts)
+        apr = weighted_average(self.apr_history, self.amount_history)
         return apr
 
 

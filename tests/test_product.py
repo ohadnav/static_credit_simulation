@@ -1,32 +1,14 @@
-import logging
-import sys
-from unittest import TestCase
 from unittest.mock import MagicMock
 
-from autologging import TRACE, traced, logged
-
 from common import constants
-from common.context import DataGenerator
 from common.util import Dollar
 from seller.product import Product
+from tests.util_test import BaseTestCase
 
 
-@traced
-@logged
-class TestProduct(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestProduct(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
+        super(TestProduct, self).setUp()
         self.product = Product.generate_simulated(self.data_generator)
 
     def test_generate_simulated(self):

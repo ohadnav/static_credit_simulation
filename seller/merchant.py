@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from random import randint
 from typing import Optional, List
 
@@ -18,7 +20,8 @@ class Merchant(Primitive):
         self.suspension_start_date: Optional[Date] = suspension_start_date
 
     @classmethod
-    def generate_simulated(cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None):
+    def generate_simulated(
+            cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None) -> Merchant:
         num_products = round(data_generator.num_products * data_generator.normal_ratio())
         num_products = min_max(num_products, 1, data_generator.max_num_products)
         inventories = inventories or [Inventory.generate_simulated(data_generator) for _ in range(num_products)]

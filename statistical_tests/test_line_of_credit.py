@@ -1,109 +1,74 @@
-import logging
-import sys
 from copy import deepcopy
-from typing import List, Tuple, Any
-from unittest import TestCase
 
 from common.constants import LoanType
 from common.context import SimulationContext, DataGenerator
 from finance.lender import Lender
-from finance.line_of_credit import DynamicLineOfCredit, LineOfCredit
-from finance.loan import Loan
-from seller.merchant import Merchant
+from simulation.merchant_factory import MerchantFactory, MerchantCondition
 from statistical_tests.statistical_test import statistical_test_bool
+from tests.util_test import StatisticalTestCase
 
 
-class TestStatisticalFinance(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=logging.INFO if sys.gettrace() else logging.WARNING, stream=sys.stderr)
+class TestStatisticalFinance(StatisticalTestCase):
+    def test_line_of_credit_more_efficient(self):
+        def test_iteration(
+                data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
+            is_true = []
+            merchant_and_results = factory.generate_merchants(
+                factory.generate_diff_validator(
+                    [
+                        MerchantCondition(loan_type=LoanType.DEFAULT),
+                        MerchantCondition(loan_type=LoanType.LINE_OF_CREDIT)]), num_merchants=1)
+            lsr = merchant_and_results[0][1]
+            regular_loan = lsr[0]
+            line_of_credit = lsr[1]
+            is_true.append(
+                (regular_loan.valuation_cagr < line_of_credit.valuation_cagr,
+                (round(regular_loan.valuation_cagr - line_of_credit.valuation_cagr, 2), lsr)))
+            is_true.append(
+                (regular_loan.total_credit < line_of_credit.total_credit,
+                (round(regular_loan.total_credit - line_of_credit.total_credit, 2), lsr)))
+            is_true.append(
+                (regular_loan.apr < line_of_credit.apr, (round(regular_loan.apr - line_of_credit.apr, 2), lsr)))
+            is_true.append(
+                (regular_loan.lender_profit < line_of_credit.lender_profit,
+                (round(regular_loan.lender_profit - line_of_credit.lender_profit, 2), lsr)))
+            return is_true
 
-    def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
-        self.context = SimulationContext()
+        statistical_test_bool(self, test_iteration, min_frequency=0.6)
 
-    @statistical_test_bool(confidence=0.6, num_lists=4)
-    def test_line_of_credit_more_efficient(self, is_true: List[List[Tuple[bool, Any]]]):
-        line_of_credit = None
-        regular_loan = None
-        diff = False
-        while not diff:
-            merchant = Merchant.generate_simulated(self.data_generator)
-            regular_loan = Loan(self.context, self.data_generator, deepcopy(merchant))
-            line_of_credit = LineOfCredit(self.context, self.data_generator, merchant)
-            line_of_credit.simulate()
-            if line_of_credit.total_debt > 0:
-                regular_loan.simulate()
-                diff = line_of_credit.simulation_results != regular_loan.simulation_results
-        is_true[0].append(
-            (
-                line_of_credit.simulation_results.valuation_cagr >
-                regular_loan.simulation_results.valuation_cagr,
-                (round(
-                    line_of_credit.simulation_results.valuation_cagr -
-                    regular_loan.simulation_results.valuation_cagr,
-                    2), line_of_credit, regular_loan)))
-        is_true[1].append(
-            (
-                line_of_credit.total_debt > regular_loan.total_debt,
-                (round(
-                    line_of_credit.total_debt - regular_loan.total_debt,
-                    2), line_of_credit, regular_loan)))
-        is_true[2].append(
-            (
-                line_of_credit.average_apr() < regular_loan.average_apr(),
-                (round(
-                    line_of_credit.average_apr() - regular_loan.average_apr(),
-                    2), line_of_credit, regular_loan)))
-        is_true[3].append(
-            (
-                line_of_credit.simulation_results.lender_profit > regular_loan.simulation_results.lender_profit,
-                (round(
-                    line_of_credit.simulation_results.lender_profit - regular_loan.simulation_results.lender_profit,
-                    2), line_of_credit, regular_loan)))
-
-    @statistical_test_bool(confidence=0.6, num_lists=5, times=10)
-    def test_dynamic_line_of_credit_superior(self, is_true: List[List[Tuple[bool, Any]]]):
+    def test_dynamic_line_of_credit_superior(self):
         dynamic_context = SimulationContext(LoanType.DYNAMIC_LINE_OF_CREDIT)
-        dynamic_context.merchant_cost_of_acquisition = 0
         regular_context = SimulationContext(LoanType.FLAT_FEE)
-        regular_context.merchant_cost_of_acquisition = 0
-        merchants = []
-        num_merchants = 20
-        while len(merchants) < num_merchants:
-            merchant = Merchant.generate_simulated(self.data_generator)
-            regular_loan = Loan(self.context, self.data_generator, deepcopy(merchant))
-            dloc = DynamicLineOfCredit(self.context, self.data_generator, merchant)
-            dloc.simulate()
-            regular_loan.simulate()
-            diff = dloc.simulation_results != regular_loan.simulation_results
-            if dloc.total_debt > 0:
-                if diff:
-                    merchants.append(merchant)
+        merchants_and_results = self.factory.generate_merchants(
+            self.factory.generate_diff_validator(
+                [MerchantCondition(loan_type=LoanType.DEFAULT),
+                    MerchantCondition(loan_type=LoanType.DYNAMIC_LINE_OF_CREDIT)]))
+        merchants = [mnr[0] for mnr in merchants_and_results]
         regular_lender = Lender(regular_context, self.data_generator, merchants)
         dynamic_lender = Lender(dynamic_context, self.data_generator, deepcopy(merchants))
         regular_lender.simulate()
         dynamic_lender.simulate()
+        print(regular_lender.simulation_results)
+        print(dynamic_lender.simulation_results)
         self.assertNotEqual(regular_lender.simulation_results, dynamic_lender.simulation_results)
-        is_true[0].append(
-            (regular_lender.simulation_results.lender_gross_profit <
-             dynamic_lender.simulation_results.lender_gross_profit, (regular_lender, dynamic_lender)))
-        is_true[1].append(
-            (regular_lender.simulation_results.portfolio_merchants.valuation_cagr <
-             dynamic_lender.simulation_results.portfolio_merchants.valuation_cagr, (regular_lender, dynamic_lender)))
-        is_true[2].append(
-            (regular_lender.simulation_results.portfolio_merchants.bankruptcy_rate >
-             dynamic_lender.simulation_results.portfolio_merchants.bankruptcy_rate, (regular_lender, dynamic_lender)))
-        is_true[3].append(
-            (regular_lender.simulation_results.portfolio_merchants.net_cashflow_cagr <
-             dynamic_lender.simulation_results.portfolio_merchants.net_cashflow_cagr, (regular_lender, dynamic_lender)))
-        is_true[4].append(
-            (regular_lender.simulation_results.portfolio_merchants.revenues_cagr <
-             dynamic_lender.simulation_results.portfolio_merchants.revenues_cagr, (regular_lender, dynamic_lender)))
+        self.assertLess(
+            regular_lender.simulation_results.lender_profit,
+            dynamic_lender.simulation_results.lender_profit)
+        self.assertLess(
+            regular_lender.simulation_results.portfolio_merchants.valuation_cagr,
+            dynamic_lender.simulation_results.portfolio_merchants.valuation_cagr)
+        self.assertLess(
+            regular_lender.simulation_results.portfolio_merchants.net_cashflow_cagr,
+            dynamic_lender.simulation_results.portfolio_merchants.net_cashflow_cagr)
+        self.assertLess(
+            regular_lender.simulation_results.portfolio_merchants.revenues_cagr,
+            dynamic_lender.simulation_results.portfolio_merchants.revenues_cagr)
+        self.assertLess(
+            regular_lender.simulation_results.portfolio_merchants.apr,
+            dynamic_lender.simulation_results.portfolio_merchants.apr)
+        self.assertLess(
+            regular_lender.simulation_results.portfolio_merchants.total_credit,
+            dynamic_lender.simulation_results.portfolio_merchants.total_credit)
+        self.assertGreaterEqual(
+            regular_lender.simulation_results.portfolio_merchants.bankruptcy_rate,
+            dynamic_lender.simulation_results.portfolio_merchants.bankruptcy_rate)
