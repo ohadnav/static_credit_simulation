@@ -31,9 +31,11 @@ class LoanSimulationResults:
 
 
 @dataclass
-class LoanHistory:
+class Loan:
     amount: Dollar
     duration: Duration
+    outstanding_debt: Dollar
+    start_date: Date
 
 
 class LoanSimulation(Primitive):
@@ -55,7 +57,8 @@ class LoanSimulation(Primitive):
         self.current_repayment_rate = self.default_repayment_rate()
         self.current_loan_amount: Optional[Dollar] = None
         self.current_loan_start_date: Optional[Date] = None
-        self.loan_history: List[LoanHistory] = []
+        self.loans_history: List[Loan] = []
+        self.active_loans: List[Loan] = []
         self.cash_history: MutableMapping[Date, Dollar] = {self.today: self.initial_cash}
 
     def default_repayment_rate(self) -> Percent:
@@ -170,8 +173,8 @@ class LoanSimulation(Primitive):
     def close_loan(self):
         if self.current_loan_amount is None:
             return
-        current_loan = LoanHistory(self.current_loan_amount, self.current_loan_duration())
-        self.loan_history.append(current_loan)
+        current_loan = Loan(self.current_loan_amount, self.current_loan_duration(), 0, self.current_loan_start_date)
+        self.loans_history.append(current_loan)
         self.current_loan_amount = None
         self.current_loan_start_date = None
 
@@ -293,9 +296,9 @@ class LoanSimulation(Primitive):
     def cost_of_capital(self) -> Dollar:
         if self.outstanding_debt > 0:
             self.close_loan()
-        cost_of_capital_rates = [self.calculate_cost_of_capital_rate(lh.duration) for lh in self.loan_history]
-        cost_of_capital_per_loan = [cost_of_capital_rates[i] * self.loan_history[i].amount for i in
-            range(len(self.loan_history))]
+        cost_of_capital_rates = [self.calculate_cost_of_capital_rate(lh.duration) for lh in self.loans_history]
+        cost_of_capital_per_loan = [cost_of_capital_rates[i] * self.loans_history[i].amount for i in
+            range(len(self.loans_history))]
         total_cost_of_capital = sum(cost_of_capital_per_loan)
         return total_cost_of_capital
 
@@ -306,8 +309,8 @@ class LoanSimulation(Primitive):
     def average_apr(self) -> Percent:
         if self.outstanding_debt > 0:
             self.close_loan()
-        apr_history = [self.calculate_apr(lh.duration) for lh in self.loan_history]
-        amount_history = [lh.amount for lh in self.loan_history]
+        apr_history = [self.calculate_apr(lh.duration) for lh in self.loans_history]
+        amount_history = [lh.amount for lh in self.loans_history]
         apr = weighted_average(apr_history, amount_history)
         return apr
 

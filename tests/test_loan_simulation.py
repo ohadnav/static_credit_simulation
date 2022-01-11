@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from common import constants
 from common.util import inverse_cagr
-from finance.loan_simulation import LoanSimulation, LoanSimulationResults, NoCapitalLoanSimulation, LoanHistory
+from finance.loan_simulation import LoanSimulation, LoanSimulationResults, NoCapitalLoanSimulation, Loan
 from seller.merchant import Merchant
 from tests.util_test import BaseTestCase
 
@@ -26,7 +26,7 @@ class TestLoanSimulation(BaseTestCase):
         self.assertIsNone(self.loan.current_loan_amount)
         self.assertIsNone(self.loan.current_loan_start_date)
         self.assertDictEqual(self.loan.cash_history, {self.loan.today: self.loan.initial_cash})
-        self.assertListEqual(self.loan.loan_history, [])
+        self.assertListEqual(self.loan.loans_history, [])
 
     def test_default_repayment_rate(self):
         self.assertAlmostEqual(
@@ -225,13 +225,14 @@ class TestLoanSimulation(BaseTestCase):
         self.loan.current_loan_duration = MagicMock(return_value=1)
         self.loan.add_debt(1)
         self.loan.close_loan()
-        self.assertListEqual(self.loan.loan_history, [LoanHistory(1, 1)])
+        self.assertListEqual(self.loan.loans_history, [Loan(1, 1, 0, constants.START_DATE)])
         self.assertIsNone(self.loan.current_loan_amount)
         self.assertIsNone(self.loan.current_loan_start_date)
         self.loan.add_debt(1)
         self.loan.current_loan_duration = MagicMock(return_value=2)
         self.loan.close_loan()
-        self.assertListEqual(self.loan.loan_history, [LoanHistory(1, 1), LoanHistory(1, 2)])
+        self.assertListEqual(
+            self.loan.loans_history, [Loan(1, 1, 0, constants.START_DATE), Loan(1, 2, 0, constants.START_DATE)])
 
     def test_on_bankruptcy(self):
         self.loan.today = randint(constants.START_DATE, self.data_generator.simulated_duration)
@@ -408,7 +409,7 @@ class TestLoanSimulation(BaseTestCase):
     def test_apr(self):
         apr1 = self.loan.interest
         apr2 = math.pow(1 + self.loan.interest, 2) - 1
-        self.loan.loan_history = [LoanHistory(10, constants.YEAR)]
+        self.loan.loans_history = [Loan(10, constants.YEAR, 0, constants.START_DATE)]
         self.assertAlmostEqual(self.loan.average_apr(), apr1)
         self.loan.current_loan_start_date = constants.START_DATE
         self.loan.today = constants.START_DATE + constants.YEAR / 2 - 1
