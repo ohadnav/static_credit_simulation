@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from common import constants
-from common.constants import LoanType
+from common.constants import LoanSimulationType
 from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults
-from finance.loan import LoanSimulationResults, Loan
+from finance.loan_simulation import LoanSimulationResults, LoanSimulation
 from tests.util_test import assertDeepAlmostEqual, StatisticalTestCase
 
 
@@ -20,7 +20,7 @@ class TestLender(StatisticalTestCase):
 
     def test_support_loan_types(self):
         self.data_generator.simulated_duration = constants.START_DATE + 1
-        for loan_type in LoanType:
+        for loan_type in LoanSimulationType:
             self.context.loan_type = loan_type
             self.lender = Lender(self.context, self.data_generator, self.merchants)
             self.lender.simulate()
@@ -69,10 +69,10 @@ class TestLender(StatisticalTestCase):
 
     def test_calculate_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
-        loan1 = Loan(self.context, self.data_generator, merchants[0])
+        loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
         loan1.total_credit = 1
-        loan2 = Loan(self.context, self.data_generator, merchants[1])
+        loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         loan2.total_credit = 1
         for risk_field in vars(self.context.risk_context).keys():
@@ -96,10 +96,10 @@ class TestLender(StatisticalTestCase):
 
     def test_underwriting_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
-        loan1 = Loan(self.context, self.data_generator, merchants[0])
+        loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
         loan1.total_credit = 1
-        loan2 = Loan(self.context, self.data_generator, merchants[1])
+        loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         loan2.total_credit = 1
         self.lender.loans = {1: loan1, 2: loan2}

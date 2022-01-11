@@ -4,7 +4,7 @@ from typing import Optional
 from numpy.random import mtrand
 
 from common import constants
-from common.constants import LoanType
+from common.constants import LoanSimulationType
 from common.util import Percent
 
 
@@ -85,7 +85,7 @@ class RiskContext:
 @dataclass
 class SimulationContext:
     # Loan
-    loan_type: LoanType = LoanType.DEFAULT
+    loan_type: LoanSimulationType = LoanSimulationType.DEFAULT
     rbf_flat_fee = constants.RBF_FLAT_FEE
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME

@@ -5,18 +5,18 @@ from typing import Callable, List, Optional, Union, Tuple, Any
 from joblib import delayed
 
 from common import constants
-from common.constants import LoanType
+from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
 from common.util import TqdmParallel
 from finance.lender import Lender
-from finance.loan import LoanSimulationResults, Loan
+from finance.loan_simulation import LoanSimulationResults, LoanSimulation
 from seller.merchant import Merchant
 
 
 @dataclass
 class MerchantCondition:
     field_name: Optional[str] = None
-    loan_type: LoanType = LoanType.DEFAULT
+    loan_type: LoanSimulationType = LoanSimulationType.DEFAULT
     min_value: Optional[float] = None
     max_value: Optional[float] = None
 
@@ -52,7 +52,7 @@ class MerchantFactory:
             conditions = [conditions]
 
         def validator(merchant: Merchant) -> EntityOrList:
-            loans: List[Loan] = [
+            loans: List[LoanSimulation] = [
                 Lender.loan_from_merchant(deepcopy(merchant), self.context, self.data_generator, c.loan_type) for c in
                 conditions]
             for i in range(len(loans)):

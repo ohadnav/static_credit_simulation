@@ -1,28 +1,23 @@
-import logging
 import math
-import sys
 from copy import deepcopy
 from dataclasses import fields
 from random import uniform, randint
 from unittest.mock import MagicMock
 
-from autologging import TRACE
-
 from common import constants
-from common.context import DataGenerator, SimulationContext
 from common.util import inverse_cagr
-from finance.loan import Loan, LoanSimulationResults, NoCapitalLoan, LoanHistory
+from finance.loan_simulation import LoanSimulation, LoanSimulationResults, NoCapitalLoanSimulation, LoanHistory
 from seller.merchant import Merchant
 from tests.util_test import BaseTestCase
 
 
-class TestLoan(BaseTestCase):
+class TestLoanSimulation(BaseTestCase):
     def setUp(self) -> None:
-        super(TestLoan, self).setUp()
+        super(TestLoanSimulation, self).setUp()
         self.data_generator.max_num_products = 4
         self.data_generator.num_products = 2
         self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.loan = Loan(self.context, self.data_generator, self.merchant)
+        self.loan = LoanSimulation(self.context, self.data_generator, self.merchant)
 
     def test_init(self):
         self.assertEqual(self.loan.outstanding_debt, 0)
@@ -70,9 +65,8 @@ class TestLoan(BaseTestCase):
         self.loan.add_debt(amount2)
         self.assertAlmostEqual(self.loan.outstanding_debt, amount2 * (1 + self.loan.interest))
         self.assertAlmostEqual(self.loan.total_credit, (amount1 + amount2) * (1 + self.loan.interest))
-        self.assertEqual(self.loan.current_loan_start_date, self.loan.today)
-        self.assertAlmostEqual(self.loan.current_loan_amount, amount2)
-        self.assertEqual(self.loan.current_loan_start_date, self.loan.today)
+        self.assertEqual(self.loan.current_loan_start_date, constants.START_DATE)
+        self.assertAlmostEqual(self.loan.current_loan_amount, amount2 + amount1)
 
     def test_max_debt(self):
         self.assertGreater(self.loan.max_debt(), self.loan.loan_amount())
@@ -423,25 +417,13 @@ class TestLoan(BaseTestCase):
         self.assertAlmostEqual(self.loan.average_apr(), (2 * apr1 + apr2) / 3)
 
 
-class TestNoCapitalLoan(BaseTestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        logging.basicConfig(
-            format=('%(filename)s: '
-                    '%(levelname)s: '
-                    '%(funcName)s(): '
-                    '%(lineno)d:\t'
-                    '%(message)s'),
-            level=TRACE if sys.gettrace() else logging.WARNING, stream=sys.stderr)
-
+class TestNoCapitalLoanSimulation(BaseTestCase):
     def setUp(self) -> None:
-        logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
-        self.data_generator = DataGenerator()
+        super(TestNoCapitalLoanSimulation, self).setUp()
         self.data_generator.num_products = 2
         self.data_generator.max_num_products = 5
-        self.context = SimulationContext()
         self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.loan = NoCapitalLoan(self.context, self.data_generator, self.merchant)
+        self.loan = NoCapitalLoanSimulation(self.context, self.data_generator, self.merchant)
 
     def test_add_debt(self):
         prev_cash = self.loan.current_cash

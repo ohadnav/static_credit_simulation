@@ -107,9 +107,9 @@ MIN_RISK_SCORE = 0.4
 DEFAULT_RISK_MIN_THRESHOLD = 0.2
 
 
-class LoanType(Enum):
-    DEFAULT = 'Loan'
-    FLAT_FEE = 'FlatFeeRBF'
-    LINE_OF_CREDIT = 'LineOfCredit'
-    DYNAMIC_LINE_OF_CREDIT = 'DynamicLineOfCredit'
-    NO_CAPITAL = 'NoCapitalLoan'
+class LoanSimulationType(Enum):
+    DEFAULT = 'LoanSimulation'
+    INCREASING_REBATE = 'IncreasingRebateLoanSimulation'
+    LINE_OF_CREDIT = 'LineOfCreditSimulation'
+    DYNAMIC_LINE_OF_CREDIT = 'DynamicLineOfCreditSimulation'
+    NO_CAPITAL = 'NoCapitalLoanSimulation'

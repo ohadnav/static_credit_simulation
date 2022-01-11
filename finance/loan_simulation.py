@@ -36,9 +36,9 @@ class LoanHistory:
     duration: Duration
 
 
-class Loan(Primitive):
+class LoanSimulation(Primitive):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
-        super(Loan, self).__init__(data_generator)
+        super(LoanSimulation, self).__init__(data_generator)
         self.context = context
         self.merchant = merchant
         self.simulation_results: Optional[LoanSimulationResults] = None
@@ -312,9 +312,9 @@ class Loan(Primitive):
         return apr
 
 
-class FlatFeeRBF(Loan):
+class IncreasingRebateLoanSimulation(LoanSimulation):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
-        super(FlatFeeRBF, self).__init__(context, data_generator, merchant)
+        super(IncreasingRebateLoanSimulation, self).__init__(context, data_generator, merchant)
 
     def calculate_repayment_rate(self) -> Percent:
         if self.today > self.context.loan_duration:
@@ -322,9 +322,9 @@ class FlatFeeRBF(Loan):
         return self.default_repayment_rate()
 
 
-class NoCapitalLoan(Loan):
+class NoCapitalLoanSimulation(LoanSimulation):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
-        super(NoCapitalLoan, self).__init__(context, data_generator, merchant)
+        super(NoCapitalLoanSimulation, self).__init__(context, data_generator, merchant)
 
     def add_debt(self, amount: Dollar):
         pass

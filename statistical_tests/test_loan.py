@@ -1,10 +1,10 @@
 from copy import deepcopy
 
 from common import constants
-from common.constants import LoanType
+from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
-from finance.line_of_credit import LineOfCredit
-from finance.loan import Loan, NoCapitalLoan
+from finance.line_of_credit import LineOfCreditSimulation
+from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
 from seller.merchant import Merchant
 from simulation.merchant_factory import MerchantFactory, MerchantCondition
 from statistical_tests.statistical_test import statistical_test_bool
@@ -21,7 +21,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 10
             data_generator.num_products = 3
             merchant = Merchant.generate_simulated(data_generator)
-            loan = Loan(context, data_generator, merchant)
+            loan = LoanSimulation(context, data_generator, merchant)
             is_true.append((loan.projected_lender_profit() > 0, round(loan.projected_lender_profit())))
             return is_true
 
@@ -34,7 +34,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 5
             data_generator.num_products = 2
             merchant = Merchant.generate_simulated(data_generator)
-            loan = Loan(context, data_generator, merchant)
+            loan = LoanSimulation(context, data_generator, merchant)
             is_true.append((loan.projected_lender_profit() < 0, round(loan.projected_lender_profit())))
             return is_true
 
@@ -46,7 +46,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 10
             data_generator.num_products = 2
             merchant = Merchant.generate_simulated(data_generator)
-            loan = Loan(context, data_generator, merchant)
+            loan = LoanSimulation(context, data_generator, merchant)
             is_true.append(
                 (loan.underwriting.approved(constants.START_DATE), round(loan.underwriting.aggregated_score())))
             return is_true
@@ -59,7 +59,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 10
             data_generator.num_products = 2
             merchant = Merchant.generate_simulated(data_generator)
-            loan = Loan(context, data_generator, merchant)
+            loan = LoanSimulation(context, data_generator, merchant)
             loan.simulate()
             is_true.append((loan.total_credit > 0, loan))
             return is_true
@@ -72,7 +72,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 10
             data_generator.num_products = 2
             merchant = Merchant.generate_simulated(data_generator)
-            loan = NoCapitalLoan(context, data_generator, merchant)
+            loan = NoCapitalLoanSimulation(context, data_generator, merchant)
             loan.simulate()
             is_true.append((loan.simulation_results.bankruptcy_rate < 0.1, loan))
             return is_true
@@ -84,9 +84,10 @@ class TestStatisticalLoan(StatisticalTestCase):
                 data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             merchant = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    MerchantCondition('bankruptcy_rate', LoanType.NO_CAPITAL, max_value=0.01)), num_merchants=1)[0][0]
+                    MerchantCondition('bankruptcy_rate', LoanSimulationType.NO_CAPITAL, max_value=0.01)),
+                num_merchants=1)[0][0]
             is_true = []
-            loan = Loan(context, data_generator, merchant)
+            loan = LoanSimulation(context, data_generator, merchant)
             loan.simulate()
             is_true.append((loan.total_credit > 0, loan))
             return is_true
@@ -101,8 +102,8 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.max_num_products = 10
             data_generator.num_products = 2
             merchant = Merchant.generate_simulated(data_generator)
-            loan = Loan(context, data_generator, merchant)
-            loan2 = Loan(context2, data_generator, deepcopy(merchant))
+            loan = LoanSimulation(context, data_generator, merchant)
+            loan2 = LoanSimulation(context2, data_generator, deepcopy(merchant))
             loan.simulate()
             loan2.simulate()
             only1 = loan.total_credit > 0 and loan2.total_credit == 0
@@ -122,8 +123,8 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.conservative_cash_management = True
             results = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    [MerchantCondition('total_credit', loan_type=LoanType.DEFAULT, min_value=0),
-                        MerchantCondition('bankruptcy_rate', loan_type=LoanType.NO_CAPITAL, max_value=0.01)]),
+                    [MerchantCondition('total_credit', loan_type=LoanSimulationType.DEFAULT, min_value=0),
+                        MerchantCondition('bankruptcy_rate', loan_type=LoanSimulationType.NO_CAPITAL, max_value=0.01)]),
                 num_merchants=1)
             lsr = results[0][1]
             loan_with_capital = lsr[0]
@@ -145,7 +146,7 @@ class TestStatisticalLoan(StatisticalTestCase):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
             is_true = []
             merchant = Merchant.generate_simulated(data_generator)
-            loan = NoCapitalLoan(context, data_generator, merchant)
+            loan = NoCapitalLoanSimulation(context, data_generator, merchant)
             loan.simulate()
             bankruptcy_or_negative_profits = not loan.bankruptcy_date or merchant.profit_margin(
                 constants.START_DATE) < 0
@@ -177,7 +178,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.conservative_cash_management = True
             merchant = Merchant.generate_simulated(data_generator)
             context.loan_amount_per_monthly_income = 100000
-            loan = LineOfCredit(context, data_generator, merchant)
+            loan = LineOfCreditSimulation(context, data_generator, merchant)
             loan.underwriting.approved = always_approved
             loan.simulate()
             is_true.append((loan.simulation_results.bankruptcy_rate < 0.01, loan))

@@ -3,13 +3,13 @@ import math
 from common import constants
 from common.context import SimulationContext, DataGenerator
 from common.util import min_max, Dollar
-from finance.loan import Loan
+from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
 
 
-class LineOfCredit(Loan):
+class LineOfCreditSimulation(LoanSimulation):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
-        super(LineOfCredit, self).__init__(context, data_generator, merchant)
+        super(LineOfCreditSimulation, self).__init__(context, data_generator, merchant)
 
     def remaining_credit(self) -> Dollar:
         return max(0.0, self.approved_amount() - self.debt_to_loan_amount(self.outstanding_debt))
@@ -22,12 +22,12 @@ class LineOfCredit(Loan):
         return amount
 
 
-class DynamicLineOfCredit(LineOfCredit):
+class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
-        super(DynamicLineOfCredit, self).__init__(context, data_generator, merchant)
+        super(DynamicLineOfCreditSimulation, self).__init__(context, data_generator, merchant)
 
     def update_credit(self):
-        super(DynamicLineOfCredit, self).update_credit()
+        super(DynamicLineOfCreditSimulation, self).update_credit()
         self.update_repayment_rate()
 
     def update_repayment_rate(self):

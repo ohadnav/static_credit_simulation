@@ -6,12 +6,13 @@ import dacite as dacite
 import numpy as np
 from joblib import delayed
 
-from common.constants import LoanType
+from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
 from common.primitives import Primitive
 from common.util import Dollar, weighted_average, Percent, TqdmParallel
-from finance.line_of_credit import LineOfCredit, DynamicLineOfCredit
-from finance.loan import LoanSimulationResults, Loan, FlatFeeRBF, NoCapitalLoan
+from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
+from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
+    NoCapitalLoanSimulation
 from seller.merchant import Merchant
 
 
@@ -29,11 +30,11 @@ class AggregatedLoanSimulationResults:
 
 
 LOAN_TYPES_MAPPING = {
-    LoanType.FLAT_FEE: FlatFeeRBF,
-    LoanType.DYNAMIC_LINE_OF_CREDIT: DynamicLineOfCredit,
-    LoanType.LINE_OF_CREDIT: LineOfCredit,
-    LoanType.NO_CAPITAL: NoCapitalLoan,
-    LoanType.DEFAULT: Loan,
+    LoanSimulationType.INCREASING_REBATE: IncreasingRebateLoanSimulation,
+    LoanSimulationType.DYNAMIC_LINE_OF_CREDIT: DynamicLineOfCreditSimulation,
+    LoanSimulationType.LINE_OF_CREDIT: LineOfCreditSimulation,
+    LoanSimulationType.NO_CAPITAL: NoCapitalLoanSimulation,
+    LoanSimulationType.DEFAULT: LoanSimulation,
 }
 
 
@@ -67,12 +68,13 @@ class Lender(Primitive):
         self.merchants = merchants
         self.context = context
         self.simulation_results: Optional[LenderSimulationResults] = None
-        self.loans: MutableMapping[Merchant, Loan] = {}
+        self.loans: MutableMapping[Merchant, LoanSimulation] = {}
         self.risk_correlation: MutableMapping[str, MutableMapping[str, Percent]] = {}
 
     @staticmethod
     def loan_from_merchant(
-            merchant: Merchant, context: SimulationContext, data_generator: DataGenerator, loan_type: LoanType) -> Loan:
+            merchant: Merchant, context: SimulationContext, data_generator: DataGenerator,
+            loan_type: LoanSimulationType) -> LoanSimulation:
         return LOAN_TYPES_MAPPING[loan_type](context, data_generator, merchant)
 
     @staticmethod
@@ -131,7 +133,7 @@ class Lender(Primitive):
     def portfolio_loan_simulation_results(self) -> List[LoanSimulationResults]:
         return [loan.simulation_results for loan in self.loans.values() if loan.total_credit > 0]
 
-    def portfolio_loans(self) -> List[Loan]:
+    def portfolio_loans(self) -> List[LoanSimulation]:
         return [loan for loan in self.loans.values() if loan.total_credit > 0]
 
     def simulate(self):
@@ -141,7 +143,7 @@ class Lender(Primitive):
             self.loans[loan.merchant] = loan
         self.calculate_results()
 
-    def simulate_merchant(self, merchant: Merchant) -> Loan:
+    def simulate_merchant(self, merchant: Merchant) -> LoanSimulation:
         loan = Lender.loan_from_merchant(
             merchant, self.context, self.data_generator, self.context.loan_type)
         loan.simulate()
