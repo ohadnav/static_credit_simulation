@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
-from common.primitives import Primitive
+from common.primitive import Primitive
 from common.util import Date, Dollar, Duration, O, ONE
 from seller.batch import Batch
 from seller.product import Product

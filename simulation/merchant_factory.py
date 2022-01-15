@@ -4,9 +4,10 @@ from typing import Callable, List, Optional, Union, Tuple
 
 from joblib import delayed
 
+from common import constants
 from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
-from common.util import TqdmParallel
+from common.util import TqdmParallel, Float
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
@@ -15,12 +16,14 @@ from seller.merchant import Merchant
 @dataclass(unsafe_hash=True)
 class MerchantCondition:
     field_name: Optional[str] = None
-    loan_type: LoanSimulationType = LoanSimulationType.DEFAULT
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
+    loan_type: Optional[LoanSimulationType] = None
+    min_value: Optional[Float] = None
+    max_value: Optional[Float] = None
 
 
-EntityOrList = Optional[Union[LoanSimulation, List[LoanSimulation]]]
+ConditionsEntityOrList = Union[MerchantCondition, List[MerchantCondition]]
+ResultsType = Union[LoanSimulation, Float]
+EntityOrList = Optional[Union[ResultsType, List[ResultsType]]]
 ValidatorMethod = Callable[[Merchant], EntityOrList]
 MerchantAndResult = Tuple[Merchant, EntityOrList]
 
@@ -30,22 +33,37 @@ class MerchantFactory:
         self.data_generator = data_generator
         self.context = context
 
-    def generate_diff_validator(self, conditions: List[MerchantCondition]) -> ValidatorMethod:
-        lsr_validator = self.generate_lsr_validator(conditions)
+    def generate_merchant_validator(self, conditions: ConditionsEntityOrList) -> ValidatorMethod:
+        if isinstance(conditions, MerchantCondition):
+            conditions = [conditions]
 
         def validator(merchant: Merchant) -> EntityOrList:
-            lsr = lsr_validator(merchant)
-            if lsr is None:
-                return None
-            if len(lsr) > len(set(lsr)):
-                return None
-            return lsr
+            values: List[Float] = [getattr(merchant, condition.field_name)(constants.START_DATE) for condition in
+                conditions]
+            for i in range(len(conditions)):
+                if conditions[i].min_value is not None and not values[i] > conditions[i].min_value:
+                    return None
+                if conditions[i].max_value is not None and not values[i] < conditions[i].max_value:
+                    return None
+            return values if len(values) > 1 else values[0]
 
         return validator
 
-    def generate_lsr_validator(
-            self, conditions: Union[MerchantCondition, List[MerchantCondition]]) -> \
-            ValidatorMethod:
+    def generate_diff_validator(self, conditions: ConditionsEntityOrList) -> ValidatorMethod:
+        lsr_validator = self.generate_lsr_validator(conditions)
+
+        def validator(merchant: Merchant) -> EntityOrList:
+            loans = lsr_validator(merchant)
+            if loans is None:
+                return None
+            lsr = [loan.simulation_results for loan in loans]
+            if len(lsr) > len(set(lsr)):
+                return None
+            return loans
+
+        return validator
+
+    def generate_lsr_validator(self, conditions: ConditionsEntityOrList) -> ValidatorMethod:
         if isinstance(conditions, MerchantCondition):
             conditions = [conditions]
 

@@ -44,7 +44,7 @@ class TestStatisticalSeller(StatisticalTestCase):
                 (merchant.annual_top_line(constants.START_DATE), merchant)))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8, max_frequency=0.95)
 
     def test_generated_merchant_profitability(self):
         def test_iteration(data_generator: DataGenerator, *args, **kwargs):
@@ -56,7 +56,7 @@ class TestStatisticalSeller(StatisticalTestCase):
                 (0 < merchant.profit_margin(constants.START_DATE) < 0.15, merchant.profit_margin(constants.START_DATE)))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.5)
+        statistical_test_bool(self, test_iteration, min_frequency=0.4, max_frequency=0.8)
 
     def test_generated_merchant(self):
         def test_iteration(data_generator: DataGenerator, *args, **kwargs):

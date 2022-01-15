@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import is_dataclass
 from enum import Enum
 from typing import Any, Tuple
@@ -44,7 +46,7 @@ class Primitive:
     def __hash__(self):
         return hash(self.id)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Primitive):
         if isinstance(other, Primitive):
             if self.id == other.id:
                 return True

@@ -3,7 +3,7 @@ from typing import Optional, MutableMapping, List
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.primitives import Primitive
+from common.primitive import Primitive
 from common.util import min_max, Percent, Dollar, calculate_cagr, Date, Duration, weighted_average, inverse_cagr, \
     Float, O
 from finance.underwriting import Underwriting

@@ -6,7 +6,7 @@ from typing import Optional
 
 from common import constants
 from common.context import DataGenerator
-from common.primitives import Primitive
+from common.primitive import Primitive
 from common.util import Percent, Date, Duration, Stock, Dollar, min_max, Ratio, O, ONE, Float
 from seller.product import Product
 

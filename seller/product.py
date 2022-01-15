@@ -5,7 +5,7 @@ from typing import Tuple
 
 from common import constants
 from common.context import DataGenerator
-from common.primitives import Primitive
+from common.primitive import Primitive
 from common.util import Percent, Duration, Stock, Dollar, min_max, O
 
 CHANGE_THRESHOLD = 1.02

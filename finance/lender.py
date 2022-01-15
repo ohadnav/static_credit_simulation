@@ -8,7 +8,7 @@ from joblib import delayed
 
 from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
-from common.primitives import Primitive
+from common.primitive import Primitive
 from common.util import Dollar, weighted_average, Percent, TqdmParallel, Float, Ratio, O
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
