@@ -1,19 +1,18 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Union, Tuple, Any
+from typing import Callable, List, Optional, Union, Tuple
 
 from joblib import delayed
 
-from common import constants
 from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
 from common.util import TqdmParallel
 from finance.lender import Lender
-from finance.loan_simulation import LoanSimulationResults, LoanSimulation
+from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class MerchantCondition:
     field_name: Optional[str] = None
     loan_type: LoanSimulationType = LoanSimulationType.DEFAULT
@@ -21,8 +20,7 @@ class MerchantCondition:
     max_value: Optional[float] = None
 
 
-ResultTypes = Union[LoanSimulationResults, Any]
-EntityOrList = Optional[Union[ResultTypes, List[ResultTypes]]]
+EntityOrList = Optional[Union[LoanSimulation, List[LoanSimulation]]]
 ValidatorMethod = Callable[[Merchant], EntityOrList]
 MerchantAndResult = Tuple[Merchant, EntityOrList]
 
@@ -59,13 +57,11 @@ class MerchantFactory:
                 loans[i].simulate()
                 if conditions[i].field_name:
                     value = getattr(loans[i].simulation_results, conditions[i].field_name)
-                    if conditions[i].min_value is not None and value < conditions[
-                        i].min_value + constants.FLOAT_ADJUSTMENT:
+                    if conditions[i].min_value is not None and not value > conditions[i].min_value:
                         return None
-                    if conditions[i].max_value is not None and value > conditions[
-                        i].max_value - constants.FLOAT_ADJUSTMENT:
+                    if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
-            return [loan.simulation_results for loan in loans] if len(loans) > 1 else loans[0].simulation_results
+            return loans if len(loans) > 1 else loans[0]
 
         return validator
 

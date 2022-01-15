@@ -1,8 +1,6 @@
-import math
-
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.util import min_max, Dollar
+from common.util import min_max, Dollar, O, Float
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
 
@@ -12,13 +10,13 @@ class LineOfCreditSimulation(LoanSimulation):
         super(LineOfCreditSimulation, self).__init__(context, data_generator, merchant)
 
     def remaining_credit(self) -> Dollar:
-        return max(0.0, self.approved_amount() - self.debt_to_loan_amount(self.outstanding_debt))
+        return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.outstanding_debt()))
 
     def should_take_loan(self) -> bool:
-        return self.credit_needed() > 0 + constants.FLOAT_ADJUSTMENT
+        return self.credit_needed() > O
 
     def calculate_amount(self) -> Dollar:
-        amount = min(self.credit_needed(), self.remaining_credit())
+        amount = Float.min(self.credit_needed(), self.remaining_credit())
         return amount
 
 
@@ -33,7 +31,7 @@ class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
     def update_repayment_rate(self):
         if self.underwriting.approved(self.today):
             repayment_ratio = self.context.repayment_factor / self.underwriting.aggregated_score()
-            new_rate = math.pow(repayment_ratio, 2) * self.default_repayment_rate()
+            new_rate = (repayment_ratio ** 2) * self.default_repayment_rate()
             new_rate = min_max(new_rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
             self.current_repayment_rate = new_rate
         elif self.context.revenue_collateralization:

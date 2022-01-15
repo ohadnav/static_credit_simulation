@@ -1,5 +1,6 @@
 from common import constants
 from common.context import DataGenerator
+from common.util import Dollar
 from seller.batch import Batch
 from seller.inventory import Inventory
 from seller.merchant import Merchant
@@ -24,10 +25,38 @@ class TestStatisticalSeller(StatisticalTestCase):
             is_true.append(
                 (
                     constants.MIN_PURCHASE_ORDER_SIZE * 2 < product.min_purchase_order_size <
-                    constants.MIN_PURCHASE_ORDER_SIZE * 200, product))
+                    constants.MIN_PURCHASE_ORDER_SIZE * 200, (product.min_purchase_order_size, product)))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.8)
+
+    def test_generated_merchant_top_line(self):
+        def test_iteration(data_generator: DataGenerator, *args, **kwargs):
+            is_true = []
+            data_generator.max_num_products = constants.MAX_NUM_PRODUCTS
+            data_generator.num_products = constants.NUM_PRODUCTS
+            merchant = Merchant.generate_simulated(data_generator)
+            is_true.append(
+                (merchant.annual_top_line(constants.START_DATE) > Dollar(100000),
+                (merchant.annual_top_line(constants.START_DATE), merchant)))
+            is_true.append(
+                (merchant.annual_top_line(constants.START_DATE) < Dollar(1000000),
+                (merchant.annual_top_line(constants.START_DATE), merchant)))
+            return is_true
+
+        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+
+    def test_generated_merchant_profitability(self):
+        def test_iteration(data_generator: DataGenerator, *args, **kwargs):
+            is_true = []
+            data_generator.max_num_products = constants.MAX_NUM_PRODUCTS
+            data_generator.num_products = constants.NUM_PRODUCTS
+            merchant = Merchant.generate_simulated(data_generator)
+            is_true.append(
+                (0 < merchant.profit_margin(constants.START_DATE) < 0.15, merchant.profit_margin(constants.START_DATE)))
+            return is_true
+
+        statistical_test_bool(self, test_iteration, min_frequency=0.5)
 
     def test_generated_merchant(self):
         def test_iteration(data_generator: DataGenerator, *args, **kwargs):

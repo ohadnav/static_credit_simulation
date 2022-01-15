@@ -1,49 +1,133 @@
+from __future__ import annotations
+
 import math
 import multiprocessing
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Iterable
 
 from joblib import Parallel
 from tqdm.auto import tqdm
 
 from common import constants
 
-Percent = float
-Ratio = float
+
+class Float(float):
+    def __eq__(self, other):
+        if math.isclose(self, other, abs_tol=constants.FLOAT_ADJUSTMENT, rel_tol=constants.FLOAT_ADJUSTMENT):
+            return True
+        return super(Float, self).__eq__(other)
+
+    def __hash__(self):
+        return super(Float, self).__hash__()
+
+    def __lt__(self, other) -> bool:
+        if self == other:
+            return False
+        return super(Float, self).__lt__(other)
+
+    def __le__(self, other) -> bool:
+        if self == other:
+            return True
+        return super(Float, self).__le__(other)
+
+    def __gt__(self, other) -> bool:
+        if self == other:
+            return False
+        return super(Float, self).__gt__(other)
+
+    def __ge__(self, other) -> bool:
+        if self == other:
+            return True
+        return super(Float, self).__ge__(other)
+
+    def __add__(self, other) -> Float:
+        return Float(super(Float, self).__add__(other))
+
+    def __mul__(self, other) -> Float:
+        return Float(super(Float, self).__mul__(other))
+
+    def __sub__(self, other) -> Float:
+        return Float(super(Float, self).__sub__(other))
+
+    def __truediv__(self, other) -> Float:
+        return Float(super(Float, self).__truediv__(other))
+
+    def __pow__(self, power, modulo=None) -> Float:
+        return Float(super(Float, self).__pow__(power, modulo))
+
+    def __index__(self) -> int:
+        return round(self)
+
+    def floor(self) -> int:
+        return math.ceil(self + constants.FLOAT_ADJUSTMENT)
+
+    def ceil(self) -> int:
+        return math.ceil(self - constants.FLOAT_ADJUSTMENT)
+
+    def __str__(self) -> str:
+        return super(Float, self).__str__()
+
+    def __repr__(self):
+        return f'Float({super(Float, self).__repr__()})'
+
+    @staticmethod
+    def sum(*args, **kwargs) -> Float:
+        return Float(sum(*args, **kwargs))
+
+    @staticmethod
+    def max(*args, **kwargs) -> Float:
+        if isinstance(args[0], Iterable) and len(args[0]) == 0:
+            return O
+        return Float(max(*args, **kwargs))
+
+    @staticmethod
+    def min(*args, **kwargs) -> Float:
+        if isinstance(args[0], Iterable) and len(args[0]) == 0:
+            return O
+        return Float(min(*args, **kwargs))
+
+
+Percent = Float
+Ratio = Float
 Date = int
 Duration = int
 Stock = int
-Dollar = float
+Dollar = Float
+
+O = Float(0)
+ONE = Float(1)
 
 
-def calculate_cagr(first_value: float, last_value: float, duration: Duration) -> Optional[Percent]:
-    if first_value <= 0:
-        if last_value <= 0:
-            return 0
+def calculate_cagr(first_value: Float, last_value: Float, duration: Duration) -> Optional[Percent]:
+    if first_value <= O:
+        if last_value <= O:
+            return O
         else:
-            return 1
-    elif last_value <= 0:
-        return -1
-    return math.pow(last_value / first_value, constants.YEAR / duration) - 1
+            return ONE
+    elif last_value <= O:
+        return -ONE
+    return (last_value / first_value) ** (constants.YEAR / duration) - ONE
 
 
 def inverse_cagr(cagr: Percent, duration: Duration) -> Optional[Percent]:
-    if cagr <= 0:
-        return -1
-    return math.pow(1 + cagr, duration / constants.YEAR) - 1
+    if cagr <= O:
+        return -ONE
+    return (1 + cagr) ** (duration / constants.YEAR) - 1
 
 
-def min_max(value: Union[float, int], min_value: Union[float, int], max_value: Union[float, int]) -> Union[float, int]:
-    value = max(min_value, value)
-    value = min(max_value, value)
+def min_max(
+        value: Union[float, int, Float], min_value: Union[float, int, Float], max_value: Union[float, int, Float]) -> \
+        Union[float, int, Float]:
+    value = Float.max(min_value, value)
+    value = Float.min(max_value, value)
     return value
 
 
-def weighted_average(values: List[float], weights: List[float]):
+def weighted_average(values: List[float], weights: List[float]) -> Float:
     assert len(values) == len(weights)
-    weighted_values = sum([values[i] * weights[i] for i in range(len(values))])
-    total_weights = sum([weights[i] for i in range(len(weights))])
-    if total_weights == 0:
-        return 0
+    weighted_values = Float.sum([values[i] * weights[i] for i in range(len(values))])
+    total_weights = Float.sum([weights[i] for i in range(len(weights))])
+    if total_weights == O:
+        return O
     return weighted_values / total_weights
 
 

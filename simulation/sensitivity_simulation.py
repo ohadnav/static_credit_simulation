@@ -1,4 +1,3 @@
-import math
 from copy import deepcopy
 from typing import List, Union
 
@@ -29,8 +28,8 @@ class SensitivitySimulation(Simulation):
 
     @staticmethod
     def new_values(source_value: Union[int, float], degree: int) -> (Union[int, float], Union[int, float]):
-        big_change = math.pow(1 + constants.SENSITIVITY, degree)
-        small_change = math.pow(1 - constants.SENSITIVITY, degree)
+        big_change = (1 + constants.SENSITIVITY) ** degree
+        small_change = (1 - constants.SENSITIVITY) ** degree
         if isinstance(source_value, int):
             return int(round(source_value * big_change)), int(round(source_value * small_change))
         return round(source_value * big_change), round(source_value * small_change)

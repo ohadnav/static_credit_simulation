@@ -7,11 +7,11 @@ from typing import Optional
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Date, Duration, Stock, Dollar, min_max, Ratio
+from common.util import Percent, Date, Duration, Stock, Dollar, min_max, Ratio, O, ONE, Float
 from seller.product import Product
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class PurchaseOrder:
     stock: Stock
     upfront_cost: Dollar
@@ -78,7 +78,7 @@ class Batch(Primitive):
         organic_rate = previous.organic_rate if previous else data_generator.organic_rate_median
         organic_rate *= data_generator.normal_ratio(data_generator.organic_rate_std)
         if roas < data_generator.roas_median:
-            organic_rate = max(data_generator.organic_rate_median, organic_rate)
+            organic_rate = Float.max(data_generator.organic_rate_median, organic_rate)
         organic_rate = min_max(organic_rate, constants.ORGANIC_RATE_MIN, constants.ORGANIC_RATE_MAX)
         return organic_rate
 
@@ -112,7 +112,7 @@ class Batch(Primitive):
         inventory_turnover_ratio = previous.inventory_turnover_ratio if previous else \
             data_generator.inventory_turnover_ratio_median
         inventory_turnover_ratio *= data_generator.normal_ratio(data_generator.inventory_turnover_ratio_std)
-        max_inventory_turnover_ratio = min(
+        max_inventory_turnover_ratio = Float.min(
             constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX, constants.YEAR / lead_time)
         inventory_turnover_ratio = min_max(
             inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MIN,
@@ -141,7 +141,7 @@ class Batch(Primitive):
         # TODO: gradual organic ratio
         # TODO: sell only organic if margin is negative
         margin = self.revenue_margin() - self.marketing_margin() - self.data_generator.sgna_ratio
-        return max(0.0, margin)
+        return Float.max(O, margin)
 
     def marketing_margin(self) -> Percent:
         margin = (self.acos() / self.product.price) * (1 - self.organic_rate)
@@ -169,7 +169,6 @@ class Batch(Primitive):
                 self.sales_velocity() * self.lead_time * constants.GROWTH_RATIO_MAX))
 
     def initiate_new_purchase_order(self, day: Date, available_cash: Dollar) -> Optional[PurchaseOrder]:
-        available_cash += constants.FLOAT_ADJUSTMENT
         new_purchase_order = self.max_purchase_order()
         if not self.can_afford_purchase_order(new_purchase_order, available_cash):
             stock = self.product.batch_size_from_cost(available_cash)
@@ -210,7 +209,7 @@ class Batch(Primitive):
             return self.cash_needed_to_afford_purchase_order(self.max_purchase_order())
         elif day == self.get_manufacturing_done_date() and self.purchase_order:
             return self.purchase_order.post_manufacturing_cost
-        return 0
+        return O
 
     def inventory_cost(self, day: Date, cash_for_new_orders: Dollar) -> Dollar:
         assert self.start_date <= day <= self.last_date
@@ -221,8 +220,8 @@ class Batch(Primitive):
             if self.purchase_order:
                 return self.purchase_order.upfront_cost
             else:
-                return 0
-        return 0
+                return O
+        return O
 
     def is_out_of_stock(self, day: Date) -> bool:
         return day - self.start_date >= self.duration_in_stock()
@@ -232,17 +231,17 @@ class Batch(Primitive):
 
     def total_revenue_per_day(self, day: Date) -> Dollar:
         if self.is_out_of_stock(day):
-            return 0
+            return O
         return self.sales_velocity() * self.product.price
 
     def revenue_per_day(self, day: Date) -> Dollar:
         return self.total_revenue_per_day(day) * self.revenue_margin()
 
     @staticmethod
-    def revenue_margin():
-        return 1 - constants.MARKETPLACE_COMMISSION
+    def revenue_margin() -> Percent:
+        return ONE - constants.MARKETPLACE_COMMISSION
 
-    def profit_margin(self):
+    def profit_margin(self) -> Percent:
         return self.gp_margin() - self.product.cogs_margin
 
     def gp_per_day(self, day: Date) -> Dollar:
@@ -254,7 +253,8 @@ class Batch(Primitive):
                 return self.duration
             else:
                 return 0
-        return math.ceil(self.stock / self.sales_velocity() - constants.FLOAT_ADJUSTMENT)
+        duration_to_out_of_stock = Float(self.stock / self.sales_velocity())
+        return duration_to_out_of_stock.ceil()
 
     # at the beginning of the day
     def remaining_stock(self, day: Date) -> Stock:

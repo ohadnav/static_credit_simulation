@@ -6,7 +6,7 @@ from typing import Optional, List
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Date, Dollar, Duration
+from common.util import Date, Dollar, Duration, O, ONE
 from seller.batch import Batch
 from seller.product import Product
 
@@ -48,9 +48,9 @@ class Inventory(Primitive):
 
     def purchase_order_valuation(self, day: Date) -> Dollar:
         if not self[day].purchase_order:
-            return 0
-        if self[day].sales_velocity() == 0:
-            return 0
+            return O
+        if self[day].sales_velocity() == O:
+            return O
         purchase_order_stock = self[day].purchase_order.stock
         next_purchase_order_value = purchase_order_stock * self.product.price
         remaining_lead_time = self[day].last_date - day + 1
@@ -76,10 +76,10 @@ class Inventory(Primitive):
     def discounted_inventory_value(
             stock_value: Dollar, duration_to_sell: Duration, remaining_lead_time: Duration = 0) -> Dollar:
         if duration_to_sell == 0:
-            return 0
+            return O
         value_per_day = stock_value / duration_to_sell
         daily_value_discount = constants.INVENTORY_NPV_DISCOUNT_FACTOR
-        lead_time_factor = math.pow(daily_value_discount, remaining_lead_time)
-        geometric_series_sum_factor = (1 - math.pow(daily_value_discount, duration_to_sell)) / (
+        lead_time_factor = daily_value_discount ** remaining_lead_time
+        geometric_series_sum_factor = (ONE - (daily_value_discount ** duration_to_sell)) / (
                 1 - daily_value_discount)
         return value_per_day * geometric_series_sum_factor * lead_time_factor

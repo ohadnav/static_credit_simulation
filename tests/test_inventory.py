@@ -1,9 +1,9 @@
-import math
 from unittest.mock import MagicMock
 
 from autologging import logged, traced
 
 from common import constants
+from common.util import Dollar
 from seller.batch import Batch
 from seller.inventory import Inventory
 from tests.util_test import BaseTestCase
@@ -32,7 +32,7 @@ class TestInventory(BaseTestCase):
             self.inventory.gp_per_day(constants.START_DATE),
             self.inventory.batches[0].gp_per_day(constants.START_DATE))
         self.inventory.batches[0].initiate_new_purchase_order(
-            self.inventory.batches[0].get_purchase_order_start_date(), 10000000)
+            self.inventory.batches[0].get_purchase_order_start_date(), Dollar(10000000))
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
             self.inventory.gp_per_day(next_batch_day),
@@ -43,7 +43,7 @@ class TestInventory(BaseTestCase):
             self.inventory.revenue_per_day(constants.START_DATE),
             self.inventory.batches[0].revenue_per_day(constants.START_DATE))
         self.inventory.batches[0].initiate_new_purchase_order(
-            self.inventory.batches[0].get_purchase_order_start_date(), 10000000)
+            self.inventory.batches[0].get_purchase_order_start_date(), Dollar(10000000))
         next_batch_day = self.inventory.batches[0].last_date + 1
         self.assertEqual(
             self.inventory.revenue_per_day(next_batch_day),
@@ -63,7 +63,7 @@ class TestInventory(BaseTestCase):
 
     def test_purchase_order_valuation(self):
         batch: Batch = self.inventory[constants.START_DATE]
-        batch.initiate_new_purchase_order(batch.get_purchase_order_start_date(), 1000000)
+        batch.initiate_new_purchase_order(batch.get_purchase_order_start_date(), Dollar(10000000))
         velocity = 4
         batch.purchase_order.stock = 2 * velocity
         batch.last_date = 2
@@ -72,10 +72,10 @@ class TestInventory(BaseTestCase):
         dv = batch.product.price * velocity
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
         self.assertAlmostEqual(
-            self.inventory.purchase_order_valuation(constants.START_DATE), dv * math.pow(r, 2) + dv * math.pow(r, 3))
+            self.inventory.purchase_order_valuation(constants.START_DATE), dv * (r ** 2) + dv * (r ** 3))
         self.assertAlmostEqual(
             self.inventory.purchase_order_valuation(constants.START_DATE + 1),
-            dv * math.pow(r, 1) + dv * math.pow(r, 2))
+            dv * (r ** 1) + dv * (r ** 2))
         batch.sales_velocity = MagicMock(return_value=0)
         self.assertAlmostEqual(self.inventory.purchase_order_valuation(constants.START_DATE), 0)
 
@@ -101,7 +101,7 @@ class TestInventory(BaseTestCase):
 
     def test_discounted_inventory_value(self):
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(2, 2), 1 + r)
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(9, 3), 3 + 3 * r + 3 * r * r)
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(9, 3, 1), 3 * r + 3 * r * r + 3 * r * r * r)
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(2, 0), 0)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(2), 2), 1 + r)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(9), 3), 3 + 3 * r + 3 * r * r)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(9), 3, 1), 3 * r + 3 * r * r + 3 * r * r * r)
+        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(2), 0), 0)

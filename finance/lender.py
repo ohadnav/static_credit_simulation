@@ -9,14 +9,14 @@ from joblib import delayed
 from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
 from common.primitives import Primitive
-from common.util import Dollar, weighted_average, Percent, TqdmParallel
+from common.util import Dollar, weighted_average, Percent, TqdmParallel, Float, Ratio, O
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
     NoCapitalLoanSimulation
 from seller.merchant import Merchant
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class AggregatedLoanSimulationResults:
     revenues_cagr: Percent
     inventory_cagr: Percent
@@ -42,7 +42,7 @@ LOAN_TYPES_MAPPING = {
 
 class LenderSimulationResults:
     def __init__(
-            self, lender_profit: Dollar, sharpe: float,
+            self, lender_profit: Dollar, sharpe: Ratio,
             all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
         self.lender_profit = lender_profit
         self.sharpe = sharpe
@@ -84,9 +84,9 @@ class Lender(Primitive):
             if field.name == 'valuation':
                 continue
             elif field.name == 'lender_profit':
-                result[field.name] = sum([lsr.lender_profit for lsr in loan_results])
+                result[field.name] = Float.sum([lsr.lender_profit for lsr in loan_results])
             elif field.name == 'total_credit':
-                result[field.name] = sum([lsr.total_credit for lsr in loan_results])
+                result[field.name] = Float.sum([lsr.total_credit for lsr in loan_results])
             else:
                 values = []
                 weights = []
@@ -96,13 +96,13 @@ class Lender(Primitive):
                 result[field.name] = weighted_average(values, weights)
         return dacite.from_dict(AggregatedLoanSimulationResults, result)
 
-    def calculate_sharpe(self, portfolio_results: List[LoanSimulationResults]) -> float:
+    def calculate_sharpe(self, portfolio_results: List[LoanSimulationResults]) -> Ratio:
         aggregated = Lender.aggregate_results(portfolio_results)
         portfolio_return = aggregated.apr
         risk_free_return = self.context.cost_of_capital
         std = np.std([lsr.apr for lsr in portfolio_results])
         if std <= 0:
-            return 0
+            return O
         sharpe = (portfolio_return - risk_free_return) / std
         return sharpe
 

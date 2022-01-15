@@ -6,7 +6,7 @@ from typing import Tuple
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Duration, Stock, Dollar, min_max
+from common.util import Percent, Duration, Stock, Dollar, min_max, O
 
 CHANGE_THRESHOLD = 1.02
 
@@ -41,9 +41,9 @@ class Product(Primitive):
 
     def volume_discount(self, volume: Stock) -> Percent:
         if volume <= self.min_purchase_order_size:
-            return 0
+            return O
         discount_rate = math.log10(volume / self.min_purchase_order_size) * constants.VOLUME_DISCOUNT
-        return min_max(discount_rate, 0.0, constants.MAX_VOLUME_DISCOUNT)
+        return min_max(discount_rate, O, constants.MAX_VOLUME_DISCOUNT)
 
     def discounted_cost_per_unit(self, volume: Stock) -> Dollar:
         return self.cost_per_unit * (1 - self.volume_discount(volume))
@@ -53,8 +53,7 @@ class Product(Primitive):
             total_cost = cost
         else:
             total_cost = cost * (1 / (1 - constants.INVENTORY_UPFRONT_PAYMENT))
-        total_cost += constants.FLOAT_ADJUSTMENT
-        estimated_batch_size = int(total_cost / self.cost_per_unit)
+        estimated_batch_size = (total_cost / self.cost_per_unit).floor()
         estimated_discounted_cpu = self.cost_per_unit
         change = 2 * CHANGE_THRESHOLD
         while change > CHANGE_THRESHOLD:

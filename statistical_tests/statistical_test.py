@@ -3,7 +3,7 @@ from typing import Callable, List, Optional, Tuple, Any
 
 from joblib import delayed
 
-from common.util import Percent, TqdmParallel
+from common.util import TqdmParallel, Float
 from tests.util_test import StatisticalTestCase
 
 
@@ -14,13 +14,13 @@ def statistical_test_mean_error(
     desc = f'{test_case._testMethodName}'
     errors = TqdmParallel(desc=desc, total=times)(
         delayed(test_iteration)(test_case.data_generator, test_case.context) for _ in range(times))
-    test_case.assertLess(sum(errors) / times, mean_error)
+    test_case.assertLess(Float.sum(errors) / times, mean_error)
     logging.getLogger().setLevel(logging_level)
 
 
 def statistical_test_bool(
         test_case: StatisticalTestCase, test_iteration: Callable,
-        times: int = 100, min_frequency: Optional[Percent] = None, max_frequency: Optional[Percent] = None):
+        times: int = 100, min_frequency: Optional[float] = None, max_frequency: Optional[float] = None):
     assert min_frequency is not None or max_frequency is not None
     logging_level = logging.getLogger().getEffectiveLevel()
     logging.getLogger().setLevel(logging.WARNING)
@@ -33,11 +33,13 @@ def statistical_test_bool(
 
 
 def validate_results(
-        test_case: StatisticalTestCase, min_frequency: Optional[Percent], max_frequency: Optional[Percent],
+        test_case: StatisticalTestCase, min_frequency: Optional[float], max_frequency: Optional[float],
         is_true: List[List[Tuple[bool, Any]]]):
     for i in range(len(is_true)):
         count_bigger = len([a for a in is_true[i] if a[0]])
         true_ratio = count_bigger / len(is_true[i])
+        # noinspection PyUnusedLocal
+        false_cases = [a for a in is_true[i] if not a[0]]
         if min_frequency is not None:
             test_case.assertGreaterEqual(true_ratio, min_frequency, f'list {i}')
         if max_frequency is not None:
@@ -48,7 +50,7 @@ def print_results(is_true: List[List[Tuple[bool, Any]]]):
     for i in range(len(is_true)):
         count_bigger = len([a for a in is_true[i] if a[0]])
         true_ratio = count_bigger / len(is_true[i])
-        print(f'list {i} ratio is {true_ratio}')
+        print(f'list {str(i)} ratio is {true_ratio}')
 
 
 def translate_results(results: List[List]) -> List[List[Tuple[bool, Any]]]:

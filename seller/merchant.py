@@ -6,7 +6,7 @@ from typing import Optional, List
 from common import constants
 from common.context import DataGenerator
 from common.primitives import Primitive
-from common.util import Percent, Date, Dollar, weighted_average, min_max, Ratio
+from common.util import Percent, Date, Dollar, weighted_average, min_max, Ratio, O, Float
 from seller.batch import Batch
 from seller.inventory import Inventory
 
@@ -36,7 +36,7 @@ class Merchant(Primitive):
         return suspension_start_date
 
     def annual_top_line(self, day: Date) -> Dollar:
-        return sum([inventory.annual_top_line(day) for inventory in self.inventories])
+        return Float.sum([inventory.annual_top_line(day) for inventory in self.inventories])
 
     def is_suspended(self, day: Date):
         # TODO: push all inventory dates by constants.ACCOUNT_SUSPENSION_DURATION to better simulate suspension
@@ -46,31 +46,31 @@ class Merchant(Primitive):
 
     def gp_per_day(self, day: Date) -> Dollar:
         if self.is_suspended(day):
-            return 0
-        total_gp = sum([inventory.gp_per_day(day) for inventory in self.inventories])
+            return O
+        total_gp = Float.sum([inventory.gp_per_day(day) for inventory in self.inventories])
         return total_gp
 
     def revenue_per_day(self, day: Date) -> Dollar:
         if self.is_suspended(day):
-            return 0
-        total_revenue = sum([inventory.revenue_per_day(day) for inventory in self.inventories])
+            return O
+        total_revenue = Float.sum([inventory.revenue_per_day(day) for inventory in self.inventories])
         return total_revenue
 
     def max_cash_needed(self, day: Date) -> Dollar:
-        max_cost = sum([batch.max_cash_needed(day) for batch in self.current_batches(day)])
+        max_cost = Float.sum([batch.max_cash_needed(day) for batch in self.current_batches(day)])
         return max_cost
 
     def current_batches(self, day: Date) -> List[Batch]:
         return [inventory[day] for inventory in self.inventories]
 
     def inventory_cost(self, day: Date, current_cash: Dollar) -> Dollar:
-        total_to_pay = 0.0
+        total_to_pay = O
         committed = self.committed_purchase_orders(day)
-        cash_for_new_orders = max(0.0, current_cash - committed)
+        cash_for_new_orders = Float.max(O, current_cash - committed)
         for batch in self.current_batches(day):
             # TODO: allocate budget per profitable product lines
             batch_cost = batch.inventory_cost(day, cash_for_new_orders)
-            if batch_cost > 0:
+            if batch_cost > O:
                 total_to_pay += batch_cost
                 cash_for_new_orders -= batch.purchase_order.total_cost()
         return total_to_pay
@@ -79,7 +79,7 @@ class Merchant(Primitive):
         # TODO: embed cashdlow forecasting into the calculation
         committed_purchase_orders = [batch.purchase_order for batch in self.current_batches(day) if
             batch.purchase_order and day <= batch.get_manufacturing_done_date()]
-        total_committed_costs = sum([po.post_manufacturing_cost for po in committed_purchase_orders])
+        total_committed_costs = Float.sum([po.post_manufacturing_cost for po in committed_purchase_orders])
         return total_committed_costs
 
     def has_future_revenue(self, day: Date) -> bool:
@@ -89,10 +89,10 @@ class Merchant(Primitive):
         return False
 
     def valuation(self, day: Date, net_cashflow: Dollar) -> Dollar:
-        return net_cashflow + sum([inventory.valuation(day) for inventory in self.inventories])
+        return net_cashflow + Float.sum([inventory.valuation(day) for inventory in self.inventories])
 
     def inventory_value(self, day: Date) -> Dollar:
-        return sum([inventory.current_inventory_valuation(day) for inventory in self.inventories])
+        return Float.sum([inventory.current_inventory_valuation(day) for inventory in self.inventories])
 
     def organic_rate(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]

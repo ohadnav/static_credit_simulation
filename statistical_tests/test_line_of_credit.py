@@ -20,14 +20,14 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
                     [MerchantCondition('total_credit', loan_type=LoanSimulationType.LINE_OF_CREDIT, min_value=0),
                         MerchantCondition('bankruptcy_rate', loan_type=LoanSimulationType.NO_CAPITAL, max_value=0.01)]),
                 num_merchants=1)
-            lsr = results[0][1]
-            loan_with_capital = lsr[0]
-            loan_without_capital = lsr[1]
+            loans = results[0][1]
+            loan_with_capital = loans[0].simulation_results
+            loan_without_capital = loans[1].simulation_results
             is_true.append(
                 (
                     loan_with_capital.revenues_cagr > loan_without_capital.revenues_cagr,
                     (round(
-                        loan_with_capital.revenues_cagr - loan_without_capital.revenues_cagr, 2), lsr)))
+                        loan_with_capital.revenues_cagr - loan_without_capital.revenues_cagr, 2), loans)))
             is_true.append(
                 (
                     loan_with_capital.lender_profit > 0,
@@ -37,8 +37,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         statistical_test_bool(self, test_iteration, min_frequency=0.6)
 
     def test_line_of_credit_superior(self):
-        loc_context = SimulationContext(LoanSimulationType.LINE_OF_CREDIT)
-        regular_context = SimulationContext(LoanSimulationType.INCREASING_REBATE)
+        loc_context = SimulationContext.generate_context(LoanSimulationType.LINE_OF_CREDIT)
+        regular_context = SimulationContext.generate_context(LoanSimulationType.INCREASING_REBATE)
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
                 [MerchantCondition('total_credit', LoanSimulationType.DEFAULT, 1),
@@ -75,8 +75,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             loc_lender.simulation_results.portfolio_merchants.bankruptcy_rate)
 
     def test_dynamic_line_of_credit_superior(self):
-        dynamic_context = SimulationContext(LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)
-        loc_context = SimulationContext(LoanSimulationType.LINE_OF_CREDIT)
+        dynamic_context = SimulationContext.generate_context(LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)
+        loc_context = SimulationContext.generate_context(LoanSimulationType.LINE_OF_CREDIT)
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
                 [MerchantCondition('total_credit', LoanSimulationType.LINE_OF_CREDIT, 1),
@@ -96,9 +96,6 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             loc_lender.simulation_results.portfolio_merchants.valuation_cagr,
             dynamic_lender.simulation_results.portfolio_merchants.valuation_cagr)
         self.assertLess(
-            loc_lender.simulation_results.portfolio_merchants.net_cashflow_cagr,
-            dynamic_lender.simulation_results.portfolio_merchants.net_cashflow_cagr)
-        self.assertLess(
             loc_lender.simulation_results.portfolio_merchants.revenues_cagr,
             dynamic_lender.simulation_results.portfolio_merchants.revenues_cagr)
         self.assertLess(
@@ -107,6 +104,9 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         self.assertLess(
             loc_lender.simulation_results.portfolio_merchants.total_credit,
             dynamic_lender.simulation_results.portfolio_merchants.total_credit)
+        self.assertLess(
+            loc_lender.simulation_results.sharpe,
+            dynamic_lender.simulation_results.sharpe)
         self.assertGreaterEqual(
             loc_lender.simulation_results.portfolio_merchants.bankruptcy_rate,
             dynamic_lender.simulation_results.portfolio_merchants.bankruptcy_rate)

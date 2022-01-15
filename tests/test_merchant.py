@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from common import constants
+from common.util import Float, ONE, Dollar
 from seller.batch import PurchaseOrder, Batch
 from seller.inventory import Inventory
 from seller.merchant import Merchant
@@ -67,9 +68,9 @@ class TestMerchant(BaseTestCase):
     def test_inventory_cost(self):
         day = constants.START_DATE
         for day in range(constants.START_DATE, self.data_generator.simulated_duration):
-            if max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
+            if Float.max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
                 break
-        cash = sum([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories])
+        cash = Float.sum([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories])
         max_spend = self.merchant.inventory_cost(day, cash)
         self.merchant.committed_purchase_orders = MagicMock(return_value=1)
         self.assertLess(self.merchant.inventory_cost(day, cash), max_spend)
@@ -82,7 +83,7 @@ class TestMerchant(BaseTestCase):
         batch2.get_purchase_order_start_date = MagicMock(return_value=constants.START_DATE)
         max_cost = batch1.max_cash_needed(constants.START_DATE) + batch2.max_cash_needed(constants.START_DATE)
         upfront_max_cost = batch1.max_purchase_order().upfront_cost + batch2.max_purchase_order().upfront_cost
-        single_max_cost = max(
+        single_max_cost = Float.max(
             batch1.max_cash_needed(constants.START_DATE), batch2.max_cash_needed(constants.START_DATE))
         inventories = [Inventory(self.data_generator, product, [batch1]),
             Inventory(self.data_generator, product, [batch2])]
@@ -92,13 +93,13 @@ class TestMerchant(BaseTestCase):
     def test_committed_purchase_orders(self):
         day = constants.START_DATE
         for day in range(constants.START_DATE, self.data_generator.simulated_duration):
-            if max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
+            if Float.max([inventory[day].max_cash_needed(day) for inventory in self.merchant.inventories]) > 0:
                 break
         for inventory in self.merchant.inventories:
             self.assertIsNone(inventory[day].purchase_order)
         self.assertEqual(self.merchant.committed_purchase_orders(day), 0)
         for inventory in self.merchant.inventories:
-            inventory[constants.START_DATE].purchase_order = PurchaseOrder(1, 1, 1)
+            inventory[constants.START_DATE].purchase_order = PurchaseOrder(1, ONE, ONE)
         self.assertAlmostEqual(
             self.merchant.committed_purchase_orders(constants.START_DATE), len(self.merchant.inventories))
 
@@ -113,7 +114,9 @@ class TestMerchant(BaseTestCase):
     def test_valuation(self):
         for inventory in self.merchant.inventories:
             inventory.valuation = MagicMock(return_value=1)
-        self.assertAlmostEqual(self.merchant.valuation(constants.START_DATE, 0.5), 0.5 + len(self.merchant.inventories))
+        net_cashflow = Dollar(0.5)
+        self.assertAlmostEqual(
+            self.merchant.valuation(constants.START_DATE, net_cashflow), net_cashflow + len(self.merchant.inventories))
 
     def test_inventory_value(self):
         for inventory in self.merchant.inventories:

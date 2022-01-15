@@ -19,8 +19,8 @@ class Underwriting:
             risk_configuration.score = self.benchmark_score(predictor, day)
 
     def benchmark_comparison(self, benchmark: Ratio, value: Ratio, higher_is_better: bool) -> Percent:
+        assert benchmark > 0
         if higher_is_better:
-            assert benchmark > 0
             ratio = value / (benchmark * self.context.benchmark_factor)
         else:
             if value == 0:

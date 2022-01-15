@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Mapping
 
 from numpy.random import mtrand
 
 from common import constants
 from common.constants import LoanSimulationType
-from common.util import Percent
+from common.util import Percent, Float, Ratio, ONE
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class DataGenerator:
     randomness = True
     simulated_duration = constants.SIMULATION_DURATION
@@ -17,6 +19,7 @@ class DataGenerator:
     max_num_products = constants.MAX_NUM_PRODUCTS
 
     # Costs
+    # TODO: add data gen STD to diversify initial underwriting values
     min_purchase_order_value = constants.MIN_PURCHASE_ORDER_VALUE
     shipping_duration_avg = constants.SHIPPING_DURATION_AVG
     shipping_duration_std = constants.SHIPPING_DURATION_STD
@@ -48,28 +51,39 @@ class DataGenerator:
     account_suspension_duration = constants.ACCOUNT_SUSPENSION_DURATION
     account_suspension_chance = constants.ACCOUNT_SUSPENSION_CHANCE
 
+    @classmethod
+    def generate_data_generator(cls) -> DataGenerator:
+        data_generator = DataGenerator()
+        for key in dir(data_generator):
+            if not key.startswith('_'):
+                value = getattr(data_generator, key)
+                if isinstance(value, float):
+                    setattr(data_generator, key, Float(value))
+        return data_generator
+
     def random(self) -> Percent:
         if self.randomness:
-            return mtrand.random()
-        return constants.NO_VOLATILITY
+            return Float(mtrand.random())
+        return Float(constants.NO_VOLATILITY)
 
-    def normal_ratio(self, std: float = 0.5, chance_positive: Percent = 0.5, max_ratio: float = 3) -> float:
+    def normal_ratio(self, std: float = 0.5, chance_positive: float = 0.5, max_ratio: float = 3) -> Ratio:
         if self.randomness:
             positive = mtrand.random() < chance_positive
             random_value = abs(mtrand.normal(scale=std))
-            random_value = min(max_ratio * std, random_value)
-            return 1 + random_value if positive else 1 / (1 + random_value)
+            random_value = Float.min(max_ratio * std, random_value)
+            return ONE + random_value if positive else ONE / (1 + random_value)
         return constants.NO_VOLATILITY
 
     def remove_randomness(self):
         self.randomness = False
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class RiskConfiguration:
+    # TODO: consider adding noise per each check
     higher_is_better: bool = True
-    weight: float = constants.DEFAULT_RISK_PREDICTOR_WEIGHT
-    threshold: Percent = constants.DEFAULT_RISK_MIN_THRESHOLD
+    weight = Float(constants.DEFAULT_RISK_PREDICTOR_WEIGHT)
+    threshold = Percent(constants.DEFAULT_RISK_MIN_THRESHOLD)
     score: Optional[Percent] = None
 
 
@@ -81,11 +95,26 @@ class RiskContext:
         self.roas = RiskConfiguration()
         self.organic_rate = RiskConfiguration()
 
+    def score_dict(self) -> Mapping[str, Percent]:
+        sd = {k: v.score for k, v in vars(self).items()}
+        return sd
 
-@dataclass
+
+@dataclass(unsafe_hash=True)
 class SimulationContext:
+    @classmethod
+    def generate_context(cls, loan_type: LoanSimulationType = LoanSimulationType.DEFAULT) -> SimulationContext:
+        context = SimulationContext()
+        context.loan_type = loan_type
+        for key in dir(context):
+            if not key.startswith('_'):
+                value = getattr(context, key)
+                if isinstance(value, float):
+                    setattr(context, key, Float(value))
+        return context
+
     # Loan
-    loan_type: LoanSimulationType = LoanSimulationType.DEFAULT
+    loan_type = LoanSimulationType.DEFAULT
     rbf_flat_fee = constants.RBF_FLAT_FEE
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
@@ -103,7 +132,7 @@ class SimulationContext:
     # Underwriting
     organic_rate_benchmark = constants.ORGANIC_SALES_RATIO_MEDIAN
     out_of_stock_rate_benchmark = constants.OUT_OF_STOCK_RATE_MEDIAN
-    adjusted_profit_margin_benchmark = constants.PROFIT_MARGIN_ADJUSTMENT
+    adjusted_profit_margin_benchmark = constants.PROFIT_MARGIN_BENCHMARK_MIN
     inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
     roas_benchmark = constants.ROAS_MEDIAN
     benchmark_factor = constants.BENCHMARK_FACTOR
