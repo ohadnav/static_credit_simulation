@@ -32,14 +32,15 @@ def statistical_test_bool(
     logging.getLogger().setLevel(logging_level)
 
 
+# noinspection PyUnusedLocal
 def validate_results(
         test_case: StatisticalTestCase, min_frequency: Optional[float], max_frequency: Optional[float],
         is_true: List[List[Tuple[bool, Any]]]):
     for i in range(len(is_true)):
         count_bigger = len([a for a in is_true[i] if a[0]])
         true_ratio = count_bigger / len(is_true[i])
-        # noinspection PyUnusedLocal
         false_cases = [a for a in is_true[i] if not a[0]]
+        true_cases = [a for a in is_true[i] if a[0]]
         if min_frequency is not None:
             test_case.assertGreaterEqual(true_ratio, min_frequency, f'list {i}')
         if max_frequency is not None:
@@ -50,7 +51,11 @@ def print_results(is_true: List[List[Tuple[bool, Any]]]):
     for i in range(len(is_true)):
         count_bigger = len([a for a in is_true[i] if a[0]])
         true_ratio = count_bigger / len(is_true[i])
-        print(f'list {str(i)} ratio is {true_ratio}')
+        list_name = str(i)
+        if type(is_true[i][0][1]) is tuple:
+            if type(is_true[i][0][1][0]) is str:
+                list_name = is_true[i][0][1][0]
+        print(f'list {list_name} ratio is {true_ratio}')
 
 
 def translate_results(results: List[List]) -> List[List[Tuple[bool, Any]]]:

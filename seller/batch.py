@@ -25,7 +25,7 @@ class Batch(Primitive):
     def __init__(
             self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
             out_of_stock_rate: Percent, inventory_turnover_ratio: Ratio, roas: Ratio, organic_rate: Percent,
-            start_date: Date, stock: Stock):
+            start_date: Date, stock: Stock, sgna_rate: Percent):
         super(Batch, self).__init__(data_generator)
         self.product = product
         self.inventory_turnover_ratio = inventory_turnover_ratio
@@ -39,6 +39,7 @@ class Batch(Primitive):
         self.roas = roas
         self.roas = roas
         self.organic_rate = organic_rate
+        self.sgna_rate = sgna_rate
         self.purchase_order: Optional[PurchaseOrder] = None
         self.next_batch: Optional[Batch] = None
 
@@ -48,9 +49,10 @@ class Batch(Primitive):
 
     @classmethod
     def generate_simulated(
-            cls, data_generator: DataGenerator, product: Optional[Product] = None,
+            cls, data_generator: DataGenerator, product: Optional[Product] = None, sgna_rate: Optional[Percent] = None,
             previous: Optional[Batch] = None) -> Batch:
         product = Batch.generate_product(data_generator, product, previous)
+        sgna_rate = Batch.generate_sgna_rate(data_generator, previous)
         shipping_duration = Batch.generate_shipping_duration(data_generator, product)
         lead_time = shipping_duration + product.manufacturing_duration
         inventory_turnover_ratio = Batch.generate_inventory_turnover_ratio(data_generator, lead_time, previous)
@@ -61,10 +63,16 @@ class Batch(Primitive):
         start_date = (previous.last_date + 1) if previous else constants.START_DATE
         new_batch = Batch(
             data_generator, product, shipping_duration, out_of_stock_rate, inventory_turnover_ratio, roas,
-            organic_rate, start_date, stock)
+            organic_rate, start_date, stock, sgna_rate)
         if previous:
             previous.next_batch = new_batch
         return new_batch
+
+    @classmethod
+    def generate_sgna_rate(cls, data_generator: DataGenerator, previous: Optional[Batch] = None) -> Percent:
+        if previous is not None:
+            return previous.sgna_rate
+        return data_generator.sgna_rate * data_generator.normal_ratio(data_generator.sgna_rate_std)
 
     @classmethod
     def generate_product(cls, data_generator: DataGenerator, product: Product, previous: Optional[Batch]):
@@ -76,24 +84,32 @@ class Batch(Primitive):
     @classmethod
     def generate_organic_rate(cls, data_generator: DataGenerator, previous: Optional[Batch], roas: Ratio) -> Percent:
         organic_rate = previous.organic_rate if previous else data_generator.organic_rate_median
-        organic_rate *= data_generator.normal_ratio(data_generator.organic_rate_std)
-        if roas < data_generator.roas_median:
-            organic_rate = Float.max(data_generator.organic_rate_median, organic_rate)
+        change_std = data_generator.organic_rate_std
+        if not previous:
+            change_std *= data_generator.first_batch_std_factor
+        organic_rate *= data_generator.normal_ratio(change_std)
+        # if roas < data_generator.roas_median:
+        #     organic_rate = Float.max(data_generator.organic_rate_median, organic_rate)
         organic_rate = min_max(organic_rate, constants.ORGANIC_RATE_MIN, constants.ORGANIC_RATE_MAX)
         return organic_rate
 
     @classmethod
     def generate_roas(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Ratio:
         roas = previous.roas if previous else data_generator.roas_median
-        roas *= data_generator.normal_ratio(data_generator.roas_std)
+        change_std = data_generator.roas_std
+        if not previous:
+            change_std *= data_generator.first_batch_std_factor
+        roas *= data_generator.normal_ratio(change_std)
         roas = min_max(roas, constants.MIN_ROAS, constants.MAX_ROAS)
         return roas
 
     @classmethod
     def generate_out_of_stock_rate(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Percent:
         out_of_stock_rate = previous.out_of_stock_rate if previous else data_generator.out_of_stock_rate_median
-        out_of_stock_rate *= data_generator.normal_ratio(
-            data_generator.out_of_stock_rate_std, chance_positive=0.2)
+        change_std = data_generator.out_of_stock_rate_std
+        if not previous:
+            change_std *= data_generator.first_batch_std_factor
+        out_of_stock_rate *= data_generator.normal_ratio(change_std, chance_positive=0.33)
         out_of_stock_rate = min_max(out_of_stock_rate, 0, constants.OUT_OF_STOCK_RATE_MAX)
         return out_of_stock_rate
 
@@ -111,9 +127,11 @@ class Batch(Primitive):
             previous: Optional[Batch]) -> Ratio:
         inventory_turnover_ratio = previous.inventory_turnover_ratio if previous else \
             data_generator.inventory_turnover_ratio_median
-        inventory_turnover_ratio *= data_generator.normal_ratio(data_generator.inventory_turnover_ratio_std)
-        max_inventory_turnover_ratio = Float.min(
-            constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX, constants.YEAR / lead_time)
+        change_std = data_generator.inventory_turnover_ratio_std
+        if not previous:
+            change_std *= data_generator.first_batch_std_factor
+        inventory_turnover_ratio *= data_generator.normal_ratio(change_std)
+        max_inventory_turnover_ratio = Float(constants.YEAR / lead_time)
         inventory_turnover_ratio = min_max(
             inventory_turnover_ratio, constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MIN,
             max_inventory_turnover_ratio)
@@ -140,7 +158,7 @@ class Batch(Primitive):
     def gp_margin(self) -> Percent:
         # TODO: gradual organic ratio
         # TODO: sell only organic if margin is negative
-        margin = self.revenue_margin() - self.marketing_margin() - self.data_generator.sgna_ratio
+        margin = self.revenue_margin() - self.marketing_margin() - self.sgna_rate
         return Float.max(O, margin)
 
     def marketing_margin(self) -> Percent:

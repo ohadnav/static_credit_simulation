@@ -22,11 +22,18 @@ class Merchant(Primitive):
     @classmethod
     def generate_simulated(
             cls, data_generator: DataGenerator, inventories: Optional[List[Inventory]] = None) -> Merchant:
-        num_products = round(data_generator.num_products * data_generator.normal_ratio())
-        num_products = min_max(num_products, 1, data_generator.max_num_products)
-        inventories = inventories or [Inventory.generate_simulated(data_generator) for _ in range(num_products)]
+        num_products = cls.generate_num_products(data_generator)
+        sgna_rate = Batch.generate_sgna_rate(data_generator)
+        inventories = inventories or [Inventory.generate_simulated(data_generator, sgna_rate) for _ in
+            range(num_products)]
         account_suspension_date = Merchant.calculate_suspension_start_date(data_generator)
         return Merchant(data_generator, inventories, account_suspension_date)
+
+    @classmethod
+    def generate_num_products(cls, data_generator: DataGenerator):
+        num_products = round(data_generator.num_products * data_generator.normal_ratio(data_generator.num_products_std))
+        num_products = min_max(num_products, 1, data_generator.max_num_products)
+        return num_products
 
     @classmethod
     def calculate_suspension_start_date(cls, data_generator: DataGenerator) -> Optional[Date]:

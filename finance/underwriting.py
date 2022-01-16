@@ -2,7 +2,7 @@ from copy import deepcopy
 
 from common import constants
 from common.context import SimulationContext, RiskConfiguration
-from common.util import Percent, Date, weighted_average, min_max, Ratio
+from common.util import Percent, Date, weighted_average, min_max, Ratio, Float, ONE, O
 from seller.merchant import Merchant
 
 
@@ -18,22 +18,25 @@ class Underwriting:
         for predictor, risk_configuration in vars(self.risk_context).items():
             risk_configuration.score = self.benchmark_score(predictor, day)
 
-    def benchmark_comparison(self, benchmark: Ratio, value: Ratio, higher_is_better: bool) -> Percent:
-        assert benchmark > 0
+    def benchmark_comparison(
+            self, benchmark: Float, value: Float, higher_is_better: bool, sensitivity: Ratio) -> Percent:
+        assert benchmark > O
         if higher_is_better:
-            ratio = value / (benchmark * self.context.benchmark_factor)
+            if value <= O:
+                return O
+            ratio = value / benchmark
         else:
-            if value == 0:
-                ratio = 1
-            else:
-                ratio = benchmark / (self.context.benchmark_factor * value)
-        return min_max(ratio, 0, 1)
+            if value <= O:
+                return ONE
+            ratio = benchmark / value
+        ratio = sensitivity * (ratio - 0.5) + 0.5
+        return min_max(ratio, O, ONE)
 
     def benchmark_score(self, predictor: str, day: Date):
         configuration: RiskConfiguration = getattr(self.context.risk_context, predictor)
         benchmark = getattr(self.context, f'{predictor}_benchmark')
         value = getattr(self.merchant, predictor)(day)
-        score = self.benchmark_comparison(benchmark, value, configuration.higher_is_better)
+        score = self.benchmark_comparison(benchmark, value, configuration.higher_is_better, configuration.sensitivity)
         return score
 
     def aggregated_score(self) -> Percent:

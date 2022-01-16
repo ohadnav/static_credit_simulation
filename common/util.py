@@ -95,6 +95,7 @@ Dollar = Float
 
 O = Float(0)
 ONE = Float(1)
+TWO = Float(2)
 
 
 def calculate_cagr(first_value: Float, last_value: Float, duration: Duration) -> Optional[Percent]:

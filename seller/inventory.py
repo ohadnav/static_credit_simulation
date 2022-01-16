@@ -6,7 +6,7 @@ from typing import Optional, List
 from common import constants
 from common.context import DataGenerator
 from common.primitive import Primitive
-from common.util import Date, Dollar, Duration, O, ONE
+from common.util import Date, Dollar, Duration, O, ONE, Percent
 from seller.batch import Batch
 from seller.product import Product
 
@@ -18,9 +18,11 @@ class Inventory(Primitive):
         self.batches = batches
 
     @classmethod
-    def generate_simulated(cls, data_generator: DataGenerator, product: Optional[Product] = None) -> Inventory:
+    def generate_simulated(
+            cls, data_generator: DataGenerator, sgna_rate: Optional[Percent] = None,
+            product: Optional[Product] = None) -> Inventory:
         product = product or Product.generate_simulated(data_generator)
-        batches = [Batch.generate_simulated(data_generator, product)]
+        batches = [Batch.generate_simulated(data_generator, product, sgna_rate)]
         start_date = batches[0].start_date
         while start_date <= data_generator.simulated_duration:
             next_batch = Batch.generate_simulated(data_generator, previous=batches[-1])

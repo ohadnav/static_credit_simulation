@@ -4,7 +4,7 @@ from random import uniform, randint
 from unittest.mock import MagicMock
 
 from common import constants
-from common.util import inverse_cagr, O, ONE, Float, Dollar
+from common.util import inverse_cagr, O, ONE, Float, Dollar, TWO
 from finance.loan_simulation import LoanSimulation, LoanSimulationResults, NoCapitalLoanSimulation, Loan
 from seller.merchant import Merchant
 from tests.util_test import BaseTestCase
@@ -28,7 +28,7 @@ class TestLoanSimulation(BaseTestCase):
 
     def test_outstanding_debt(self):
         amount1 = self.loan_simulation.loan_amount()
-        amount2 = amount1 / Float(2)
+        amount2 = amount1 / TWO
         self.loan_simulation.add_debt(amount1)
         debt1 = amount1 * (1 + self.loan_simulation.interest)
         self.assertAlmostEqual(self.loan_simulation.outstanding_debt(), debt1)
@@ -61,7 +61,7 @@ class TestLoanSimulation(BaseTestCase):
 
         prev_cash = self.loan_simulation.current_cash
         amount1 = self.loan_simulation.loan_amount()
-        amount2 = amount1 / Float(2)
+        amount2 = amount1 / TWO
         debt1 = self.loan_simulation.amount_to_debt(amount1)
         debt2 = self.loan_simulation.amount_to_debt(amount2)
         loan1 = Loan(amount1, self.context.loan_duration, debt1, self.loan_simulation.today)

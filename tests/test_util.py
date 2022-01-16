@@ -4,21 +4,20 @@ from time import time, sleep
 from joblib import delayed
 
 from common import constants
-from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel, Float, ONE, O
+from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel, Float, ONE, O, TWO
 from tests.util_test import BaseTestCase
 
 
 class TestUtil(BaseTestCase):
     def test_calculate_cagr(self):
-        two = Float(2)
-        self.assertAlmostEqual(calculate_cagr(O, two, constants.YEAR), ONE)
+        self.assertAlmostEqual(calculate_cagr(O, TWO, constants.YEAR), ONE)
         self.assertAlmostEqual(calculate_cagr(ONE, O, constants.YEAR), -ONE)
         self.assertAlmostEqual(calculate_cagr(O, O, constants.YEAR), O)
         self.assertAlmostEqual(calculate_cagr(-ONE, O, constants.YEAR), O)
         self.assertAlmostEqual(calculate_cagr(O, -ONE, constants.YEAR), O)
         self.assertAlmostEqual(calculate_cagr(-ONE, ONE, constants.YEAR), ONE)
-        self.assertAlmostEqual(calculate_cagr(ONE, two, constants.YEAR), ONE)
-        self.assertAlmostEqual(calculate_cagr(ONE, two, constants.YEAR / two), 3)
+        self.assertAlmostEqual(calculate_cagr(ONE, TWO, constants.YEAR), ONE)
+        self.assertAlmostEqual(calculate_cagr(ONE, TWO, constants.YEAR / TWO), 3)
 
     def test_min_max(self):
         self.assertAlmostEqual(min_max(1, 2, 3), 2)
@@ -60,13 +59,13 @@ class TestFloat(BaseTestCase):
 
     def test_comparison(self):
         # eq
-        self.assertFalse(Float(1) == Float(2))
-        self.assertFalse(Float(2) == Float(1))
+        self.assertFalse(Float(1) == TWO)
+        self.assertFalse(TWO == Float(1))
         self.assertTrue(Float(1) == Float(1))
         self.assertTrue(Float(1) == Float(1.000000001))
         self.assertTrue(Float(0.99999999999) == Float(1))
         # lt
-        self.assertTrue(Float(1) < Float(2))
+        self.assertTrue(Float(1) < TWO)
         self.assertFalse(Float(1) < Float(1))
         self.assertFalse(Float(1) < Float(1.000000001))
         self.assertFalse(Float(0.99999999999) < Float(1))
@@ -74,7 +73,7 @@ class TestFloat(BaseTestCase):
         self.assertTrue(Float(1) <= Float(1))
         self.assertTrue(Float(1) <= Float(1.000000001))
         # gt
-        self.assertTrue(Float(2) > Float(1))
+        self.assertTrue(TWO > Float(1))
         self.assertFalse(Float(1) > Float(1))
         self.assertFalse(Float(1.000000001) > Float(1))
         self.assertFalse(Float(1) > Float(0.99999999999))

@@ -13,31 +13,41 @@ CHANGE_THRESHOLD = 1.02
 
 class Product(Primitive):
     def __init__(
-            self, data_generator: DataGenerator, price: Dollar, cost_per_unit: Dollar,
-            min_purchase_order_size: Stock, manufacturing_duration: Duration, cogs_margin: Percent):
+            self, data_generator: DataGenerator, price: Dollar, min_purchase_order_size: Stock,
+            manufacturing_duration: Duration, cogs_margin: Percent):
         super(Product, self).__init__(data_generator)
         self.price = price
-        self.cost_per_unit = cost_per_unit
+        self.cost_per_unit = price * cogs_margin
         self.min_purchase_order_size = min_purchase_order_size
         self.manufacturing_duration = manufacturing_duration
         self.cogs_margin = cogs_margin
 
     @classmethod
     def generate_simulated(cls, data_generator: DataGenerator) -> Product:
-        price = data_generator.median_price * data_generator.normal_ratio(data_generator.price_std)
-        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(data_generator.cogs_margin_std)
-        cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)
-        manufacturing_duration = Duration(
-            data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
-                data_generator.manufacturing_duration_std))
-        manufacturing_duration = min_max(
-            manufacturing_duration, constants.MANUFACTURING_DURATION_MIN, constants.MANUFACTURING_DURATION_MAX)
+        price = data_generator.median_price * data_generator.normal_ratio(
+            data_generator.price_std * data_generator.first_batch_std_factor)
+        cogs_margin = cls.generate_cogs_margin(data_generator)
+        manufacturing_duration = cls.generate_manufacturing_duration(data_generator)
         cost_per_unit = cogs_margin * price
         min_purchase_order_size = Stock(round(data_generator.min_purchase_order_value / cost_per_unit))
-        new_product = Product(
-            data_generator, price, cost_per_unit, min_purchase_order_size,
-            manufacturing_duration, cogs_margin)
+        new_product = Product(data_generator, price, min_purchase_order_size, manufacturing_duration, cogs_margin)
         return new_product
+
+    @classmethod
+    def generate_manufacturing_duration(cls, data_generator):
+        manufacturing_duration = Duration(
+            data_generator.manufacturing_duration_avg * data_generator.normal_ratio(
+                data_generator.manufacturing_duration_std * data_generator.first_batch_std_factor))
+        manufacturing_duration = min_max(
+            manufacturing_duration, constants.MANUFACTURING_DURATION_MIN, constants.MANUFACTURING_DURATION_MAX)
+        return manufacturing_duration
+
+    @classmethod
+    def generate_cogs_margin(cls, data_generator):
+        cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(
+            data_generator.cogs_margin_std * data_generator.first_batch_std_factor)
+        cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)
+        return cogs_margin
 
     def volume_discount(self, volume: Stock) -> Percent:
         if volume <= self.min_purchase_order_size:

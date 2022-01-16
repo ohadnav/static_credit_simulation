@@ -17,6 +17,7 @@ class DataGenerator:
     num_merchants = constants.NUM_SIMULATED_MERCHANTS
     num_products = constants.NUM_PRODUCTS
     max_num_products = constants.MAX_NUM_PRODUCTS
+    num_products_std = constants.NUM_PRODUCTS_STD
 
     # Costs
     # TODO: add data gen STD to diversify initial underwriting values
@@ -25,16 +26,18 @@ class DataGenerator:
     shipping_duration_std = constants.SHIPPING_DURATION_STD
     manufacturing_duration_avg = constants.MANUFACTURING_DURATION_AVG
     manufacturing_duration_std = constants.MANUFACTURING_DURATION_STD
-    sgna_ratio = constants.SGNA_RATIO_MIN
+    sgna_rate = constants.SGNA_RATE_MIN
+    sgna_rate_std = constants.SGNA_RATE_STD
     inventory_cost_std = constants.INVENTORY_COST_STD
     out_of_stock_rate_median = constants.OUT_OF_STOCK_RATE_MEDIAN
     out_of_stock_rate_std = constants.OUT_OF_STOCK_RATE_STD
-    cogs_margin_median = constants.COGS_MARGIN_BENCHMARK_AVG
+    cogs_margin_median = constants.COGS_MARGIN_MEDIAN
     cogs_margin_std = constants.COGS_MARGIN_STD
-    inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
+    inventory_turnover_ratio_median = constants.INVENTORY_TURNOVER_RATIO_MEDIAN
     inventory_turnover_ratio_std = constants.INVENTORY_TURNOVER_RATIO_STD
     include_purchase_order_in_valuation = True
     conservative_cash_management = True
+    first_batch_std_factor = constants.FIRST_BATCH_STD_FACTOR
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO
@@ -45,7 +48,7 @@ class DataGenerator:
     roas_std = constants.ROAS_STD
     organic_rate_std = constants.ORGANIC_RATE_STD
     roas_median = constants.ROAS_MEDIAN
-    organic_rate_median = constants.ORGANIC_SALES_RATIO_MEDIAN
+    organic_rate_median = constants.ORGANIC_SALES_RATE_MEDIAN
 
     # Fraud
     account_suspension_duration = constants.ACCOUNT_SUSPENSION_DURATION
@@ -71,7 +74,8 @@ class DataGenerator:
             positive = mtrand.random() < chance_positive
             random_value = abs(mtrand.normal(scale=std))
             random_value = Float.min(max_ratio * std, random_value)
-            return ONE + random_value if positive else ONE / (1 + random_value)
+            ratio = ONE + random_value
+            return ratio if positive else ONE / ratio
         return constants.NO_VOLATILITY
 
     def remove_randomness(self):
@@ -82,18 +86,20 @@ class DataGenerator:
 class RiskConfiguration:
     # TODO: consider adding noise per each check
     higher_is_better: bool = True
-    weight = Float(constants.DEFAULT_RISK_PREDICTOR_WEIGHT)
-    threshold = Percent(constants.DEFAULT_RISK_MIN_THRESHOLD)
+    weight: Float = Float(constants.DEFAULT_RISK_PREDICTOR_WEIGHT)
+    threshold: Percent = Percent(constants.DEFAULT_RISK_MIN_THRESHOLD)
+    sensitivity: Ratio = Ratio(constants.LOW_UNDERWRITING_SENSITIVITY)
     score: Optional[Percent] = None
 
 
 class RiskContext:
     def __init__(self):
-        self.out_of_stock_rate = RiskConfiguration(higher_is_better=False)
-        self.inventory_turnover_ratio = RiskConfiguration()
+        self.out_of_stock_rate = RiskConfiguration(
+            higher_is_better=False, sensitivity=constants.MEDIUM_UNDERWRITING_SENSITIVITY)
+        self.inventory_turnover_ratio = RiskConfiguration(sensitivity=constants.MEDIUM_UNDERWRITING_SENSITIVITY)
         self.adjusted_profit_margin = RiskConfiguration()
-        self.roas = RiskConfiguration()
-        self.organic_rate = RiskConfiguration()
+        self.roas = RiskConfiguration(sensitivity=constants.HIGH_UNDERWRITING_SENSITIVITY)
+        self.organic_rate = RiskConfiguration(sensitivity=constants.HIGH_UNDERWRITING_SENSITIVITY)
 
     def score_dict(self) -> Mapping[str, Percent]:
         sd = {k: v.score for k, v in vars(self).items()}
@@ -130,10 +136,9 @@ class SimulationContext:
     expected_loans_per_year = constants.EXPECTED_LOANS_PER_YEAR
 
     # Underwriting
-    organic_rate_benchmark = constants.ORGANIC_SALES_RATIO_MEDIAN
-    out_of_stock_rate_benchmark = constants.OUT_OF_STOCK_RATE_MEDIAN
-    adjusted_profit_margin_benchmark = constants.PROFIT_MARGIN_BENCHMARK_MIN
-    inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_AVG
-    roas_benchmark = constants.ROAS_MEDIAN
-    benchmark_factor = constants.BENCHMARK_FACTOR
+    organic_rate_benchmark = constants.ORGANIC_SALES_RATE_BENCHMARK
+    out_of_stock_rate_benchmark = constants.OUT_OF_STOCK_RATE_BENCHMARK_MIN
+    adjusted_profit_margin_benchmark = constants.PROFIT_MARGIN_BENCHMARK_MAX
+    inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX
+    roas_benchmark = constants.ROAS_BENCHMARK_MAX
     min_risk_score = constants.MIN_RISK_SCORE

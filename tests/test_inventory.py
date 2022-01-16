@@ -21,6 +21,7 @@ class TestInventory(BaseTestCase):
             self.assertEqual(batch.product, self.inventory.product)
         for i in range(len(self.inventory.batches) - 1):
             self.assertEqual(self.inventory.batches[i].last_date + 1, self.inventory.batches[i + 1].start_date)
+            self.assertEqual(self.inventory.batches[i].sgna_rate, self.inventory.batches[i + 1].sgna_rate)
         self.assertGreater(self.inventory.batches[-1].start_date, self.data_generator.simulated_duration)
 
     def test_current_batch(self):
