@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import math
+from copy import deepcopy
 from dataclasses import fields, dataclass
 from typing import List, MutableMapping, Optional
 
@@ -6,10 +9,12 @@ import dacite as dacite
 import numpy as np
 from joblib import delayed
 
+from common import constants
 from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
+from common.numbers import Float, Percent, Ratio, Dollar, O
 from common.primitive import Primitive
-from common.util import Dollar, weighted_average, Percent, TqdmParallel, Float, Ratio, O
+from common.util import weighted_average, TqdmParallel, get_key_from_value
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
     NoCapitalLoanSimulation
@@ -61,6 +66,9 @@ class LenderSimulationResults:
         return f'GP: {self.lender_profit} sharpe: {self.sharpe} all_lsr: {self.all_merchants} portfolio: ' \
                f'{self.portfolio_merchants}'
 
+    def __repr__(self):
+        return self.__str__()
+
 
 class Lender(Primitive):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchants: List[Merchant]):
@@ -70,6 +78,17 @@ class Lender(Primitive):
         self.simulation_results: Optional[LenderSimulationResults] = None
         self.loans: MutableMapping[Merchant, LoanSimulation] = {}
         self.risk_correlation: MutableMapping[str, MutableMapping[str, Percent]] = {}
+
+    @classmethod
+    def generate_from_simulated_loans(cls, loans: List[LoanSimulation]) -> Lender:
+        merchants = [loan.merchant for loan in loans]
+        context = deepcopy(loans[0].context)
+        context.loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
+        data_generator = loans[0].data_generator
+        lender = Lender(context, data_generator, merchants)
+        lender.loans = {loan.merchant: loan for loan in loans}
+        lender.calculate_results()
+        return lender
 
     @staticmethod
     def loan_from_merchant(
@@ -92,7 +111,7 @@ class Lender(Primitive):
                 weights = []
                 for lsr in loan_results:
                     values.append(getattr(lsr, field.name))
-                    weights.append(lsr.valuation)
+                    weights.append(Float.min(lsr.valuation, constants.MAX_RESULTS_WEIGHT))
                 result[field.name] = weighted_average(values, weights)
         return dacite.from_dict(AggregatedLoanSimulationResults, result)
 

@@ -4,10 +4,10 @@ from typing import Callable, List, Optional, Union, Tuple
 
 from joblib import delayed
 
-from common import constants
 from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
-from common.util import TqdmParallel, Float
+from common.numbers import Float
+from common.util import TqdmParallel, LIVE_RATE
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
@@ -38,7 +38,8 @@ class MerchantFactory:
             conditions = [conditions]
 
         def validator(merchant: Merchant) -> EntityOrList:
-            values: List[Float] = [getattr(merchant, condition.field_name)(constants.START_DATE) for condition in
+            values: List[Float] = [getattr(merchant, condition.field_name)(self.data_generator.start_date) for condition
+                in
                 conditions]
             for i in range(len(conditions)):
                 if conditions[i].min_value is not None and not values[i] > conditions[i].min_value:
@@ -83,21 +84,31 @@ class MerchantFactory:
 
         return validator
 
-    def generate_merchants(self, validator: Optional[ValidatorMethod] = None, num_merchants: Optional[int] = None) \
-            -> List[Union[MerchantAndResult, Merchant]]:
+    def generate_merchants(
+            self, validator: Optional[ValidatorMethod] = None, num_merchants: Optional[int] = None,
+            show_live_rate: bool = False) -> List[Union[MerchantAndResult, Merchant]]:
         num_merchants = num_merchants or self.data_generator.num_merchants
         if validator is None:
             return [Merchant.generate_simulated(self.data_generator) for _ in range(num_merchants)]
         if num_merchants > 1:
-            merchants_and_results = TqdmParallel(desc='Generating merchants', total=num_merchants)(
-                delayed(self.merchant_generation_iteration)(validator) for _ in range(num_merchants))
+            if show_live_rate:
+                LIVE_RATE.name = 'merchant_qualify'
+                LIVE_RATE.reset()
+            merchants_and_results = TqdmParallel(
+                desc='Generating merchants', total=num_merchants, show_live_rate=show_live_rate)(
+                delayed(self.merchant_generation_iteration)(validator, show_live_rate) for _ in range(num_merchants))
             return merchants_and_results
         else:
             return [self.merchant_generation_iteration(validator)]
 
-    def merchant_generation_iteration(self, validator: ValidatorMethod) -> MerchantAndResult:
+    def merchant_generation_iteration(
+            self, validator: ValidatorMethod, show_live_rate: bool = False) -> MerchantAndResult:
         while True:
             merchant = Merchant.generate_simulated(self.data_generator)
+            if show_live_rate:
+                LIVE_RATE.total += 1
             result = validator(merchant)
             if result:
+                if show_live_rate:
+                    LIVE_RATE.positive += 1
                 return merchant, result

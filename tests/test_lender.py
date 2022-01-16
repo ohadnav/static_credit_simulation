@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import fields
 from unittest.mock import MagicMock
 
@@ -5,9 +6,10 @@ import numpy as np
 
 from common import constants
 from common.constants import LoanSimulationType
-from common.util import O
+from common.numbers import O
 from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation
+from simulation.merchant_factory import MerchantFactory
 from tests.util_test import StatisticalTestCase
 
 
@@ -20,7 +22,7 @@ class TestLender(StatisticalTestCase):
         self.lender = Lender(self.context, self.data_generator, self.merchants)
 
     def test_support_loan_types(self):
-        self.data_generator.simulated_duration = constants.START_DATE + 1
+        self.data_generator.simulated_duration = self.data_generator.start_date + 1
         for loan_type in LoanSimulationType:
             self.context.loan_type = loan_type
             self.lender = Lender(self.context, self.data_generator, self.merchants)
@@ -126,7 +128,12 @@ class TestLender(StatisticalTestCase):
         self.assertIsNotNone(self.lender.simulation_results)
         zero_map = {risk_field: O for risk_field in vars(self.context.risk_context).keys()}
         not_expected = {field.name: zero_map for field in fields(AggregatedLoanSimulationResults)}
-        self.assertFalse(self.lender.risk_correlation == not_expected)
+        try:
+            self.assertFalse(self.lender.risk_correlation == not_expected)
+        except AssertionError:
+            self.setUp()
+            self.lender.simulate()
+            self.assertFalse(self.lender.risk_correlation == not_expected)
 
     def test_simulate_deterministic(self):
         self.data_generator.simulated_duration = constants.MONTH * 3
@@ -135,3 +142,14 @@ class TestLender(StatisticalTestCase):
         self.lender.simulate()
         self.data_generator.normal_ratio.assert_not_called()
         self.data_generator.random.assert_not_called()
+
+    def test_generate_from_simulated_loans(self):
+        factory = MerchantFactory(self.data_generator, self.context)
+        merchants = factory.generate_merchants(num_merchants=5)
+        lender1 = Lender(self.context, self.data_generator, merchants)
+        lender1.simulate()
+        loans = [LoanSimulation(self.context, self.data_generator, deepcopy(merchant)) for merchant in merchants]
+        for loan in loans:
+            loan.simulate()
+        lender2 = Lender.generate_from_simulated_loans(loans)
+        self.assertDeepAlmostEqual(lender1.simulation_results, lender2.simulation_results)

@@ -1,10 +1,17 @@
 import logging
+from copy import deepcopy
 from typing import Callable, List, Optional, Tuple, Any
 
 from joblib import delayed
 
-from common.util import TqdmParallel, Float
+from common.context import DataGenerator, SimulationContext
+from common.numbers import Float
+from common.util import TqdmParallel
 from tests.util_test import StatisticalTestCase
+
+
+def func(data_generator: DataGenerator, context: SimulationContext):
+    return data_generator.max_purchase_order_size * context.loan_duration
 
 
 def statistical_test_mean_error(
@@ -13,7 +20,7 @@ def statistical_test_mean_error(
     logging.getLogger().setLevel(logging.WARNING)
     desc = f'{test_case._testMethodName}'
     errors = TqdmParallel(desc=desc, total=times)(
-        delayed(test_iteration)(test_case.data_generator, test_case.context) for _ in range(times))
+        delayed(test_iteration)(deepcopy(test_case.data_generator), deepcopy(test_case.context)) for _ in range(times))
     test_case.assertLess(Float.sum(errors) / times, mean_error)
     logging.getLogger().setLevel(logging_level)
 

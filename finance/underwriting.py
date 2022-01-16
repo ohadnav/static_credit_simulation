@@ -1,17 +1,18 @@
 from copy import deepcopy
 
-from common import constants
-from common.context import SimulationContext, RiskConfiguration
-from common.util import Percent, Date, weighted_average, min_max, Ratio, Float, ONE, O
+from common.context import SimulationContext, RiskConfiguration, DataGenerator
+from common.numbers import Float, Percent, Ratio, Date, O, ONE
+from common.util import weighted_average, min_max
 from seller.merchant import Merchant
 
 
 class Underwriting:
-    def __init__(self, context: SimulationContext, merchant: Merchant):
+    def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
         self.context = context
+        self.data_generator = data_generator
         self.merchant = merchant
         self.risk_context = deepcopy(self.context.risk_context)
-        self.update_score(constants.START_DATE)
+        self.update_score(self.data_generator.start_date)
         self.initial_risk_context = deepcopy(self.risk_context)
 
     def update_score(self, day: Date):

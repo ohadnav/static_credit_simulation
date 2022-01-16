@@ -1,101 +1,24 @@
 from __future__ import annotations
 
-import math
 import multiprocessing
-from typing import Union, List, Optional, Iterable
+from typing import Union, List, Optional, TypeVar, Mapping
 
 from joblib import Parallel
 from tqdm.auto import tqdm
 
 from common import constants
+from common.numbers import Float, Percent, Duration, O, ONE, Int
+from common.primitive import generate_id
+
+T = TypeVar('T')
+S = TypeVar('S')
 
 
-class Float(float):
-    def __eq__(self, other):
-        if math.isclose(self, other, abs_tol=constants.FLOAT_ADJUSTMENT, rel_tol=constants.FLOAT_ADJUSTMENT):
-            return True
-        return super(Float, self).__eq__(other)
-
-    def __hash__(self):
-        return super(Float, self).__hash__()
-
-    def __lt__(self, other) -> bool:
-        if self == other:
-            return False
-        return super(Float, self).__lt__(other)
-
-    def __le__(self, other) -> bool:
-        if self == other:
-            return True
-        return super(Float, self).__le__(other)
-
-    def __gt__(self, other) -> bool:
-        if self == other:
-            return False
-        return super(Float, self).__gt__(other)
-
-    def __ge__(self, other) -> bool:
-        if self == other:
-            return True
-        return super(Float, self).__ge__(other)
-
-    def __add__(self, other) -> Float:
-        return Float(super(Float, self).__add__(other))
-
-    def __mul__(self, other) -> Float:
-        return Float(super(Float, self).__mul__(other))
-
-    def __sub__(self, other) -> Float:
-        return Float(super(Float, self).__sub__(other))
-
-    def __truediv__(self, other) -> Float:
-        return Float(super(Float, self).__truediv__(other))
-
-    def __pow__(self, power, modulo=None) -> Float:
-        return Float(super(Float, self).__pow__(power, modulo))
-
-    def __index__(self) -> int:
-        return round(self)
-
-    def floor(self) -> int:
-        return math.ceil(self + constants.FLOAT_ADJUSTMENT)
-
-    def ceil(self) -> int:
-        return math.ceil(self - constants.FLOAT_ADJUSTMENT)
-
-    def __str__(self) -> str:
-        return super(Float, self).__str__()
-
-    def __repr__(self):
-        return f'Float({super(Float, self).__repr__()})'
-
-    @staticmethod
-    def sum(*args, **kwargs) -> Float:
-        return Float(sum(*args, **kwargs))
-
-    @staticmethod
-    def max(*args, **kwargs) -> Float:
-        if isinstance(args[0], Iterable) and len(args[0]) == 0:
-            return O
-        return Float(max(*args, **kwargs))
-
-    @staticmethod
-    def min(*args, **kwargs) -> Float:
-        if isinstance(args[0], Iterable) and len(args[0]) == 0:
-            return O
-        return Float(min(*args, **kwargs))
-
-
-Percent = Float
-Ratio = Float
-Date = int
-Duration = int
-Stock = int
-Dollar = Float
-
-O = Float(0)
-ONE = Float(1)
-TWO = Float(2)
+def get_key_from_value(value_to_look_for: T, dictionary: Mapping[S, T]) -> S:
+    for key, value in dictionary.items():
+        if value == value_to_look_for:
+            return key
+    raise KeyError()
 
 
 def calculate_cagr(first_value: Float, last_value: Float, duration: Duration) -> Optional[Percent]:
@@ -115,11 +38,18 @@ def inverse_cagr(cagr: Percent, duration: Duration) -> Optional[Percent]:
     return (1 + cagr) ** (duration / constants.YEAR) - 1
 
 
-def min_max(
-        value: Union[float, int, Float], min_value: Union[float, int, Float], max_value: Union[float, int, Float]) -> \
-        Union[float, int, Float]:
-    value = Float.max(min_value, value)
-    value = Float.min(max_value, value)
+NUMERIC_TYPES = Union[float, int, Int, Duration, Float]
+
+
+def min_max(value: NUMERIC_TYPES, min_value: NUMERIC_TYPES, max_value: NUMERIC_TYPES) -> NUMERIC_TYPES:
+    if isinstance(value, int):
+        value = Int.max(min_value, value)
+        value = Int.min(max_value, value)
+        if isinstance(value, Duration):
+            value = Duration(value)
+    else:
+        value = Float.max(min_value, value)
+        value = Float.min(max_value, value)
     return value
 
 
@@ -132,12 +62,39 @@ def weighted_average(values: List[float], weights: List[float]) -> Float:
     return weighted_values / total_weights
 
 
+class LiveRate:
+    def __init__(self):
+        self.id = generate_id(self)[0]
+        self.name = ''
+        self.reset()
+
+    def reset(self):
+        self.positive = 0
+        self.total = 0
+
+    def __hash__(self):
+        return self.id
+
+    def __str__(self):
+        # return f'{self.name}: {round(self.positive / self.total if self.total > 0 else 0, 2)}'
+        return f'{self.name}: {Float(100 * self.positive / self.total if self.total > 0 else 0)}%'
+
+
+global LIVE_RATE
+# noinspection PyRedeclaration
+LIVE_RATE = LiveRate()
+
+
 class TqdmParallel(Parallel):
-    def __init__(self, use_tqdm=True, total: int = None, desc: str = '', *args, **kwargs):
+    def __init__(self, use_tqdm=True, total: int = None, desc: str = '', show_live_rate: bool = False, *args, **kwargs):
         self._use_tqdm = use_tqdm
         self._total = total
         self.desc = desc
-        super().__init__(n_jobs=multiprocessing.cpu_count(), *args, **kwargs)
+        self.show_live_rate = show_live_rate
+        if show_live_rate:
+            super().__init__(n_jobs=multiprocessing.cpu_count(), require='sharedmem', *args, **kwargs)
+        else:
+            super().__init__(n_jobs=multiprocessing.cpu_count(), *args, **kwargs)
 
     def __call__(self, *args, **kwargs):
         with tqdm(disable=not self._use_tqdm, total=self._total, desc=self.desc) as self._pbar:
@@ -147,4 +104,6 @@ class TqdmParallel(Parallel):
         if self._total is None:
             self._pbar.total = self.n_dispatched_tasks
         self._pbar.n = self.n_completed_tasks
+        if self.show_live_rate:
+            self._pbar.set_postfix_str(str(LIVE_RATE))
         self._pbar.refresh()

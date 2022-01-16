@@ -3,7 +3,7 @@ from copy import deepcopy
 from common import constants
 from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
-from common.util import O
+from common.numbers import O, Dollar, ONE
 from finance.line_of_credit import LineOfCreditSimulation
 from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
 from seller.merchant import Merchant
@@ -21,23 +21,31 @@ class TestStatisticalLoan(StatisticalTestCase):
         self.data_generator.num_products = 3
 
     def test_big_merchants_loans_profitable(self):
-        def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
+        def test_iteration(
+                data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             is_true = []
             data_generator.min_purchase_order_value = 100000
-            merchant = Merchant.generate_simulated(data_generator)
+            merchant = factory.generate_merchants(
+                factory.generate_merchant_validator(MerchantCondition('annual_top_line', min_value=Dollar(10 ** 7))),
+                num_merchants=1)[0][0]
             loan = LoanSimulation(context, data_generator, merchant)
-            is_true.append((loan.projected_lender_profit() > 0, round(loan.projected_lender_profit())))
+            is_true.append((loan.projected_lender_profit() > 0, loan.projected_lender_profit()))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.6)
 
     def test_small_merchants_loans_not_profitable(self):
-        def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
+        def test_iteration(
+                data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             is_true = []
             data_generator.min_purchase_order_value = 1000
-            merchant = Merchant.generate_simulated(data_generator)
+            data_generator.num_products = 3
+            data_generator.num_products_std = constants.CONTROLLED_STD
+            merchant = factory.generate_merchants(
+                factory.generate_merchant_validator(MerchantCondition('annual_top_line', max_value=Dollar(10 ** 5))),
+                num_merchants=1)[0][0]
             loan = LoanSimulation(context, data_generator, merchant)
-            is_true.append((loan.projected_lender_profit() < 0, round(loan.projected_lender_profit())))
+            is_true.append((loan.projected_lender_profit() < 0, loan.projected_lender_profit()))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.25)
@@ -49,10 +57,11 @@ class TestStatisticalLoan(StatisticalTestCase):
             loan = LoanSimulation(context, data_generator, merchant)
             risk_dict = loan.underwriting.initial_risk_context.score_dict()
             is_true.append(
-                (loan.underwriting.approved(constants.START_DATE), min(risk_dict, key=risk_dict.get)))
+                (loan.underwriting.approved(data_generator.start_date), (min(risk_dict, key=risk_dict.get),
+                min(risk_dict.values()), loan)))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.3)
+        statistical_test_bool(self, test_iteration, min_frequency=0.15, max_frequency=0.6, times=500)
 
     def test_sellers_credit_profitable(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
@@ -73,7 +82,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan.total_credit > 0, loan))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.2)
+        statistical_test_bool(self, test_iteration, min_frequency=0.2, max_frequency=0.5)
 
     def test_bankruptcy_rate(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
@@ -92,7 +101,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true = []
             loan = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    MerchantCondition('total_credit', LoanSimulationType.DEFAULT, min_value=0)),
+                    MerchantCondition('total_credit', LoanSimulationType.DEFAULT, min_value=O)),
                 num_merchants=1)[0][1]
             is_true.append((loan.simulation_results.bankruptcy_rate > 0.1, loan))
             return is_true
@@ -104,7 +113,7 @@ class TestStatisticalLoan(StatisticalTestCase):
                 data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             merchant = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    MerchantCondition('bankruptcy_rate', LoanSimulationType.NO_CAPITAL, max_value=0.01)),
+                    MerchantCondition('bankruptcy_rate', LoanSimulationType.NO_CAPITAL, max_value=O + 0.01)),
                 num_merchants=1)[0][0]
             is_true = []
             loan = LoanSimulation(context, data_generator, merchant)
@@ -112,7 +121,8 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan.total_credit > 0, loan))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.3)
+        self.data_generator.simulated_duration = constants.YEAR
+        statistical_test_bool(self, test_iteration, min_frequency=0.2)
 
     def test_cost_of_acquisition_reduce_approval_rates(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
@@ -139,7 +149,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.conservative_cash_management = True
             results = factory.generate_merchants(
                 factory.generate_diff_validator(
-                    [MerchantCondition(loan_type=LoanSimulationType.DEFAULT),
+                    [MerchantCondition('total_credit', loan_type=LoanSimulationType.DEFAULT, min_value=ONE),
                         MerchantCondition(loan_type=LoanSimulationType.NO_CAPITAL)]),
                 num_merchants=1)
             loans = results[0][1]
@@ -149,7 +159,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan_with_capital.bankruptcy_rate <= loan_without_capital.bankruptcy_rate, loans))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
 
     def test_loans_profitable(self):
         def test_iteration(
@@ -161,9 +171,10 @@ class TestStatisticalLoan(StatisticalTestCase):
                 num_merchants=1)
             loan = results[0][1]
             is_true.append((loan.simulation_results.lender_profit > 0, loan))
+            is_true.append((loan.simulation_results.lender_profit < loan.simulation_results.total_credit, loan))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
 
     def test_merchants_grow_without_capital(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
@@ -171,26 +182,15 @@ class TestStatisticalLoan(StatisticalTestCase):
             merchant = Merchant.generate_simulated(data_generator)
             loan = NoCapitalLoanSimulation(context, data_generator, merchant)
             loan.simulate()
-            bankruptcy_or_negative_profits = not loan.bankruptcy_date or merchant.profit_margin(
-                constants.START_DATE) < 0
             is_true.append(
-                (
-                    bankruptcy_or_negative_profits or
-                    0 < loan.simulation_results.revenues_cagr,
-                    (loan.simulation_results.revenues_cagr, loan)))
+                (0 < loan.simulation_results.revenues_cagr < 2, (loan.simulation_results.revenues_cagr, loan)))
             is_true.append(
-                (
-                    bankruptcy_or_negative_profits or
-                    0 < loan.simulation_results.valuation_cagr,
-                    (loan.simulation_results.valuation_cagr, loan)))
+                (0 < loan.simulation_results.valuation_cagr < 3, (loan.simulation_results.valuation_cagr, loan)))
             is_true.append(
-                (
-                    bankruptcy_or_negative_profits or
-                    0 < loan.simulation_results.inventory_cagr,
-                    (loan.simulation_results.inventory_cagr, loan)))
+                (0 < loan.simulation_results.inventory_cagr < 3, (loan.simulation_results.inventory_cagr, loan)))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.5)
+        statistical_test_bool(self, test_iteration, min_frequency=0.3, max_frequency=0.8)
 
     def test_no_bankruptcy_with_unlimited_capital(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):

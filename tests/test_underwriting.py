@@ -2,9 +2,9 @@ from copy import deepcopy
 from random import random
 from unittest.mock import MagicMock
 
-from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.util import weighted_average, ONE, TWO
+from common.numbers import ONE, TWO
+from common.util import weighted_average
 from finance.underwriting import Underwriting
 from seller.merchant import Merchant
 from statistical_tests.statistical_test import statistical_test_bool
@@ -17,7 +17,7 @@ class TestUnderwriting(StatisticalTestCase):
         self.data_generator.max_num_products = 4
         self.data_generator.num_products = 2
         self.merchant = Merchant.generate_simulated(self.data_generator)
-        self.underwriting = Underwriting(self.context, self.merchant)
+        self.underwriting = Underwriting(self.context, self.data_generator, self.merchant)
 
     def test_init(self):
         for _, configuration in vars(self.underwriting.risk_context).items():
@@ -26,7 +26,7 @@ class TestUnderwriting(StatisticalTestCase):
     def test_update_score(self):
         scores = [random() for _ in range(len(list(vars(self.underwriting.risk_context))))]
         self.underwriting.benchmark_score = MagicMock(side_effect=scores)
-        self.underwriting.update_score(constants.START_DATE)
+        self.underwriting.update_score(self.data_generator.start_date)
         self.assertDeepAlmostEqual([c.score for c in vars(self.underwriting.risk_context).values()], scores)
 
     def test_benchmark_comparison(self):
@@ -52,11 +52,11 @@ class TestUnderwriting(StatisticalTestCase):
         for predictor, configuration in vars(self.context.risk_context).items():
             benchmark = getattr(self.context, f'{predictor}_benchmark')
             setattr(self.underwriting.merchant, predictor, MagicMock(return_value=benchmark))
-            self.assertAlmostEqual(self.underwriting.benchmark_score(predictor, constants.START_DATE), ONE)
+            self.assertAlmostEqual(self.underwriting.benchmark_score(predictor, self.data_generator.start_date), ONE)
             if hasattr(self.data_generator, f'{predictor}_median'):
                 median = getattr(self.data_generator, f'{predictor}_median')
                 setattr(self.underwriting.merchant, predictor, MagicMock(return_value=median))
-                self.assertLess(self.underwriting.benchmark_score(predictor, constants.START_DATE), ONE)
+                self.assertLess(self.underwriting.benchmark_score(predictor, self.data_generator.start_date), ONE)
 
     def test_aggregated_score(self):
         scores = [random() for _ in range(len(list(vars(self.underwriting.risk_context))))]
@@ -69,13 +69,13 @@ class TestUnderwriting(StatisticalTestCase):
     def test_approved(self):
         for configuration in vars(self.underwriting.risk_context).values():
             configuration.score = 1
-        self.assertTrue(self.underwriting.approved(constants.START_DATE))
+        self.assertTrue(self.underwriting.approved(self.data_generator.start_date))
         for configuration in vars(self.underwriting.risk_context).values():
             configuration.score = configuration.threshold - 0.01
-            self.assertFalse(self.underwriting.approved(constants.START_DATE))
+            self.assertFalse(self.underwriting.approved(self.data_generator.start_date))
             configuration.score = 1
         self.underwriting.aggregated_score = MagicMock(return_value=self.context.min_risk_score - 0.01)
-        self.assertFalse(self.underwriting.approved(constants.START_DATE))
+        self.assertFalse(self.underwriting.approved(self.data_generator.start_date))
 
     def test_risk_factors(self):
         for predictor, configuration in vars(self.context.risk_context).items():
@@ -92,8 +92,8 @@ class TestUnderwriting(StatisticalTestCase):
                 benchmark = getattr(context, f'{predictor}_benchmark')
                 setattr(merchant1, predictor, return_benchmark)
                 setattr(merchant2, predictor, return_benchmark_multiplied)
-                underwriting1 = Underwriting(context, merchant1)
-                underwriting2 = Underwriting(context, merchant2)
+                underwriting1 = Underwriting(context, data_generator, merchant1)
+                underwriting2 = Underwriting(context, data_generator, merchant2)
                 is_true.append(
                     (underwriting1.aggregated_score() > underwriting2.aggregated_score(),
                     (predictor, merchant1, merchant2)))

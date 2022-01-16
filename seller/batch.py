@@ -6,8 +6,9 @@ from typing import Optional
 
 from common import constants
 from common.context import DataGenerator
+from common.numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT
 from common.primitive import Primitive
-from common.util import Percent, Date, Duration, Stock, Dollar, min_max, Ratio, O, ONE, Float
+from common.util import min_max
 from seller.product import Product
 
 
@@ -45,7 +46,7 @@ class Batch(Primitive):
 
     @staticmethod
     def calculate_duration(inventory_turnover_ratio: Ratio) -> Duration:
-        return math.ceil(constants.YEAR / inventory_turnover_ratio)
+        return Duration(math.ceil(constants.YEAR / inventory_turnover_ratio))
 
     @classmethod
     def generate_simulated(
@@ -60,7 +61,7 @@ class Batch(Primitive):
         out_of_stock_rate = Batch.generate_out_of_stock_rate(data_generator, previous)
         roas = Batch.generate_roas(data_generator, previous)
         organic_rate = Batch.generate_organic_rate(data_generator, previous, roas)
-        start_date = (previous.last_date + 1) if previous else constants.START_DATE
+        start_date = (previous.last_date + 1) if previous else data_generator.start_date
         new_batch = Batch(
             data_generator, product, shipping_duration, out_of_stock_rate, inventory_turnover_ratio, roas,
             organic_rate, start_date, stock, sgna_rate)
@@ -144,7 +145,7 @@ class Batch(Primitive):
             shipping_duration * data_generator.normal_ratio(
                 data_generator.shipping_duration_std, chance_positive=0.8))
         max_shipping_duration = constants.MAX_LEAD_TIME_DURATION - product.manufacturing_duration
-        max_shipping_duration = min(constants.SHIPPING_DURATION_MAX, max_shipping_duration)
+        max_shipping_duration = Duration.min(constants.SHIPPING_DURATION_MAX, max_shipping_duration)
         shipping_duration = min_max(shipping_duration, constants.MIN_SHIPPING_DURATION, max_shipping_duration)
         return shipping_duration
 
@@ -179,12 +180,15 @@ class Batch(Primitive):
     def max_purchase_order(self) -> PurchaseOrder:
         stock = self.max_stock_for_next_purchase_order()
         upfront_cost, post_cost = self.product.purchase_order_cost(stock)
+        if upfront_cost + post_cost > self.data_generator.max_purchase_order_value:
+            stock = self.product.batch_size_from_cost(self.data_generator.max_purchase_order_value)
+            upfront_cost, post_cost = self.product.purchase_order_cost(stock)
         return PurchaseOrder(stock, upfront_cost, post_cost)
 
     def max_stock_for_next_purchase_order(self):
-        return max(
-            self.product.min_purchase_order_size, Stock(
-                self.sales_velocity() * self.lead_time * constants.GROWTH_RATIO_MAX))
+        stock = Stock(self.sales_velocity() * self.lead_time * constants.GROWTH_RATIO_MAX)
+        stock = min_max(stock, self.product.min_purchase_order_size, self.data_generator.max_purchase_order_size)
+        return stock
 
     def initiate_new_purchase_order(self, day: Date, available_cash: Dollar) -> Optional[PurchaseOrder]:
         new_purchase_order = self.max_purchase_order()
@@ -244,8 +248,8 @@ class Batch(Primitive):
     def is_out_of_stock(self, day: Date) -> bool:
         return day - self.start_date >= self.duration_in_stock()
 
-    def sales_velocity(self) -> float:
-        return self.stock / (self.duration * (1 - self.out_of_stock_rate))
+    def sales_velocity(self) -> Float:
+        return self.stock / (self.duration * (ONE - self.out_of_stock_rate))
 
     def total_revenue_per_day(self, day: Date) -> Dollar:
         if self.is_out_of_stock(day):
@@ -270,13 +274,13 @@ class Batch(Primitive):
             if self.stock > 0:
                 return self.duration
             else:
-                return 0
+                return O_INT
         duration_to_out_of_stock = Float(self.stock / self.sales_velocity())
-        return duration_to_out_of_stock.ceil()
+        return Duration(duration_to_out_of_stock.ceil())
 
     # at the beginning of the day
     def remaining_stock(self, day: Date) -> Stock:
         assert day >= self.start_date
-        sales_duration = min(self.duration_in_stock(), day - self.start_date)
+        sales_duration = Duration.min(self.duration_in_stock(), day - self.start_date)
         sold_in_duration = Stock(self.sales_velocity() * sales_duration)
-        return max(self.stock - sold_in_duration, 0)
+        return max(self.stock - sold_in_duration, O_INT)

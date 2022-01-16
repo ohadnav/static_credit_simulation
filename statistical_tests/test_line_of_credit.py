@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
 from finance.lender import Lender
@@ -16,9 +14,9 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             data_generator.num_products = 2
             data_generator.max_num_products = 10
             results = factory.generate_merchants(
-                factory.generate_lsr_validator(
-                    [MerchantCondition('total_credit', loan_type=LoanSimulationType.LINE_OF_CREDIT, min_value=0),
-                        MerchantCondition('bankruptcy_rate', loan_type=LoanSimulationType.NO_CAPITAL, max_value=0.01)]),
+                factory.generate_diff_validator(
+                    [MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
+                        MerchantCondition(loan_type=LoanSimulationType.NO_CAPITAL)]),
                 num_merchants=1)
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
@@ -26,28 +24,26 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             is_true.append(
                 (
                     loan_with_capital.revenues_cagr > loan_without_capital.revenues_cagr,
-                    (round(
-                        loan_with_capital.revenues_cagr - loan_without_capital.revenues_cagr, 2), loans)))
+                    (
+                        loan_with_capital.revenues_cagr - loan_without_capital.revenues_cagr, loans)))
             is_true.append(
                 (
                     loan_with_capital.lender_profit > 0,
-                    (round(loan_with_capital.lender_profit), loan_with_capital)))
+                    (loan_with_capital.lender_profit, loan_with_capital)))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.6)
+        statistical_test_bool(self, test_iteration, min_frequency=0.6, times=50)
 
     def test_line_of_credit_superior(self):
-        loc_context = SimulationContext.generate_context(LoanSimulationType.LINE_OF_CREDIT)
-        regular_context = SimulationContext.generate_context(LoanSimulationType.INCREASING_REBATE)
+        self.data_generator.num_merchants = 50
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
-                [MerchantCondition('total_credit', LoanSimulationType.DEFAULT, 1),
+                [MerchantCondition(loan_type=LoanSimulationType.DEFAULT),
                     MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT)]))
-        merchants = [mnr[0] for mnr in merchants_and_results]
-        regular_lender = Lender(regular_context, self.data_generator, merchants)
-        loc_lender = Lender(loc_context, self.data_generator, deepcopy(merchants))
-        regular_lender.simulate()
-        loc_lender.simulate()
+        regular_loans = [mnr[1][0] for mnr in merchants_and_results]
+        loc_loans = [mnr[1][1] for mnr in merchants_and_results]
+        regular_lender = Lender.generate_from_simulated_loans(regular_loans)
+        loc_lender = Lender.generate_from_simulated_loans(loc_loans)
         print('results:')
         print(regular_lender.simulation_results)
         print(loc_lender.simulation_results)
@@ -75,17 +71,14 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             loc_lender.simulation_results.portfolio_merchants.bankruptcy_rate)
 
     def test_dynamic_line_of_credit_superior(self):
-        dynamic_context = SimulationContext.generate_context(LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)
-        loc_context = SimulationContext.generate_context(LoanSimulationType.LINE_OF_CREDIT)
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
-                [MerchantCondition('total_credit', LoanSimulationType.LINE_OF_CREDIT, 1),
+                [MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
                     MerchantCondition(loan_type=LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)]))
-        merchants = [mnr[0] for mnr in merchants_and_results]
-        loc_lender = Lender(loc_context, self.data_generator, merchants)
-        dynamic_lender = Lender(dynamic_context, self.data_generator, deepcopy(merchants))
-        loc_lender.simulate()
-        dynamic_lender.simulate()
+        loc_loans = [mnr[1][0] for mnr in merchants_and_results]
+        dynamic_loans = [mnr[1][1] for mnr in merchants_and_results]
+        loc_lender = Lender.generate_from_simulated_loans(loc_loans)
+        dynamic_lender = Lender.generate_from_simulated_loans(dynamic_loans)
         print(loc_lender.simulation_results)
         print(dynamic_lender.simulation_results)
         self.assertNotEqual(loc_lender.simulation_results, dynamic_lender.simulation_results)

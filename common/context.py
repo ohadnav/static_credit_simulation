@@ -7,7 +7,7 @@ from numpy.random import mtrand
 
 from common import constants
 from common.constants import LoanSimulationType
-from common.util import Percent, Float, Ratio, ONE
+from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
 
 
 @dataclass(unsafe_hash=True)
@@ -18,10 +18,12 @@ class DataGenerator:
     num_products = constants.NUM_PRODUCTS
     max_num_products = constants.MAX_NUM_PRODUCTS
     num_products_std = constants.NUM_PRODUCTS_STD
+    start_date = constants.START_DATE
 
     # Costs
-    # TODO: add data gen STD to diversify initial underwriting values
     min_purchase_order_value = constants.MIN_PURCHASE_ORDER_VALUE
+    max_purchase_order_value = constants.MAX_PURCHASE_ORDER_VALUE
+    max_purchase_order_size = constants.MAX_PURCHASE_ORDER_SIZE
     shipping_duration_avg = constants.SHIPPING_DURATION_AVG
     shipping_duration_std = constants.SHIPPING_DURATION_STD
     manufacturing_duration_avg = constants.MANUFACTURING_DURATION_AVG
@@ -62,6 +64,9 @@ class DataGenerator:
                 value = getattr(data_generator, key)
                 if isinstance(value, float):
                     setattr(data_generator, key, Float(value))
+                if isinstance(value, int):
+                    setattr(
+                        data_generator, key, Duration(value) if ('duration' in key or 'date' in key) else Int(value))
         return data_generator
 
     def random(self) -> Percent:
@@ -117,6 +122,8 @@ class SimulationContext:
                 value = getattr(context, key)
                 if isinstance(value, float):
                     setattr(context, key, Float(value))
+                if isinstance(value, int):
+                    setattr(context, key, Duration(value) if 'duration' in key else Int(value))
         return context
 
     # Loan
@@ -126,6 +133,8 @@ class SimulationContext:
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
     delayed_loan_repayment_increase = constants.DELAYED_LOAN_REPAYMENT_INCREASE
     repayment_factor = constants.REPAYMENT_FACTOR
+    max_loan_amount = constants.MAX_LOAN_AMOUNT
+    max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL

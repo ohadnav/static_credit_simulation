@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from common.constants import LoanSimulationType
-from common.util import Percent, O, ONE, Dollar
+from common.numbers import Percent, Dollar, O, ONE
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation, LoanSimulationResults
 from seller.merchant import Merchant

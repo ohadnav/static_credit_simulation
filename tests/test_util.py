@@ -4,7 +4,8 @@ from time import time, sleep
 from joblib import delayed
 
 from common import constants
-from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel, Float, ONE, O, TWO
+from common.numbers import Float, O, ONE, TWO, Int, Duration
+from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel
 from tests.util_test import BaseTestCase
 
 
@@ -23,6 +24,9 @@ class TestUtil(BaseTestCase):
         self.assertAlmostEqual(min_max(1, 2, 3), 2)
         self.assertAlmostEqual(min_max(4, 2, 3), 3)
         self.assertAlmostEqual(min_max(2.5, 2, 3), 2.5)
+        self.assertTrue(type(min_max(Int(3), 2, 3)), Int)
+        self.assertTrue(type(min_max(Float(3), 2, 3)), Float)
+        self.assertTrue(type(min_max(Duration(3), 2, 3)), Duration)
 
     def test_weighted_average(self):
         self.assertAlmostEqual(weighted_average([1, 1], [2, 2]), 1)
@@ -36,6 +40,8 @@ class TestUtil(BaseTestCase):
         self.assertAlmostEqual(inverse_cagr(O, constants.YEAR), -ONE)
         self.assertAlmostEqual(inverse_cagr(-ONE, constants.YEAR), -ONE)
 
+
+class TestTqdmParallel(BaseTestCase):
     def test_parallel(self):
         def sleep_func(i):
             sleep(0.2)
@@ -50,39 +56,3 @@ class TestUtil(BaseTestCase):
         parallel_time = time() - start_time2
         self.assertLess(parallel_time, unparallel_time)
         self.assertDeepAlmostEqual(result, [0, 1, 2, 3, 4])
-
-
-class TestFloat(BaseTestCase):
-    def setUp(self) -> None:
-        super(TestFloat, self).setUp()
-        self.float = Float(1)
-
-    def test_comparison(self):
-        # eq
-        self.assertFalse(Float(1) == TWO)
-        self.assertFalse(TWO == Float(1))
-        self.assertTrue(Float(1) == Float(1))
-        self.assertTrue(Float(1) == Float(1.000000001))
-        self.assertTrue(Float(0.99999999999) == Float(1))
-        # lt
-        self.assertTrue(Float(1) < TWO)
-        self.assertFalse(Float(1) < Float(1))
-        self.assertFalse(Float(1) < Float(1.000000001))
-        self.assertFalse(Float(0.99999999999) < Float(1))
-        # le
-        self.assertTrue(Float(1) <= Float(1))
-        self.assertTrue(Float(1) <= Float(1.000000001))
-        # gt
-        self.assertTrue(TWO > Float(1))
-        self.assertFalse(Float(1) > Float(1))
-        self.assertFalse(Float(1.000000001) > Float(1))
-        self.assertFalse(Float(1) > Float(0.99999999999))
-        # ge
-        self.assertTrue(Float(1) >= Float(1))
-        self.assertTrue(Float(1.000000001) >= Float(1))
-
-    def test_arithmetic(self):
-        self.assertEqual(self.float + 1, 2)
-        self.assertEqual(self.float - 1, 0)
-        self.assertEqual(self.float * 2, 2)
-        self.assertEqual(self.float / 2, 0.5)

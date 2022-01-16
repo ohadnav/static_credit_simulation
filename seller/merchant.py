@@ -5,8 +5,9 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
+from common.numbers import Float, Percent, Ratio, Date, Dollar, O
 from common.primitive import Primitive
-from common.util import Percent, Date, Dollar, weighted_average, min_max, Ratio, O, Float
+from common.util import weighted_average, min_max
 from seller.batch import Batch
 from seller.inventory import Inventory
 
@@ -39,7 +40,7 @@ class Merchant(Primitive):
     def calculate_suspension_start_date(cls, data_generator: DataGenerator) -> Optional[Date]:
         suspension_start_date = None
         if data_generator.random() < data_generator.account_suspension_chance:
-            suspension_start_date = randint(constants.START_DATE, data_generator.simulated_duration)
+            suspension_start_date = randint(data_generator.start_date, data_generator.simulated_duration)
         return suspension_start_date
 
     def annual_top_line(self, day: Date) -> Dollar:

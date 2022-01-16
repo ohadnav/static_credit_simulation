@@ -1,8 +1,7 @@
 from random import randint
 from unittest.mock import MagicMock
 
-from common import constants
-from common.util import Percent, Dollar, O, ONE
+from common.numbers import Percent, Dollar, O, ONE, Date, Duration
 from seller.batch import Batch, PurchaseOrder
 from tests.util_test import BaseTestCase
 
@@ -27,7 +26,7 @@ class TestBatch(BaseTestCase):
         self.assertEqual(
             self.batch.stock,
             int(max(self.batch.lead_time + 1, self.batch.product.min_purchase_order_size) * ratio))
-        self.assertEqual(self.batch.start_date, constants.START_DATE)
+        self.assertEqual(self.batch.start_date, self.data_generator.start_date)
         self.assertIsNone(self.batch.next_batch)
 
     def test_generate_simulated_with_previous(self):
@@ -50,16 +49,17 @@ class TestBatch(BaseTestCase):
         self.batch.is_out_of_stock = MagicMock(return_value=True)
         self.batch.stock = 0
         self.batch.purchase_order = None
-        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
-        self.batch.purchase_order = PurchaseOrder(1, ONE, ONE)
-        self.assertTrue(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        duration = Duration(randint(self.batch.start_date, self.batch.last_date))
+        self.assertFalse(self.batch.has_future_revenue(duration))
+        self.batch.purchase_order = PurchaseOrder(Date(1), ONE, ONE)
+        self.assertTrue(self.batch.has_future_revenue(duration))
         self.batch.purchase_order = None
         self.batch.stock = 1
-        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.assertFalse(self.batch.has_future_revenue(duration))
         self.batch.is_out_of_stock = MagicMock(return_value=False)
-        self.assertTrue(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.assertTrue(self.batch.has_future_revenue(duration))
         self.batch.stock = 0
-        self.assertFalse(self.batch.has_future_revenue(randint(self.batch.start_date, self.batch.last_date)))
+        self.assertFalse(self.batch.has_future_revenue(duration))
 
     def test_margins(self):
         self.assertGreater(self.batch.revenue_margin(), self.batch.gp_margin())
@@ -82,7 +82,7 @@ class TestBatch(BaseTestCase):
 
     def test_get_manufacturing_done_date(self):
         self.assertIsNone(self.batch.get_manufacturing_done_date())
-        self.batch.purchase_order = PurchaseOrder(0, O, O)
+        self.batch.purchase_order = PurchaseOrder(Date(0), O, O)
         self.batch.get_purchase_order_start_date = MagicMock(return_value=1)
         self.assertEqual(self.batch.get_manufacturing_done_date(), 1 + self.batch.product.manufacturing_duration)
 
@@ -95,6 +95,12 @@ class TestBatch(BaseTestCase):
     def test_max_purchase_order(self):
         max_stock = self.batch.max_stock_for_next_purchase_order()
         self.assertEqual(self.batch.max_purchase_order().stock, max_stock)
+
+        self.batch.product.purchase_order_cost = MagicMock(
+            side_effect=[(self.data_generator.max_purchase_order_value, self.data_generator.max_purchase_order_value),
+                (ONE, ONE)])
+        stock = self.batch.product.batch_size_from_cost(self.data_generator.max_purchase_order_value)
+        self.assertEqual(self.batch.max_purchase_order(), PurchaseOrder(stock, ONE, ONE))
 
     def test_initiate_new_purchase_order(self):
         self.data_generator.remove_randomness()
@@ -121,7 +127,7 @@ class TestBatch(BaseTestCase):
         prev_start2 = batch2.start_date
         prev_end1 = self.batch.last_date
         prev_end2 = batch2.last_date
-        extension = 2
+        extension = Duration(2)
         self.batch.push_start_date(extension)
         self.assertEqual(self.batch.start_date, prev_start1 + extension)
         self.assertEqual(self.batch.last_date, prev_end1 + extension)
@@ -144,8 +150,8 @@ class TestBatch(BaseTestCase):
         self.assertEqual(self.batch.duration, prev_duration + extension)
         self.assertEqual(self.batch.last_date, prev_last + extension)
         self.assertFalse(
-            self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock() - 1))
-        self.assertTrue(self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock()))
+            self.batch.is_out_of_stock(self.data_generator.start_date + self.batch.duration_in_stock() - 1))
+        self.assertTrue(self.batch.is_out_of_stock(self.data_generator.start_date + self.batch.duration_in_stock()))
         batch2 = Batch.generate_simulated(self.data_generator, previous=self.batch)
         batch2.push_start_date = MagicMock()
         self.batch.extend_duration(self.batch.get_purchase_order_start_date() + extension)
@@ -168,7 +174,7 @@ class TestBatch(BaseTestCase):
             self.batch.max_cash_needed(self.batch.get_purchase_order_start_date()),
             self.batch.max_purchase_order().total_cost())
         self.data_generator.conservative_cash_management = False
-        self.assertEqual(self.batch.max_cash_needed(constants.START_DATE - 1), 0)
+        self.assertEqual(self.batch.max_cash_needed(self.data_generator.start_date - 1), 0)
         self.assertEqual(
             self.batch.max_cash_needed(self.batch.get_purchase_order_start_date()),
             self.batch.max_purchase_order().post_manufacturing_cost)
@@ -181,7 +187,7 @@ class TestBatch(BaseTestCase):
 
     def test_cash_needed_to_afford_purchase_order(self):
         self.data_generator.conservative_cash_management = True
-        purchase_order = PurchaseOrder(1, Dollar(2), Dollar(3))
+        purchase_order = PurchaseOrder(Date(1), Dollar(2), Dollar(3))
         self.assertEqual(self.batch.cash_needed_to_afford_purchase_order(purchase_order), Dollar(5))
         self.data_generator.conservative_cash_management = False
         self.assertEqual(self.batch.cash_needed_to_afford_purchase_order(purchase_order), Dollar(3))
@@ -191,7 +197,8 @@ class TestBatch(BaseTestCase):
         self.data_generator.conservative_cash_management = False
         upfront, post = self.batch.product.purchase_order_cost(self.batch.product.min_purchase_order_size)
         million = Dollar(1000000)
-        self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date() - 1, million), 0)
+        if self.batch.get_purchase_order_start_date() > self.data_generator.start_date:
+            self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date() - 1, million), 0)
         self.assertIsNone(self.batch.purchase_order)
         self.assertEqual(self.batch.inventory_cost(self.batch.get_purchase_order_start_date(), post - 1), 0)
         self.assertIsNone(self.batch.purchase_order)
@@ -202,10 +209,10 @@ class TestBatch(BaseTestCase):
         self.assertAlmostEqual(self.batch.inventory_cost(self.batch.get_manufacturing_done_date() + 1, million), 0)
 
     def test_is_out_of_stock(self):
-        self.assertFalse(self.batch.is_out_of_stock(constants.START_DATE))
+        self.assertFalse(self.batch.is_out_of_stock(self.data_generator.start_date))
         self.assertFalse(
-            self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock() - 1))
-        self.assertTrue(self.batch.is_out_of_stock(constants.START_DATE + self.batch.duration_in_stock()))
+            self.batch.is_out_of_stock(self.data_generator.start_date + self.batch.duration_in_stock() - 1))
+        self.assertTrue(self.batch.is_out_of_stock(self.data_generator.start_date + self.batch.duration_in_stock()))
 
     def test_sales_velocity(self):
         self.batch.stock = 30
@@ -214,19 +221,22 @@ class TestBatch(BaseTestCase):
         self.assertAlmostEqual(self.batch.sales_velocity(), 10)
 
     def test_revenue_per_day(self):
-        self.assertEqual(self.batch.revenue_per_day(constants.START_DATE + self.batch.duration_in_stock() + 1), 0)
+        self.assertEqual(
+            self.batch.revenue_per_day(self.data_generator.start_date + self.batch.duration_in_stock() + 1), 0)
         self.batch.revenue_margin = MagicMock(return_value=1)
         self.assertAlmostEqual(
-            self.batch.revenue_per_day(constants.START_DATE), self.batch.product.price * self.batch.sales_velocity())
+            self.batch.revenue_per_day(self.data_generator.start_date),
+            self.batch.product.price * self.batch.sales_velocity())
 
     def test_revenue_margin(self):
         self.assertGreater(self.batch.revenue_margin(), 0)
 
     def test_gp_per_day(self):
-        self.assertEqual(self.batch.gp_per_day(constants.START_DATE + self.batch.duration_in_stock() + 1), 0)
+        self.assertEqual(self.batch.gp_per_day(self.data_generator.start_date + self.batch.duration_in_stock() + 1), 0)
         self.batch.gp_margin = MagicMock(return_value=0.8)
         self.assertAlmostEqual(
-            self.batch.total_revenue_per_day(constants.START_DATE) * 0.8, self.batch.gp_per_day(constants.START_DATE))
+            self.batch.total_revenue_per_day(self.data_generator.start_date) * 0.8,
+            self.batch.gp_per_day(self.data_generator.start_date))
 
     def test_duration_in_stock(self):
         self.batch.out_of_stock_rate = 0
@@ -242,8 +252,10 @@ class TestBatch(BaseTestCase):
         self.assertEqual(self.batch.duration_in_stock(), 0)
 
     def test_remaining_stock(self):
-        self.assertEqual(self.batch.remaining_stock(constants.START_DATE), self.batch.stock)
+        self.assertEqual(self.batch.remaining_stock(self.data_generator.start_date), self.batch.stock)
         self.assertEqual(
-            self.batch.remaining_stock(constants.START_DATE + 1), self.batch.stock - int(self.batch.sales_velocity()))
-        self.assertGreater(self.batch.remaining_stock(constants.START_DATE + self.batch.duration_in_stock() - 1), 0)
-        self.assertEqual(self.batch.remaining_stock(constants.START_DATE + self.batch.duration_in_stock()), 0)
+            self.batch.remaining_stock(self.data_generator.start_date + 1),
+            self.batch.stock - int(self.batch.sales_velocity()))
+        self.assertGreater(
+            self.batch.remaining_stock(self.data_generator.start_date + self.batch.duration_in_stock() - 1), 0)
+        self.assertEqual(self.batch.remaining_stock(self.data_generator.start_date + self.batch.duration_in_stock()), 0)

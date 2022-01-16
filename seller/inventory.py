@@ -5,8 +5,8 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
+from common.numbers import Percent, Date, Duration, Dollar, O, ONE, Stock
 from common.primitive import Primitive
-from common.util import Date, Dollar, Duration, O, ONE, Percent
 from seller.batch import Batch
 from seller.product import Product
 
@@ -56,16 +56,19 @@ class Inventory(Primitive):
         purchase_order_stock = self[day].purchase_order.stock
         next_purchase_order_value = purchase_order_stock * self.product.price
         remaining_lead_time = self[day].last_date - day + 1
-        time_to_sell = math.ceil(purchase_order_stock / self[day].sales_velocity())
+        time_to_sell = self.duration_to_sell(day, purchase_order_stock)
         return Inventory.discounted_inventory_value(next_purchase_order_value, time_to_sell, remaining_lead_time)
 
-    def current_inventory_valuation(self, day: Date):
+    def current_inventory_valuation(self, day: Date) -> Dollar:
         if self[day].sales_velocity() == 0:
-            return 0
+            return O
         remaining_stock = self[day].remaining_stock(day)
         stock_value = remaining_stock * self.product.price
-        time_to_sell = math.ceil(remaining_stock / self[day].sales_velocity())
+        time_to_sell = self.duration_to_sell(day, remaining_stock)
         return Inventory.discounted_inventory_value(stock_value, time_to_sell)
+
+    def duration_to_sell(self, day: Date, remaining_stock: Stock) -> Duration:
+        return Duration(math.ceil(remaining_stock / self[day].sales_velocity()))
 
     def valuation(self, day: Date) -> Dollar:
         current_value = self.current_inventory_valuation(day)
@@ -76,7 +79,7 @@ class Inventory(Primitive):
 
     @staticmethod
     def discounted_inventory_value(
-            stock_value: Dollar, duration_to_sell: Duration, remaining_lead_time: Duration = 0) -> Dollar:
+            stock_value: Dollar, duration_to_sell: Duration, remaining_lead_time: Duration = Duration(0)) -> Dollar:
         if duration_to_sell == 0:
             return O
         value_per_day = stock_value / duration_to_sell

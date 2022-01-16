@@ -5,8 +5,9 @@ from typing import Tuple
 
 from common import constants
 from common.context import DataGenerator
+from common.numbers import Percent, Duration, Stock, Dollar, O, O_INT
 from common.primitive import Primitive
-from common.util import Percent, Duration, Stock, Dollar, min_max, O
+from common.util import min_max
 
 CHANGE_THRESHOLD = 1.02
 
@@ -69,7 +70,7 @@ class Product(Primitive):
         while change > CHANGE_THRESHOLD:
             prev_cpu = estimated_discounted_cpu
             if estimated_batch_size == 0:
-                return 0
+                return O_INT
             estimated_discounted_cpu = self.discounted_cost_per_unit(estimated_batch_size)
             estimated_batch_size = Stock(total_cost / estimated_discounted_cpu)
             change = prev_cpu / estimated_discounted_cpu
@@ -77,8 +78,6 @@ class Product(Primitive):
 
     def purchase_order_cost(self, purchase_order_size: Stock) -> Tuple[Dollar, Dollar]:
         new_inventory_cost = self.discounted_cost_per_unit(purchase_order_size) * purchase_order_size
-        # new_inventory_cost *= self.data_generator.normal_ratio(
-        #     self.data_generator.inventory_cost_std, chance_positive=1)
         upfront_cost = new_inventory_cost * constants.INVENTORY_UPFRONT_PAYMENT
         post_manufacturing_cost = new_inventory_cost - upfront_cost
         return upfront_cost, post_manufacturing_cost

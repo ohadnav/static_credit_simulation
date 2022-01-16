@@ -4,7 +4,7 @@ from autologging import logged, traced
 
 from common import constants
 from common.constants import LoanSimulationType
-from common.util import Dollar
+from common.numbers import Dollar
 from finance.line_of_credit import DynamicLineOfCreditSimulation, LineOfCreditSimulation
 from seller.merchant import Merchant
 from tests.util_test import BaseTestCase

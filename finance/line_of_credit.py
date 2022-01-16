@@ -1,6 +1,7 @@
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.util import min_max, Dollar, O, Float
+from common.numbers import Float, Dollar, O
+from common.util import min_max
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
 
@@ -30,8 +31,8 @@ class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
 
     def update_repayment_rate(self):
         if self.underwriting.approved(self.today):
-            repayment_ratio = self.context.repayment_factor / self.underwriting.aggregated_score()
-            new_rate = (repayment_ratio ** 2) * self.default_repayment_rate()
+            repayment_ratio = constants.MID_RISK_SCORE / self.underwriting.aggregated_score()
+            new_rate = (repayment_ratio ** self.context.repayment_factor) * self.default_repayment_rate()
             new_rate = min_max(new_rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
             self.current_repayment_rate = new_rate
         elif self.context.revenue_collateralization:

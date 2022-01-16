@@ -3,9 +3,9 @@ from typing import Optional, MutableMapping, List
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
+from common.numbers import Float, Percent, Date, Duration, Dollar, O, O_INT
 from common.primitive import Primitive
-from common.util import min_max, Percent, Dollar, calculate_cagr, Date, Duration, weighted_average, inverse_cagr, \
-    Float, O
+from common.util import min_max, calculate_cagr, weighted_average, inverse_cagr
 from finance.underwriting import Underwriting
 from seller.merchant import Merchant
 
@@ -43,12 +43,12 @@ class Loan:
         if self.outstanding_debt == O:
             self.duration = duration
         else:
-            self.duration = max(self.duration, duration)
+            self.duration = Duration.max(self.duration, duration)
 
     def remaining_duration(self, today: Date) -> Duration:
         assert today >= self.start_date
         duration = self.start_date + self.duration - today
-        return max(duration, 0)
+        return Duration.max(duration, O_INT)
 
 
 class LoanSimulation(Primitive):
@@ -58,11 +58,11 @@ class LoanSimulation(Primitive):
         self.merchant = merchant
         self.simulation_results: Optional[LoanSimulationResults] = None
         self.marketplace_balance = O
-        self.today = constants.START_DATE
+        self.today = Date(self.data_generator.start_date)
         self.initial_cash = data_generator.initial_cash_ratio * merchant.annual_top_line(self.today)
         self.current_cash = self.initial_cash
         self.bankruptcy_date: Optional[Date] = None
-        self.underwriting = Underwriting(self.context, self.merchant)
+        self.underwriting = Underwriting(self.context, self.data_generator, self.merchant)
         self.interest = self.context.rbf_flat_fee
         self.total_credit = O
         self.total_revenues = O
@@ -110,8 +110,10 @@ class LoanSimulation(Primitive):
         return self.loan_amount()
 
     def loan_amount(self) -> Dollar:
-        return self.merchant.annual_top_line(
+        amount = self.merchant.annual_top_line(
             self.today) * self.context.loan_amount_per_monthly_income / constants.NUM_MONTHS
+        amount = Float.min(amount, self.context.max_loan_amount)
+        return amount
 
     def credit_needed(self) -> Dollar:
         buffer = self.merchant.committed_purchase_orders(self.today)
@@ -127,12 +129,12 @@ class LoanSimulation(Primitive):
                 self.current_repayment_rate = self.default_repayment_rate()
 
     def should_take_loan(self) -> bool:
+        if self.merchant.annual_top_line(self.today) > self.context.max_merchant_top_line:
+            return False
         return self.outstanding_debt() == O and self.credit_needed() > O
 
     def calculate_amount(self) -> Dollar:
         amount = self.approved_amount()
-        # if self.credit_needed() < amount / 2:
-        #     amount /= 2
         return amount
 
     def simulate_day(self):
@@ -164,13 +166,15 @@ class LoanSimulation(Primitive):
             self.marketplace_balance = O
 
     def simulate(self):
-        assert self.today == constants.START_DATE
+        assert self.today == self.data_generator.start_date
         for i in range(self.data_generator.simulated_duration):
             self.simulate_day()
             if self.bankruptcy_date:
                 break
-            self.today += 1
-        self.today = min(self.data_generator.simulated_duration, self.today)
+            if self.merchant.annual_top_line(self.today) > self.context.max_merchant_top_line:
+                break
+            self.today += Duration(1)
+        self.today = Duration.min(self.data_generator.simulated_duration, self.today)
         self.calculate_results()
 
     def repay_loans(self, total_repayment: Dollar):
@@ -202,6 +206,7 @@ class LoanSimulation(Primitive):
 
     def calculate_apr(self, duration: Duration) -> Percent:
         apr = (self.interest + 1) ** (constants.YEAR / duration) - 1
+        apr = min_max(apr, 0, constants.MAX_APR)
         return apr
 
     def on_bankruptcy(self):
@@ -222,7 +227,7 @@ class LoanSimulation(Primitive):
         return rate
 
     def duration_until_today(self) -> Duration:
-        return self.today - constants.START_DATE + 1
+        return self.today - self.data_generator.start_date + 1
 
     def net_cashflow(self) -> Dollar:
         ncf = self.current_cash - self.outstanding_debt()
@@ -230,13 +235,13 @@ class LoanSimulation(Primitive):
 
     def revenue_cagr(self) -> Percent:
         cagr = calculate_cagr(
-            self.merchant.annual_top_line(constants.START_DATE), self.total_revenues,
+            self.merchant.annual_top_line(self.data_generator.start_date), self.total_revenues,
             self.duration_until_today())
         return cagr
 
     def inventory_cagr(self) -> Percent:
         cagr = calculate_cagr(
-            self.merchant.inventory_value(constants.START_DATE), self.merchant.inventory_value(self.today),
+            self.merchant.inventory_value(self.data_generator.start_date), self.merchant.inventory_value(self.today),
             self.duration_until_today())
         return cagr
 
@@ -246,7 +251,7 @@ class LoanSimulation(Primitive):
 
     def valuation_cagr(self) -> Percent:
         cagr = calculate_cagr(
-            self.merchant.valuation(constants.START_DATE, self.initial_cash),
+            self.merchant.valuation(self.data_generator.start_date, self.initial_cash),
             self.merchant.valuation(self.today, self.net_cashflow()), self.duration_until_today())
         return cagr
 
@@ -267,10 +272,13 @@ class LoanSimulation(Primitive):
     def lender_profit(self) -> Dollar:
         if self.total_credit == O:
             return O
-        earned_interest = self.repaid_debt() * self.average_apr()
+        revenues = self.revenue_from_amount(self.debt_to_loan_amount(self.repaid_debt()))
         total_costs = self.loss() + self.cost_of_capital() + self.context.merchant_cost_of_acquisition
-        profit = earned_interest - total_costs
+        profit = revenues - total_costs
         return profit
+
+    def revenue_from_amount(self, amount: Dollar) -> Dollar:
+        return amount * self.interest
 
     def projected_lender_profit(self) -> Dollar:
         num_loans = 1 if self.total_credit > 0 else self.context.expected_loans_per_year
@@ -280,7 +288,7 @@ class LoanSimulation(Primitive):
         cost_of_acquisition = self.context.merchant_cost_of_acquisition if self.total_credit == O else O
         projected_costs = total_cost_of_capital + cost_of_acquisition
         expected_annual_credit = self.loan_amount() * num_loans
-        projected_revenues = self.calculate_apr(self.context.loan_duration) * expected_annual_credit
+        projected_revenues = self.revenue_from_amount(expected_annual_credit)
         projected_profit = projected_revenues - projected_costs
         return projected_profit
 
