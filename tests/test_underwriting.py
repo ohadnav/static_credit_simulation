@@ -7,8 +7,7 @@ from common.numbers import ONE, TWO
 from common.util import weighted_average
 from finance.underwriting import Underwriting
 from seller.merchant import Merchant
-from statistical_tests.statistical_test import statistical_test_bool
-from tests.util_test import StatisticalTestCase
+from statistical_tests.statistical_util import statistical_test_bool, StatisticalTestCase
 
 
 class TestUnderwriting(StatisticalTestCase):

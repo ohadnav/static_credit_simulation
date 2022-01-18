@@ -6,8 +6,7 @@ from seller.batch import Batch
 from seller.inventory import Inventory
 from seller.merchant import Merchant
 from seller.product import Product
-from statistical_tests.statistical_test import statistical_test_bool, statistical_test_mean_error
-from tests.util_test import StatisticalTestCase
+from statistical_tests.statistical_util import statistical_test_bool, statistical_test_mean_error, StatisticalTestCase
 
 
 class TestStatisticalSeller(StatisticalTestCase):

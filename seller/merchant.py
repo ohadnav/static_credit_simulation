@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Float, Percent, Ratio, Date, Dollar, O
+from common.numbers import Float, Percent, Ratio, Date, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, min_max
 from seller.batch import Batch
@@ -42,6 +42,9 @@ class Merchant(Primitive):
         if data_generator.random() < data_generator.account_suspension_chance:
             suspension_start_date = randint(data_generator.start_date, data_generator.simulated_duration)
         return suspension_start_date
+
+    def num_products(self, *args, **kwargs) -> Int:
+        return Int(len(self.inventories))
 
     def annual_top_line(self, day: Date) -> Dollar:
         return Float.sum([inventory.annual_top_line(day) for inventory in self.inventories])

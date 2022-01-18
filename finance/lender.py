@@ -10,8 +10,8 @@ import numpy as np
 from joblib import delayed
 
 from common import constants
-from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
+from common.enum import LoanSimulationType
 from common.numbers import Float, Percent, Ratio, Dollar, O
 from common.primitive import Primitive
 from common.util import weighted_average, TqdmParallel, get_key_from_value
@@ -49,35 +49,37 @@ class LenderSimulationResults:
     def __init__(
             self, lender_profit: Dollar, sharpe: Ratio,
             all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
-        self.lender_profit = lender_profit
+        self.profit = lender_profit
+        self.portfolio = portfolio_merchants
+        self.all = all_merchants
         self.sharpe = sharpe
-        self.all_merchants = all_merchants
-        self.portfolio_merchants = portfolio_merchants
 
     def __eq__(self, other):
         if not isinstance(other, LenderSimulationResults):
             return False
-        return self.lender_profit == other.lender_profit \
+        return self.profit == other.profit \
                and self.sharpe == other.sharpe \
-               and self.all_merchants == other.all_merchants \
-               and self.portfolio_merchants == other.portfolio_merchants
+               and self.all == other.all \
+               and self.portfolio == other.portfolio
 
     def __str__(self):
-        return f'GP: {self.lender_profit} sharpe: {self.sharpe} all_lsr: {self.all_merchants} portfolio: ' \
-               f'{self.portfolio_merchants}'
+        return f'Profit: {self.profit} sharpe: {self.sharpe} all_lsr: {self.all} portfolio: {self.portfolio}'
 
     def __repr__(self):
         return self.__str__()
 
 
 class Lender(Primitive):
-    def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchants: List[Merchant]):
+    def __init__(
+            self, context: SimulationContext, data_generator: DataGenerator, merchants: List[Merchant],
+            loan_type: LoanSimulationType = LoanSimulationType.DEFAULT):
         super(Lender, self).__init__(data_generator)
         self.merchants = merchants
         self.context = context
         self.simulation_results: Optional[LenderSimulationResults] = None
         self.loans: MutableMapping[Merchant, LoanSimulation] = {}
         self.risk_correlation: MutableMapping[str, MutableMapping[str, Percent]] = {}
+        self.loan_type = loan_type
 
     @classmethod
     def generate_from_simulated_loans(cls, loans: List[LoanSimulation]) -> Lender:
@@ -91,10 +93,13 @@ class Lender(Primitive):
         return lender
 
     @staticmethod
-    def loan_from_merchant(
+    def generate_loan(
             merchant: Merchant, context: SimulationContext, data_generator: DataGenerator,
             loan_type: LoanSimulationType) -> LoanSimulation:
         return LOAN_TYPES_MAPPING[loan_type](context, data_generator, merchant)
+
+    def generate_loan_from_merchant(self, merchant: Merchant) -> LoanSimulation:
+        return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type)
 
     @staticmethod
     def aggregate_results(loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
@@ -132,8 +137,8 @@ class Lender(Primitive):
         for risk_field in vars(self.context.risk_context).keys():
             initial_risk_scores = [getattr(loan.underwriting.initial_risk_context, risk_field).score for loan in
                 self.portfolio_loans()]
-            correlation_coefficient = np.corrcoef(lender_results, initial_risk_scores)[0][1]
-            correlations[risk_field] = correlation_coefficient if not math.isnan(correlation_coefficient) else 0
+            correlation_coefficient = Percent(np.corrcoef(lender_results, initial_risk_scores)[0][1])
+            correlations[risk_field] = correlation_coefficient if not math.isnan(correlation_coefficient) else O
         return correlations
 
     def underwriting_correlation(self):
@@ -156,14 +161,13 @@ class Lender(Primitive):
         return [loan for loan in self.loans.values() if loan.total_credit > 0]
 
     def simulate(self):
-        simulated_loans = TqdmParallel(desc=f'{self.id}({self.context.loan_type.value})', total=len(self.merchants))(
+        simulated_loans = TqdmParallel(desc=f'{self.id}({self.loan_type.value})', total=len(self.merchants))(
             delayed(self.simulate_merchant)(merchant) for merchant in self.merchants)
         for loan in simulated_loans:
             self.loans[loan.merchant] = loan
         self.calculate_results()
 
     def simulate_merchant(self, merchant: Merchant) -> LoanSimulation:
-        loan = Lender.loan_from_merchant(
-            merchant, self.context, self.data_generator, self.context.loan_type)
+        loan = self.generate_loan_from_merchant(merchant)
         loan.simulate()
         return loan

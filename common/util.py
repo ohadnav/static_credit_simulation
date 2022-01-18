@@ -107,3 +107,9 @@ class TqdmParallel(Parallel):
         if self.show_live_rate:
             self._pbar.set_postfix_str(str(LIVE_RATE))
         self._pbar.refresh()
+
+
+def shout_print(msg: str):
+    print(f'\n\n{"*" * len(msg)}\n')
+    print(msg)
+    print(f'\n{"*" * len(msg)}')

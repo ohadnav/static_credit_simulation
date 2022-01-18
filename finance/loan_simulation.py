@@ -128,6 +128,11 @@ class LoanSimulation(Primitive):
                 self.add_debt(amount)
                 self.current_repayment_rate = self.default_repayment_rate()
 
+        self.update_repayment_rate()
+
+    def update_repayment_rate(self):
+        pass
+
     def should_take_loan(self) -> bool:
         if self.merchant.annual_top_line(self.today) > self.context.max_merchant_top_line:
             return False
@@ -345,10 +350,11 @@ class IncreasingRebateLoanSimulation(LoanSimulation):
     def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
         super(IncreasingRebateLoanSimulation, self).__init__(context, data_generator, merchant)
 
-    def calculate_repayment_rate(self) -> Percent:
-        if self.today > self.context.loan_duration:
-            return self.default_repayment_rate() + self.context.delayed_loan_repayment_increase
-        return self.default_repayment_rate()
+    def update_repayment_rate(self):
+        if self.active_loans and self.today > self.active_loans[0].start_date + self.context.loan_duration:
+            self.current_repayment_rate = self.default_repayment_rate() + self.context.delayed_loan_repayment_increase
+        else:
+            self.current_repayment_rate = self.default_repayment_rate()
 
 
 class NoCapitalLoanSimulation(LoanSimulation):

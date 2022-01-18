@@ -1,9 +1,8 @@
-from common.constants import LoanSimulationType
 from common.context import SimulationContext, DataGenerator
+from common.enum import LoanSimulationType
 from finance.lender import Lender
-from simulation.merchant_factory import MerchantFactory, MerchantCondition
-from statistical_tests.statistical_test import statistical_test_bool
-from tests.util_test import StatisticalTestCase
+from simulation.merchant_factory import MerchantFactory, Condition
+from statistical_tests.statistical_util import statistical_test_bool, StatisticalTestCase
 
 
 class TestStatisticalLineOfCredit(StatisticalTestCase):
@@ -15,8 +14,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             data_generator.max_num_products = 10
             results = factory.generate_merchants(
                 factory.generate_diff_validator(
-                    [MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
-                        MerchantCondition(loan_type=LoanSimulationType.NO_CAPITAL)]),
+                    [Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
+                        Condition(loan_type=LoanSimulationType.NO_CAPITAL)]),
                 num_merchants=1)
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
@@ -38,8 +37,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         self.data_generator.num_merchants = 50
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
-                [MerchantCondition(loan_type=LoanSimulationType.DEFAULT),
-                    MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT)]))
+                [Condition(loan_type=LoanSimulationType.DEFAULT),
+                    Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)]))
         regular_loans = [mnr[1][0] for mnr in merchants_and_results]
         loc_loans = [mnr[1][1] for mnr in merchants_and_results]
         regular_lender = Lender.generate_from_simulated_loans(regular_loans)
@@ -49,32 +48,32 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         print(loc_lender.simulation_results)
         self.assertNotEqual(regular_lender.simulation_results, loc_lender.simulation_results)
         self.assertLess(
-            regular_lender.simulation_results.lender_profit,
-            loc_lender.simulation_results.lender_profit)
+            regular_lender.simulation_results.profit,
+            loc_lender.simulation_results.profit)
         self.assertLess(
-            regular_lender.simulation_results.portfolio_merchants.valuation_cagr,
-            loc_lender.simulation_results.portfolio_merchants.valuation_cagr)
+            regular_lender.simulation_results.portfolio.valuation_cagr,
+            loc_lender.simulation_results.portfolio.valuation_cagr)
         self.assertLess(
-            regular_lender.simulation_results.portfolio_merchants.net_cashflow_cagr,
-            loc_lender.simulation_results.portfolio_merchants.net_cashflow_cagr)
+            regular_lender.simulation_results.portfolio.net_cashflow_cagr,
+            loc_lender.simulation_results.portfolio.net_cashflow_cagr)
         self.assertLess(
-            regular_lender.simulation_results.portfolio_merchants.revenues_cagr,
-            loc_lender.simulation_results.portfolio_merchants.revenues_cagr)
+            regular_lender.simulation_results.portfolio.revenues_cagr,
+            loc_lender.simulation_results.portfolio.revenues_cagr)
         self.assertLess(
-            regular_lender.simulation_results.portfolio_merchants.apr,
-            loc_lender.simulation_results.portfolio_merchants.apr)
+            regular_lender.simulation_results.portfolio.apr,
+            loc_lender.simulation_results.portfolio.apr)
         self.assertLess(
-            regular_lender.simulation_results.portfolio_merchants.total_credit,
-            loc_lender.simulation_results.portfolio_merchants.total_credit)
+            regular_lender.simulation_results.portfolio.total_credit,
+            loc_lender.simulation_results.portfolio.total_credit)
         self.assertGreaterEqual(
-            regular_lender.simulation_results.portfolio_merchants.bankruptcy_rate,
-            loc_lender.simulation_results.portfolio_merchants.bankruptcy_rate)
+            regular_lender.simulation_results.portfolio.bankruptcy_rate,
+            loc_lender.simulation_results.portfolio.bankruptcy_rate)
 
     def test_dynamic_line_of_credit_superior(self):
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(
-                [MerchantCondition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
-                    MerchantCondition(loan_type=LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)]))
+                [Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT),
+                    Condition(loan_type=LoanSimulationType.DYNAMIC_LINE_OF_CREDIT)]))
         loc_loans = [mnr[1][0] for mnr in merchants_and_results]
         dynamic_loans = [mnr[1][1] for mnr in merchants_and_results]
         loc_lender = Lender.generate_from_simulated_loans(loc_loans)
@@ -83,23 +82,23 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         print(dynamic_lender.simulation_results)
         self.assertNotEqual(loc_lender.simulation_results, dynamic_lender.simulation_results)
         self.assertLess(
-            loc_lender.simulation_results.lender_profit,
-            dynamic_lender.simulation_results.lender_profit)
+            loc_lender.simulation_results.profit,
+            dynamic_lender.simulation_results.profit)
         self.assertLess(
-            loc_lender.simulation_results.portfolio_merchants.valuation_cagr,
-            dynamic_lender.simulation_results.portfolio_merchants.valuation_cagr)
+            loc_lender.simulation_results.portfolio.valuation_cagr,
+            dynamic_lender.simulation_results.portfolio.valuation_cagr)
         self.assertLess(
-            loc_lender.simulation_results.portfolio_merchants.revenues_cagr,
-            dynamic_lender.simulation_results.portfolio_merchants.revenues_cagr)
+            loc_lender.simulation_results.portfolio.revenues_cagr,
+            dynamic_lender.simulation_results.portfolio.revenues_cagr)
         self.assertLess(
-            loc_lender.simulation_results.portfolio_merchants.apr,
-            dynamic_lender.simulation_results.portfolio_merchants.apr)
+            loc_lender.simulation_results.portfolio.apr,
+            dynamic_lender.simulation_results.portfolio.apr)
         self.assertLess(
-            loc_lender.simulation_results.portfolio_merchants.total_credit,
-            dynamic_lender.simulation_results.portfolio_merchants.total_credit)
+            loc_lender.simulation_results.portfolio.total_credit,
+            dynamic_lender.simulation_results.portfolio.total_credit)
         self.assertLess(
             loc_lender.simulation_results.sharpe,
             dynamic_lender.simulation_results.sharpe)
         self.assertGreaterEqual(
-            loc_lender.simulation_results.portfolio_merchants.bankruptcy_rate,
-            dynamic_lender.simulation_results.portfolio_merchants.bankruptcy_rate)
+            loc_lender.simulation_results.portfolio.bankruptcy_rate,
+            dynamic_lender.simulation_results.portfolio.bankruptcy_rate)

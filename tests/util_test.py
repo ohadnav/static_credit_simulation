@@ -7,7 +7,6 @@ import numpy
 from numpy.compat import long
 
 from common.context import DataGenerator, SimulationContext
-from simulation.merchant_factory import MerchantFactory
 
 T = TypeVar('T')
 
@@ -61,11 +60,3 @@ class BaseTestCase(TestCase):
                 trace = ' -> '.join(reversed(exc.traces))
                 exc = AssertionError("%s\nTRACE: %s" % (exc.message, trace))
             raise exc
-
-
-class StatisticalTestCase(BaseTestCase):
-    def setUp(self) -> None:
-        super(StatisticalTestCase, self).setUp()
-        self.data_generator.num_merchants = 100
-        self.data_generator.num_products = 10
-        self.factory = MerchantFactory(self.data_generator, self.context)

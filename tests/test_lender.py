@@ -5,12 +5,12 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from common import constants
-from common.constants import LoanSimulationType
+from common.enum import LoanSimulationType
 from common.numbers import O
 from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation
 from simulation.merchant_factory import MerchantFactory
-from tests.util_test import StatisticalTestCase
+from statistical_tests.statistical_util import StatisticalTestCase
 
 
 class TestLender(StatisticalTestCase):
@@ -24,16 +24,12 @@ class TestLender(StatisticalTestCase):
     def test_support_loan_types(self):
         self.data_generator.simulated_duration = self.data_generator.start_date + 1
         for loan_type in LoanSimulationType:
-            self.context.loan_type = loan_type
-            self.lender = Lender(self.context, self.data_generator, self.merchants)
+            self.lender = Lender(self.context, self.data_generator, self.merchants, loan_type)
             self.lender.simulate()
             self.assertEqual(type(self.lender.loans[self.merchants[0]]).__name__, loan_type.value)
 
     def test_loan_from_merchant(self):
-        self.assertEqual(
-            self.lender.loan_from_merchant(
-                self.merchants[0], self.context, self.data_generator, self.context.loan_type).merchant,
-            self.merchants[0])
+        self.assertEqual(self.lender.generate_loan_from_merchant(self.merchants[0]).merchant, self.merchants[0])
 
     # noinspection PyTypeChecker
     def test_aggregate_results(self):
@@ -58,9 +54,7 @@ class TestLender(StatisticalTestCase):
     def test_calculate_results(self):
         self.data_generator.simulated_duration = 1
         for merchant in self.merchants:
-            self.lender.loans[merchant] = self.lender.loan_from_merchant(
-                merchant, self.context, self.data_generator, self.context.loan_type)
-            self.lender.loans[merchant].simulate()
+            self.lender.loans[merchant] = self.lender.simulate_merchant(merchant)
             self.lender.loans[merchant].simulation_results.lender_profit = 1
         lsr_all = AggregatedLoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1)
         lsr_portfolio = AggregatedLoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2)

@@ -1,15 +1,14 @@
 from copy import deepcopy
 
 from common import constants
-from common.constants import LoanSimulationType
 from common.context import DataGenerator, SimulationContext
+from common.enum import LoanSimulationType
 from common.numbers import O, Dollar, ONE
 from finance.line_of_credit import LineOfCreditSimulation
 from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
 from seller.merchant import Merchant
-from simulation.merchant_factory import MerchantFactory, MerchantCondition
-from statistical_tests.statistical_test import statistical_test_bool
-from tests.util_test import StatisticalTestCase
+from simulation.merchant_factory import MerchantFactory, Condition
+from statistical_tests.statistical_util import statistical_test_bool, StatisticalTestCase
 
 OUT_DIR = '../out/'
 
@@ -26,7 +25,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true = []
             data_generator.min_purchase_order_value = 100000
             merchant = factory.generate_merchants(
-                factory.generate_merchant_validator(MerchantCondition('annual_top_line', min_value=Dollar(10 ** 7))),
+                factory.generate_merchant_validator(Condition('annual_top_line', min_value=Dollar(10 ** 7))),
                 num_merchants=1)[0][0]
             loan = LoanSimulation(context, data_generator, merchant)
             is_true.append((loan.projected_lender_profit() > 0, loan.projected_lender_profit()))
@@ -42,7 +41,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.num_products = 3
             data_generator.num_products_std = constants.CONTROLLED_STD
             merchant = factory.generate_merchants(
-                factory.generate_merchant_validator(MerchantCondition('annual_top_line', max_value=Dollar(10 ** 5))),
+                factory.generate_merchant_validator(Condition('annual_top_line', max_value=Dollar(10 ** 5))),
                 num_merchants=1)[0][0]
             loan = LoanSimulation(context, data_generator, merchant)
             is_true.append((loan.projected_lender_profit() < 0, loan.projected_lender_profit()))
@@ -101,7 +100,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true = []
             loan = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    MerchantCondition('total_credit', LoanSimulationType.DEFAULT, min_value=O)),
+                    Condition('total_credit', LoanSimulationType.DEFAULT, min_value=O)),
                 num_merchants=1)[0][1]
             is_true.append((loan.simulation_results.bankruptcy_rate > 0.1, loan))
             return is_true
@@ -113,7 +112,7 @@ class TestStatisticalLoan(StatisticalTestCase):
                 data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             merchant = factory.generate_merchants(
                 factory.generate_lsr_validator(
-                    MerchantCondition('bankruptcy_rate', LoanSimulationType.NO_CAPITAL, max_value=O + 0.01)),
+                    Condition('bankruptcy_rate', LoanSimulationType.NO_CAPITAL, max_value=O + 0.01)),
                 num_merchants=1)[0][0]
             is_true = []
             loan = LoanSimulation(context, data_generator, merchant)
@@ -149,8 +148,8 @@ class TestStatisticalLoan(StatisticalTestCase):
             data_generator.conservative_cash_management = True
             results = factory.generate_merchants(
                 factory.generate_diff_validator(
-                    [MerchantCondition('total_credit', loan_type=LoanSimulationType.DEFAULT, min_value=ONE),
-                        MerchantCondition(loan_type=LoanSimulationType.NO_CAPITAL)]),
+                    [Condition('total_credit', loan_type=LoanSimulationType.DEFAULT, min_value=ONE),
+                        Condition(loan_type=LoanSimulationType.NO_CAPITAL)]),
                 num_merchants=1)
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
@@ -167,7 +166,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true = []
             data_generator.conservative_cash_management = True
             results = factory.generate_merchants(
-                factory.generate_lsr_validator(MerchantCondition('total_credit', LoanSimulationType.DEFAULT, O)),
+                factory.generate_lsr_validator(Condition('total_credit', LoanSimulationType.DEFAULT, O)),
                 num_merchants=1)
             loan = results[0][1]
             is_true.append((loan.simulation_results.lender_profit > 0, loan))

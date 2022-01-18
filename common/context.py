@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Mapping
+from typing import Optional, Mapping, Any
 
 from numpy.random import mtrand
 
 from common import constants
-from common.constants import LoanSimulationType
 from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
 
 
@@ -110,13 +109,15 @@ class RiskContext:
         sd = {k: v.score for k, v in vars(self).items()}
         return sd
 
+    def to_dict(self):
+        return {k: v.__dict__ for k, v in vars(self).items()}
+
 
 @dataclass(unsafe_hash=True)
 class SimulationContext:
     @classmethod
-    def generate_context(cls, loan_type: LoanSimulationType = LoanSimulationType.DEFAULT) -> SimulationContext:
+    def generate_context(cls) -> SimulationContext:
         context = SimulationContext()
-        context.loan_type = loan_type
         for key in dir(context):
             if not key.startswith('_'):
                 value = getattr(context, key)
@@ -127,12 +128,12 @@ class SimulationContext:
         return context
 
     # Loan
-    loan_type = LoanSimulationType.DEFAULT
     rbf_flat_fee = constants.RBF_FLAT_FEE
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
     delayed_loan_repayment_increase = constants.DELAYED_LOAN_REPAYMENT_INCREASE
     repayment_factor = constants.REPAYMENT_FACTOR
+    agg_score_benchmark = constants.AGG_SCORE_BENCHMARK
     max_loan_amount = constants.MAX_LOAN_AMOUNT
     max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
 
@@ -151,3 +152,8 @@ class SimulationContext:
     inventory_turnover_ratio_benchmark = constants.INVENTORY_TURNOVER_RATIO_BENCHMARK_MAX
     roas_benchmark = constants.ROAS_BENCHMARK_MAX
     min_risk_score = constants.MIN_RISK_SCORE
+
+    def to_dict(self) -> Mapping[str, Any]:
+        result = self.__dict__
+        result['risk_context'] = self.risk_context.to_dict()
+        return result

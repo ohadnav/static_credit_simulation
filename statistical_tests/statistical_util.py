@@ -7,11 +7,20 @@ from joblib import delayed
 from common.context import DataGenerator, SimulationContext
 from common.numbers import Float
 from common.util import TqdmParallel
-from tests.util_test import StatisticalTestCase
+from simulation.merchant_factory import MerchantFactory
+from tests.util_test import BaseTestCase
 
 
 def func(data_generator: DataGenerator, context: SimulationContext):
     return data_generator.max_purchase_order_size * context.loan_duration
+
+
+class StatisticalTestCase(BaseTestCase):
+    def setUp(self) -> None:
+        super(StatisticalTestCase, self).setUp()
+        self.data_generator.num_merchants = 100
+        self.data_generator.num_products = 10
+        self.factory = MerchantFactory(self.data_generator, self.context)
 
 
 def statistical_test_mean_error(
