@@ -140,6 +140,7 @@ class SimulationContext:
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL
     merchant_cost_of_acquisition = constants.MERCHANT_COST_OF_ACQUISITION
+    operating_cost_per_loan = constants.OPERATING_COST_PER_LOAN
     revenue_collateralization = True
     duration_based_default = False
     risk_context = RiskContext()

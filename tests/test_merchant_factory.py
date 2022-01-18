@@ -2,7 +2,7 @@ from copy import deepcopy
 from unittest.mock import MagicMock
 
 from common.enum import LoanSimulationType
-from common.numbers import Percent, Dollar, O, ONE
+from common.numbers import Percent, Dollar, O, ONE, O_INT
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation, LoanSimulationResults
 from seller.merchant import Merchant
@@ -18,7 +18,7 @@ class TestMerchantFactory(StatisticalTestCase):
     def generate_mock_loan(self):
         loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         loan.simulate = MagicMock()
-        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O)
+        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O_INT)
         return loan
 
     def generate_merchant_with_id(self, _id: int) -> Merchant:

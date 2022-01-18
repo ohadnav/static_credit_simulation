@@ -6,7 +6,7 @@ import numpy as np
 
 from common import constants
 from common.enum import LoanSimulationType
-from common.numbers import O, ONE, Float, Percent, Int
+from common.numbers import O, ONE, Float, Percent, Int, TWO
 from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults, WEIGHT_FIELD
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation
 from simulation.merchant_factory import MerchantFactory
@@ -40,21 +40,22 @@ class TestLender(StatisticalTestCase):
         self.assertEqual(
             self.lender.aggregate_results(
                 [
-                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE),
-                    LoanSimulationResults(three, five, five, five, five, five, five, five, five, five)
+                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+                    LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, Int(5))
                 ]),
             AggregatedLoanSimulationResults(
-                four, four, four, four, six, six, four, four, three, Percent(2 / 3), Int(2)))
+                four, four, four, four, six, six, four, four, three, Percent(2 / 3), Int(2), four))
 
-    # noinspection PyTypeChecker
     def test_calculate_sharpe(self):
+        five = Float(5)
+        three = Float(3)
         results = [
-            LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-            LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5, 5, 5)
+            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+            LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, Int(3))
         ]
-        std = np.std([1, 5])
-        self.context.cost_of_capital = 3
-        self.assertAlmostEqual(self.lender.calculate_sharpe(results), 1 / std)
+        std = np.std([ONE, five])
+        self.context.cost_of_capital = three
+        self.assertAlmostEqual(self.lender.calculate_sharpe(results), ONE / std)
 
     def test_calculate_results(self):
         self.data_generator.simulated_duration = 1
@@ -70,14 +71,13 @@ class TestLender(StatisticalTestCase):
                 self.lender.aggregate_results(self.lender.all_merchants_simulation_results()),
                 self.lender.aggregate_results(self.lender.funded_merchants_simulation_results())))
 
-    # noinspection PyTypeChecker
     def test_calculate_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.total_credit = 1
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 2
@@ -101,14 +101,13 @@ class TestLender(StatisticalTestCase):
                 continue
             self.assertDeepAlmostEqual(self.lender.calculate_correlation(field.name), expected_map)
 
-    # noinspection PyTypeChecker
     def test_underwriting_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.total_credit = 1
         self.lender.loans = {1: loan1, 2: loan2}
         for risk_field in vars(self.context.risk_context).keys():

@@ -12,7 +12,7 @@ class LineOfCreditSimulation(LoanSimulation):
 
     def remaining_credit(self) -> Dollar:
         # TODO: test fixed size line of credit
-        return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.outstanding_debt()))
+        return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.outstanding_balance()))
 
     def should_take_loan(self) -> bool:
         return self.credit_needed() > O

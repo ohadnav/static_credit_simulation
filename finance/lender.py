@@ -34,6 +34,7 @@ class AggregatedLoanSimulationResults:
     bankruptcy_rate: Percent
     acceptance_rate: Percent
     num_merchants: Int
+    num_loans: Float
 
 
 WEIGHT_FIELD = 'valuation'

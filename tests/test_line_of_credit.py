@@ -19,7 +19,7 @@ class TestLineOfCredit(BaseTestCase):
         self.line_of_credit.approved_amount = MagicMock(return_value=10)
         self.line_of_credit.credit_needed = MagicMock(return_value=5)
         self.line_of_credit.update_credit()
-        self.assertAlmostEqual(self.line_of_credit.debt_to_loan_amount(self.line_of_credit.outstanding_debt()), 5)
+        self.assertAlmostEqual(self.line_of_credit.debt_to_loan_amount(self.line_of_credit.outstanding_balance()), 5)
         self.assertAlmostEqual(
             self.line_of_credit.average_apr(), self.line_of_credit.calculate_apr(self.context.loan_duration))
 
@@ -33,7 +33,7 @@ class TestLineOfCredit(BaseTestCase):
         self.line_of_credit.update_credit()
         self.assertAlmostEqual(self.line_of_credit.average_apr(), apr2)
         self.line_of_credit.today += half_duration - 1
-        self.line_of_credit.repay_loans(self.line_of_credit.outstanding_debt())
+        self.line_of_credit.repay_loans(self.line_of_credit.outstanding_balance())
         self.assertAlmostEqual(self.line_of_credit.average_apr(), apr1)
         self.line_of_credit.credit_needed = MagicMock(return_value=1)
         self.line_of_credit.update_credit()
@@ -48,7 +48,7 @@ class TestLineOfCredit(BaseTestCase):
     def test_update_credit(self):
         self.line_of_credit.credit_needed = MagicMock(return_value=0)
         self.line_of_credit.update_credit()
-        self.assertEqual(self.line_of_credit.outstanding_debt(), 0)
+        self.assertEqual(self.line_of_credit.outstanding_balance(), 0)
         self.line_of_credit.credit_needed = MagicMock(return_value=1)
         prev_cash = self.line_of_credit.current_cash
         self.line_of_credit.update_credit()
