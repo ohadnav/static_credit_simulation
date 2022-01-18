@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing
+from random import random
 from typing import Union, List, Optional, TypeVar, Mapping
 
 from joblib import Parallel
@@ -8,7 +9,6 @@ from tqdm.auto import tqdm
 
 from common import constants
 from common.numbers import Float, Percent, Duration, O, ONE, Int
-from common.primitive import generate_id
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -64,7 +64,7 @@ def weighted_average(values: List[float], weights: List[float]) -> Float:
 
 class LiveRate:
     def __init__(self):
-        self.id = generate_id(self)[0]
+        self.id = random()
         self.name = ''
         self.reset()
 

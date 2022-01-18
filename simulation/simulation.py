@@ -104,8 +104,9 @@ class Simulation:
                 if is_dataclass(field_value):
                     for nested_field in fields(field_value):
                         nested_name = f'{field_name}_{nested_field.name}'
-                        for risk_field, correlation in lender.risk_correlation[nested_field.name].items():
-                            correlations_df[lender_id].at[nested_name, risk_field] = str(correlation)
+                        if nested_field.name in lender.risk_correlation:
+                            for risk_field, correlation in lender.risk_correlation[nested_field.name].items():
+                                correlations_df[lender_id].at[nested_name, risk_field] = str(correlation)
                         nested_value = getattr(field_value, nested_field.name)
                         results_df.at[lender_id, nested_name] = str(nested_value)
                 else:

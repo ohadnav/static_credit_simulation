@@ -56,6 +56,9 @@ class TestFloat(BaseTestCase):
         self.assertTrue(type(Float.min([])), Float)
         self.assertTrue(type(Float.sum([1, 2])), Float)
 
+    def test_average(self):
+        self.assertAlmostEqual(Float.average([1, 2, 3]), Float(2))
+
 
 class TestNumbers(BaseTestCase):
     def test_human_format(self):

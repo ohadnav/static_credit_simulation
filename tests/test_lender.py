@@ -6,8 +6,8 @@ import numpy as np
 
 from common import constants
 from common.enum import LoanSimulationType
-from common.numbers import O
-from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults
+from common.numbers import O, ONE, Float, Percent, Int
+from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults, WEIGHT_FIELD
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation
 from simulation.merchant_factory import MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
@@ -31,14 +31,20 @@ class TestLender(StatisticalTestCase):
     def test_loan_from_merchant(self):
         self.assertEqual(self.lender.generate_loan_from_merchant(self.merchants[0]).merchant, self.merchants[0])
 
-    # noinspection PyTypeChecker
     def test_aggregate_results(self):
+        self.lender.merchants = [self.merchants[0]] * 3
+        three = Float(3)
+        five = Float(5)
+        four = Float(4)
+        six = Float(6)
         self.assertEqual(
-            Lender.aggregate_results(
+            self.lender.aggregate_results(
                 [
-                    LoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-                    LoanSimulationResults(3, 5, 5, 5, 5, 5, 5, 5, 5, 5)
-                ]), AggregatedLoanSimulationResults(4, 4, 4, 4, 6, 6, 4, 4, 4))
+                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE),
+                    LoanSimulationResults(three, five, five, five, five, five, five, five, five, five)
+                ]),
+            AggregatedLoanSimulationResults(
+                four, four, four, four, six, six, four, four, three, Percent(2 / 3), Int(2)))
 
     # noinspection PyTypeChecker
     def test_calculate_sharpe(self):
@@ -50,22 +56,19 @@ class TestLender(StatisticalTestCase):
         self.context.cost_of_capital = 3
         self.assertAlmostEqual(self.lender.calculate_sharpe(results), 1 / std)
 
-    # noinspection PyTypeChecker
     def test_calculate_results(self):
         self.data_generator.simulated_duration = 1
         for merchant in self.merchants:
             self.lender.loans[merchant] = self.lender.simulate_merchant(merchant)
-            self.lender.loans[merchant].simulation_results.lender_profit = 1
-        lsr_all = AggregatedLoanSimulationResults(1, 1, 1, 1, 1, 1, 1, 1, 1)
-        lsr_portfolio = AggregatedLoanSimulationResults(2, 2, 2, 2, 2, 2, 2, 2, 2)
-        self.lender.aggregate_results = MagicMock(side_effect=[lsr_all, lsr_portfolio])
-        self.lender.calculate_sharpe = MagicMock(return_value=5)
         self.lender.underwriting_correlation = MagicMock()
         self.lender.calculate_results()
         self.lender.underwriting_correlation.assert_called()
-        self.assertEqual(
+        self.assertDeepAlmostEqual(
             self.lender.simulation_results,
-            LenderSimulationResults(lsr_portfolio.lender_profit, 5, lsr_all, lsr_portfolio))
+            LenderSimulationResults(
+                self.lender.calculate_sharpe(self.lender.funded_merchants_simulation_results()),
+                self.lender.aggregate_results(self.lender.all_merchants_simulation_results()),
+                self.lender.aggregate_results(self.lender.funded_merchants_simulation_results())))
 
     # noinspection PyTypeChecker
     def test_calculate_correlation(self):
@@ -81,19 +84,22 @@ class TestLender(StatisticalTestCase):
             getattr(loan2.underwriting.initial_risk_context, risk_field).score = 2
         self.lender.loans = {1: loan1, 2: loan2}
         zero_map = {risk_field: 0 for risk_field in vars(self.context.risk_context).keys()}
-        for field in fields(AggregatedLoanSimulationResults):
-            self.assertDeepAlmostEqual(self.lender.calculate_correlation(field.name), zero_map)
+        self.assert_correlation_map_equal(zero_map)
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 1
         one_map = {risk_field: 1 for risk_field in vars(self.context.risk_context).keys()}
-        for field in fields(AggregatedLoanSimulationResults):
-            self.assertDeepAlmostEqual(self.lender.calculate_correlation(field.name), one_map)
+        self.assert_correlation_map_equal(one_map)
         correlation = np.corrcoef([1, 2], [1.5, 2])[0][1]
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 1.5
         corr_map = {risk_field: correlation for risk_field in vars(self.context.risk_context).keys()}
-        for field in fields(AggregatedLoanSimulationResults):
-            self.assertDeepAlmostEqual(self.lender.calculate_correlation(field.name), corr_map)
+        self.assert_correlation_map_equal(corr_map)
+
+    def assert_correlation_map_equal(self, expected_map):
+        for field in fields(LoanSimulationResults):
+            if field == WEIGHT_FIELD:
+                continue
+            self.assertDeepAlmostEqual(self.lender.calculate_correlation(field.name), expected_map)
 
     # noinspection PyTypeChecker
     def test_underwriting_correlation(self):
@@ -110,7 +116,7 @@ class TestLender(StatisticalTestCase):
             getattr(loan2.underwriting.initial_risk_context, risk_field).score = 2
         correlation = np.corrcoef([1, 2], [1.5, 2])[0][1]
         corr_map = {risk_field: correlation for risk_field in vars(self.context.risk_context).keys()}
-        expected = {field.name: corr_map for field in fields(AggregatedLoanSimulationResults)}
+        expected = {field.name: corr_map for field in fields(LoanSimulationResults) if field != WEIGHT_FIELD}
         self.lender.underwriting_correlation()
         self.assertDeepAlmostEqual(self.lender.risk_correlation, expected)
 
@@ -120,6 +126,8 @@ class TestLender(StatisticalTestCase):
         for merchant in self.merchants:
             self.assertIsNotNone(self.lender.loans[merchant].simulation_results)
         self.assertIsNotNone(self.lender.simulation_results)
+        self.assertEqual(self.lender.simulation_results.all.num_merchants, len(self.merchants))
+        self.assertEqual(self.lender.simulation_results.funded.num_merchants, len(self.lender.funded_merchants_loans()))
         zero_map = {risk_field: O for risk_field in vars(self.context.risk_context).keys()}
         not_expected = {field.name: zero_map for field in fields(AggregatedLoanSimulationResults)}
         try:

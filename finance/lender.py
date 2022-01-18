@@ -12,7 +12,7 @@ from joblib import delayed
 from common import constants
 from common.context import SimulationContext, DataGenerator
 from common.enum import LoanSimulationType
-from common.numbers import Float, Percent, Ratio, Dollar, O
+from common.numbers import Float, Percent, Ratio, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, TqdmParallel, get_key_from_value
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
@@ -32,7 +32,13 @@ class AggregatedLoanSimulationResults:
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
+    acceptance_rate: Percent
+    num_merchants: Int
 
+
+WEIGHT_FIELD = 'valuation'
+SUM_FIELDS = ['total_credit', 'lender_profit']
+NO_WEIGHTS_FIELDS = ['bankruptcy_rate']
 
 LOAN_TYPES_MAPPING = {
     LoanSimulationType.INCREASING_REBATE: IncreasingRebateLoanSimulation,
@@ -47,23 +53,21 @@ LOAN_TYPES_MAPPING = {
 
 class LenderSimulationResults:
     def __init__(
-            self, lender_profit: Dollar, sharpe: Ratio,
-            all_merchants: AggregatedLoanSimulationResults, portfolio_merchants: AggregatedLoanSimulationResults):
-        self.profit = lender_profit
-        self.portfolio = portfolio_merchants
+            self, sharpe: Ratio, all_merchants: AggregatedLoanSimulationResults,
+            funded_merchants: AggregatedLoanSimulationResults):
+        self.funded = funded_merchants
         self.all = all_merchants
         self.sharpe = sharpe
 
     def __eq__(self, other):
         if not isinstance(other, LenderSimulationResults):
             return False
-        return self.profit == other.profit \
-               and self.sharpe == other.sharpe \
+        return self.sharpe == other.sharpe \
                and self.all == other.all \
-               and self.portfolio == other.portfolio
+               and self.funded == other.funded
 
     def __str__(self):
-        return f'Profit: {self.profit} sharpe: {self.sharpe} all_lsr: {self.all} portfolio: {self.portfolio}'
+        return f'funded: {self.funded} all_lsr: {self.all} sharpe: {self.sharpe}'
 
     def __repr__(self):
         return self.__str__()
@@ -101,27 +105,24 @@ class Lender(Primitive):
     def generate_loan_from_merchant(self, merchant: Merchant) -> LoanSimulation:
         return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type)
 
-    @staticmethod
-    def aggregate_results(loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
-        result = {}
+    def aggregate_results(self, loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
+        result = {'num_merchants': Int(len(loan_results)),
+            'acceptance_rate': Percent(len(loan_results) / len(self.merchants))}
         for field in fields(LoanSimulationResults):
-            if field.name == 'valuation':
+            if field.name == WEIGHT_FIELD:
                 continue
-            elif field.name == 'lender_profit':
-                result[field.name] = Float.sum([lsr.lender_profit for lsr in loan_results])
-            elif field.name == 'total_credit':
-                result[field.name] = Float.sum([lsr.total_credit for lsr in loan_results])
+            values = [getattr(lsr, field.name) for lsr in loan_results]
+            if field.name in SUM_FIELDS:
+                result[field.name] = Float.sum(values)
+            elif field.name in NO_WEIGHTS_FIELDS:
+                result[field.name] = Float.average(values)
             else:
-                values = []
-                weights = []
-                for lsr in loan_results:
-                    values.append(getattr(lsr, field.name))
-                    weights.append(Float.min(lsr.valuation, constants.MAX_RESULTS_WEIGHT))
+                weights = [Float.min(lsr.valuation, constants.MAX_RESULTS_WEIGHT) for lsr in loan_results]
                 result[field.name] = weighted_average(values, weights)
         return dacite.from_dict(AggregatedLoanSimulationResults, result)
 
     def calculate_sharpe(self, portfolio_results: List[LoanSimulationResults]) -> Ratio:
-        aggregated = Lender.aggregate_results(portfolio_results)
+        aggregated = self.aggregate_results(portfolio_results)
         portfolio_return = aggregated.apr
         risk_free_return = self.context.cost_of_capital
         std = np.std([lsr.apr for lsr in portfolio_results])
@@ -133,31 +134,36 @@ class Lender(Primitive):
     def calculate_correlation(self, simulation_result_field_name: str) -> MutableMapping[str, Percent]:
         correlations = {}
         lender_results = [getattr(lsr, simulation_result_field_name) for lsr in
-            self.portfolio_loan_simulation_results()]
+            self.funded_merchants_simulation_results()]
         for risk_field in vars(self.context.risk_context).keys():
             initial_risk_scores = [getattr(loan.underwriting.initial_risk_context, risk_field).score for loan in
-                self.portfolio_loans()]
+                self.funded_merchants_loans()]
             correlation_coefficient = Percent(np.corrcoef(lender_results, initial_risk_scores)[0][1])
             correlations[risk_field] = correlation_coefficient if not math.isnan(correlation_coefficient) else O
         return correlations
 
     def underwriting_correlation(self):
-        for field in fields(AggregatedLoanSimulationResults):
+        for field in fields(LoanSimulationResults):
+            if field == WEIGHT_FIELD:
+                continue
             self.risk_correlation[field.name] = self.calculate_correlation(field.name)
 
     def calculate_results(self):
-        all_merchants = self.aggregate_results([loan.simulation_results for loan in self.loans.values()])
-        portfolio_results = self.portfolio_loan_simulation_results()
+        all_merchants = self.aggregate_results(self.all_merchants_simulation_results())
+        portfolio_results = self.funded_merchants_simulation_results()
         portfolio_merchants_agg_results = self.aggregate_results(portfolio_results)
         sharpe = self.calculate_sharpe(portfolio_results)
         self.simulation_results = LenderSimulationResults(
-            portfolio_merchants_agg_results.lender_profit, sharpe, all_merchants, portfolio_merchants_agg_results)
+            sharpe, all_merchants, portfolio_merchants_agg_results)
         self.underwriting_correlation()
 
-    def portfolio_loan_simulation_results(self) -> List[LoanSimulationResults]:
-        return [loan.simulation_results for loan in self.loans.values() if loan.total_credit > 0]
+    def all_merchants_simulation_results(self) -> List[LoanSimulationResults]:
+        return [loan.simulation_results for loan in self.loans.values()]
 
-    def portfolio_loans(self) -> List[LoanSimulation]:
+    def funded_merchants_simulation_results(self) -> List[LoanSimulationResults]:
+        return [loan.simulation_results for loan in self.funded_merchants_loans()]
+
+    def funded_merchants_loans(self) -> List[LoanSimulation]:
         return [loan for loan in self.loans.values() if loan.total_credit > 0]
 
     def simulate(self):

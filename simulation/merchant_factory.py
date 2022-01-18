@@ -26,9 +26,9 @@ class Condition:
             if self.max_value:
                 s += f'{self.min_value.__str__()} < {self.field_name} < {self.min_value.__str__()}'
             else:
-                s += f'{self.field_name} < {self.min_value.__str__()}'
+                s += f'{self.field_name} > {self.min_value.__str__()}'
         elif self.max_value:
-            s += f'{self.field_name} > {self.max_value.__str__()}'
+            s += f'{self.field_name} < {self.max_value.__str__()}'
         return s
 
     def __repr__(self):
@@ -111,9 +111,25 @@ class MerchantFactory:
             merchants_and_results = TqdmParallel(
                 desc='Generating merchants', total=num_merchants, show_live_rate=show_live_rate)(
                 delayed(self.merchant_generation_iteration)(validator, show_live_rate) for _ in range(num_merchants))
+            MerchantFactory.reset_id(merchants_and_results)
             return merchants_and_results
         else:
             return [self.merchant_generation_iteration(validator)]
+
+    @staticmethod
+    def reset_id(merchants_and_results: List[MerchantAndResult]):
+        merchants = MerchantFactory.get_merchants_from_results(merchants_and_results)
+        for merchant in merchants:
+            merchant.reset_id()
+            for inventory in merchant.inventories:
+                inventory.reset_id()
+                inventory.product.reset_id()
+                for batch in inventory.batches:
+                    batch.reset_id()
+
+    @staticmethod
+    def get_merchants_from_results(merchants_and_results: List[MerchantAndResult]) -> List[Merchant]:
+        return [mnr[0] for mnr in merchants_and_results]
 
     def merchant_generation_iteration(
             self, validator: ValidatorMethod, show_live_rate: bool = False) -> MerchantAndResult:

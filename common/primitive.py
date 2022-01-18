@@ -21,6 +21,9 @@ class Primitive:
         self.id, self.int_id = generate_id(self)
         self.data_generator = data_generator
 
+    def reset_id(self):
+        self.id, self.int_id = generate_id(self)
+
     def str_type_encoder(self, value: Any) -> str:
         if (isinstance(value, str) or isinstance(value, int) or is_dataclass(value)
                 or isinstance(value, bool) or isinstance(value, Enum)):

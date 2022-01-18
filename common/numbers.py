@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable, Union
+from typing import Iterable, Union, List
 
 from common import constants
 
@@ -80,6 +80,13 @@ class Float(float):
         if isinstance(args[0], Iterable) and len(args[0]) == 0:
             return O
         return Float(min(*args, **kwargs))
+
+    @staticmethod
+    def average(values: List[float]) -> Float:
+        if len(values) == 0:
+            return O
+        total = Float.sum([values[i] for i in range(len(values))])
+        return total / len(values)
 
 
 class Int(int):
