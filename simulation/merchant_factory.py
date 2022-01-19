@@ -96,7 +96,8 @@ class MerchantFactory:
                     if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
                 if reference_loan:
-                    if self.context.loan_reference_type == LoanReferenceType:
+                    if self.context.loan_reference_type == LoanReferenceType and conditions[
+                        i].loan_type != LoanSimulationType.NO_CAPITAL:
                         if not loans[i].revenue_cagr().is_close(reference_loan.revenue_cagr()):
                             return None
             return loans if len(loans) > 1 else loans[0]
