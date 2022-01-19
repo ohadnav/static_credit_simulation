@@ -6,6 +6,7 @@ from typing import Optional, Mapping, Any
 from numpy.random import mtrand
 
 from common import constants
+from common.enum import LoanReferenceType
 from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
 
 
@@ -137,6 +138,7 @@ class SimulationContext:
     max_loan_amount = constants.MAX_LOAN_AMOUNT
     max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
+    loan_reference_type: Optional[LoanReferenceType] = None
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL

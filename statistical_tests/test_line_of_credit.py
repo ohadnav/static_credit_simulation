@@ -1,5 +1,5 @@
 from common.context import SimulationContext, DataGenerator
-from common.enum import LoanSimulationType
+from common.enum import LoanSimulationType, LoanReferenceType
 from finance.lender import Lender
 from simulation.merchant_factory import MerchantFactory, Condition
 from statistical_tests.statistical_util import statistical_test_bool, StatisticalTestCase
@@ -26,7 +26,48 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
 
         statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
 
+    def test_line_of_credit_superior_when_controlling_growth_rates(self):
+        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        self.data_generator.num_merchants = 10
+        merchants_and_results = self.factory.generate_merchants(
+            self.factory.generate_diff_validator(
+                [Condition(loan_type=LoanSimulationType.DEFAULT),
+                    Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)]))
+        regular_loans = [mnr[1][0] for mnr in merchants_and_results]
+        loc_loans = [mnr[1][1] for mnr in merchants_and_results]
+        regular_lender = Lender.generate_from_simulated_loans(regular_loans)
+        loc_lender = Lender.generate_from_simulated_loans(loc_loans)
+        print('results:')
+        print(regular_lender.simulation_results)
+        print(loc_lender.simulation_results)
+        self.assertNotEqual(regular_lender.simulation_results, loc_lender.simulation_results)
+        self.assertTrue(
+            regular_lender.simulation_results.funded.revenues_cagr.is_close(
+                loc_lender.simulation_results.funded.revenues_cagr))
+        self.assertLess(
+            regular_lender.simulation_results.funded.lender_profit_margin /
+            loc_lender.simulation_results.funded.lender_profit_margin - 1, 0.05)
+        self.assertLess(
+            regular_lender.simulation_results.funded.num_loans,
+            loc_lender.simulation_results.funded.num_loans)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.total_credit,
+            loc_lender.simulation_results.funded.total_credit)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.lender_profit,
+            loc_lender.simulation_results.funded.lender_profit)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.apr,
+            loc_lender.simulation_results.funded.apr)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.total_credit,
+            loc_lender.simulation_results.funded.total_credit)
+        self.assertGreaterEqual(
+            regular_lender.simulation_results.funded.bankruptcy_rate,
+            loc_lender.simulation_results.funded.bankruptcy_rate)
+
     def test_line_of_credit_superior(self):
+        self.context.loan_reference_type = None
         self.data_generator.num_merchants = 50
         merchants_and_results = self.factory.generate_merchants(
             self.factory.generate_diff_validator(

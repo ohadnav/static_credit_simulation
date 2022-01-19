@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from common import constants
 from common.numbers import Float, TWO, human_format, ONE, Int, human_format_duration, Duration
 from tests.util_test import BaseTestCase
 
@@ -57,7 +58,16 @@ class TestFloat(BaseTestCase):
         self.assertTrue(type(Float.sum([1, 2])), Float)
 
     def test_average(self):
-        self.assertAlmostEqual(Float.average([1, 2, 3]), Float(2))
+        self.assertEqual(Float.average([1, 2, 3]), Float(2))
+
+    def test_is_close(self):
+        self.assertTrue(Float(0).is_close(0 + constants.FLOAT_CLOSE_TOLERANCE))
+        self.assertTrue(Float(1).is_close(1 + constants.FLOAT_CLOSE_TOLERANCE))
+        self.assertTrue(Float(1).is_close(1 - constants.FLOAT_CLOSE_TOLERANCE + 0.001))
+        self.assertTrue(Float(10).is_close(10 + constants.FLOAT_CLOSE_TOLERANCE * 10))
+        self.assertTrue(Float(-10).is_close(-10 + constants.FLOAT_CLOSE_TOLERANCE * 10))
+        self.assertFalse(Float(10).is_close(10 + constants.FLOAT_CLOSE_TOLERANCE * 11))
+        self.assertFalse(Float(0).is_close(0 + constants.FLOAT_CLOSE_TOLERANCE + 0.01))
 
 
 class TestNumbers(BaseTestCase):

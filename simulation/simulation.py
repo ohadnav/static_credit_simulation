@@ -32,6 +32,13 @@ class Scenario:
         return self.__str__()
 
 
+BENCHMARK_MODELS = [
+    LoanSimulationType.INCREASING_REBATE,
+    LoanSimulationType.LINE_OF_CREDIT,
+    LoanSimulationType.DYNAMIC_LINE_OF_CREDIT,
+    LoanSimulationType.NO_CAPITAL
+]
+
 PREDEFINED_SCENARIOS = [
     Scenario([Condition('annual_top_line', max_value=Dollar(10 ** 5))]),
     Scenario([Condition('annual_top_line', min_value=Dollar(10 ** 6))]),
@@ -86,13 +93,14 @@ class Simulation:
         self.compare()
 
     def generate_lenders(self) -> List[Lender]:
+        # TODO: regard reference loan
         factory = MerchantFactory(self.data_generator, self.context)
         results = factory.generate_from_conditions(self.scenario.conditions)
         merchants = results
         if self.scenario.conditions:
             merchants = [mnr[0] for mnr in results]
         return [Lender(self.context, self.data_generator, deepcopy(merchants), loan_type) for loan_type in
-            LoanSimulationType.list()]
+            BENCHMARK_MODELS]
 
     def to_dataframe(self) -> Tuple[pd.DataFrame, Mapping[str, pd.DataFrame]]:
         results_df = pd.DataFrame()

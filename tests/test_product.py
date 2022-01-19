@@ -15,9 +15,9 @@ class TestProduct(BaseTestCase):
         ratio = 0.9
         self.data_generator.normal_ratio = MagicMock(return_value=ratio)
         self.product = Product.generate_simulated(self.data_generator)
-        self.assertAlmostEqual(self.product.price, self.data_generator.median_price * ratio)
-        self.assertAlmostEqual(self.product.cost_per_unit, self.product.cogs_margin * self.product.price)
-        self.assertAlmostEqual(self.product.cogs_margin, self.data_generator.cogs_margin_median * ratio)
+        self.assertEqual(self.product.price, self.data_generator.median_price * ratio)
+        self.assertEqual(self.product.cost_per_unit, self.product.cogs_margin * self.product.price)
+        self.assertEqual(self.product.cogs_margin, self.data_generator.cogs_margin_median * ratio)
         self.assertEqual(
             self.product.manufacturing_duration, int(self.data_generator.manufacturing_duration_avg * ratio))
         self.assertGreater(
@@ -25,16 +25,16 @@ class TestProduct(BaseTestCase):
 
     def test__discount(self):
         self.assertEqual(self.product.volume_discount(self.product.min_purchase_order_size), 0)
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.product.volume_discount(self.product.min_purchase_order_size * 10), constants.VOLUME_DISCOUNT)
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.product.volume_discount(self.product.min_purchase_order_size * 100000000000),
             constants.MAX_VOLUME_DISCOUNT)
 
     def test_discounted_cost_per_unit(self):
         self.assertEqual(
             self.product.discounted_cost_per_unit(self.product.min_purchase_order_size), self.product.cost_per_unit)
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.product.discounted_cost_per_unit(10 * self.product.min_purchase_order_size),
             self.product.cost_per_unit * (1 - constants.VOLUME_DISCOUNT))
 
@@ -60,8 +60,8 @@ class TestProduct(BaseTestCase):
         total_cost: Dollar = self.product.min_purchase_order_size * self.product.cost_per_unit
         upfront, post = self.product.purchase_order_cost(self.product.min_purchase_order_size)
         # noinspection PyTypeChecker
-        self.assertAlmostEqual(upfront, total_cost * constants.INVENTORY_UPFRONT_PAYMENT)
-        self.assertAlmostEqual(post, total_cost * (1 - constants.INVENTORY_UPFRONT_PAYMENT))
+        self.assertEqual(upfront, total_cost * constants.INVENTORY_UPFRONT_PAYMENT)
+        self.assertEqual(post, total_cost * (1 - constants.INVENTORY_UPFRONT_PAYMENT))
         self.assertLess(
             self.product.purchase_order_cost(10 * self.product.min_purchase_order_size), (
                 10 * self.product.min_purchase_order_size * self.product.cost_per_unit *

@@ -8,7 +8,7 @@ from common import constants
 
 class Float(float):
     def __eq__(self, other):
-        if math.isclose(self, other, abs_tol=constants.FLOAT_ADJUSTMENT):
+        if math.isclose(self, other, abs_tol=constants.FLOAT_EQUALITY_TOLERANCE):
             return True
         return super(Float, self).__eq__(other)
 
@@ -53,11 +53,14 @@ class Float(float):
     def __index__(self) -> int:
         return int(self)
 
+    def is_close(self, other: Union[float, int], rel: float = constants.FLOAT_CLOSE_TOLERANCE):
+        return math.isclose(self, other, rel_tol=rel, abs_tol=rel)
+
     def floor(self) -> int:
-        return math.ceil(self + constants.FLOAT_ADJUSTMENT)
+        return math.ceil(self + constants.FLOAT_EQUALITY_TOLERANCE)
 
     def ceil(self) -> int:
-        return math.ceil(self - constants.FLOAT_ADJUSTMENT)
+        return math.ceil(self - constants.FLOAT_EQUALITY_TOLERANCE)
 
     def __str__(self) -> str:
         return human_format(self)

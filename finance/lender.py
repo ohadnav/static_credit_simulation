@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 from dataclasses import fields, dataclass
-from typing import List, MutableMapping, Optional
+from typing import List, MutableMapping, Optional, Mapping
 
 import dacite as dacite
 import numpy as np
@@ -29,6 +29,7 @@ class AggregatedLoanSimulationResults:
     valuation_cagr: Percent
     lender_profit: Dollar
     total_credit: Dollar
+    lender_profit_margin: Percent
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
@@ -77,7 +78,8 @@ class LenderSimulationResults:
 class Lender(Primitive):
     def __init__(
             self, context: SimulationContext, data_generator: DataGenerator, merchants: List[Merchant],
-            loan_type: LoanSimulationType = LoanSimulationType.DEFAULT):
+            loan_type: LoanSimulationType = LoanSimulationType.DEFAULT,
+            reference_loans: Optional[Mapping[Merchant, LoanSimulation]] = None):
         super(Lender, self).__init__(data_generator)
         self.merchants = merchants
         self.context = context
@@ -85,26 +87,38 @@ class Lender(Primitive):
         self.loans: MutableMapping[Merchant, LoanSimulation] = {}
         self.risk_correlation: MutableMapping[str, MutableMapping[str, Percent]] = {}
         self.loan_type = loan_type
+        self.reference_loans = reference_loans
 
     @classmethod
     def generate_from_simulated_loans(cls, loans: List[LoanSimulation]) -> Lender:
         merchants = [loan.merchant for loan in loans]
         context = deepcopy(loans[0].context)
-        context.loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
+        loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
         data_generator = loans[0].data_generator
-        lender = Lender(context, data_generator, merchants)
+        lender = Lender(context, data_generator, merchants, loan_type)
         lender.loans = {loan.merchant: loan for loan in loans}
         lender.calculate_results()
+        return lender
+
+    @classmethod
+    def generate_from_reference_loans(cls, loans: List[LoanSimulation]) -> Lender:
+        merchants = [loan.merchant for loan in loans]
+        reference_loans = {loan.merchant: loan for loan in loans}
+        context = loans[0].context
+        loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
+        data_generator = loans[0].data_generator
+        lender = Lender(context, data_generator, merchants, loan_type, reference_loans)
         return lender
 
     @staticmethod
     def generate_loan(
             merchant: Merchant, context: SimulationContext, data_generator: DataGenerator,
-            loan_type: LoanSimulationType) -> LoanSimulation:
-        return LOAN_TYPES_MAPPING[loan_type](context, data_generator, merchant)
+            loan_type: LoanSimulationType, reference_loan: Optional[LoanSimulation]) -> LoanSimulation:
+        return LOAN_TYPES_MAPPING[loan_type](context, data_generator, merchant, reference_loan)
 
     def generate_loan_from_merchant(self, merchant: Merchant) -> LoanSimulation:
-        return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type)
+        reference_loan = self.reference_loans[merchant] if self.reference_loans else None
+        return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type, reference_loan)
 
     def aggregate_results(self, loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
         result = {'num_merchants': Int(len(loan_results)),

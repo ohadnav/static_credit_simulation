@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Union, Tuple
 from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
-from common.enum import LoanSimulationType
+from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Float
 from common.util import TqdmParallel, LIVE_RATE
 from finance.lender import Lender
@@ -53,8 +53,7 @@ class MerchantFactory:
 
         def validator(merchant: Merchant) -> EntityOrList:
             values: List[Float] = [getattr(merchant, condition.field_name)(self.data_generator.start_date) for condition
-                in
-                conditions]
+                in conditions]
             for i in range(len(conditions)):
                 if conditions[i].min_value is not None and not values[i] > conditions[i].min_value:
                     return None
@@ -83,10 +82,12 @@ class MerchantFactory:
             conditions = [conditions]
 
         def validator(merchant: Merchant) -> EntityOrList:
-            loans: List[LoanSimulation] = [
-                Lender.generate_loan(deepcopy(merchant), self.context, self.data_generator, c.loan_type) for c in
-                conditions]
-            for i in range(len(loans)):
+            loans: List[LoanSimulation] = []
+            for i in range(len(conditions)):
+                reference_loan = loans[0] if loans and self.context.loan_reference_type else None
+                loans.append(
+                    Lender.generate_loan(
+                        deepcopy(merchant), self.context, self.data_generator, conditions[i].loan_type, reference_loan))
                 loans[i].simulate()
                 if conditions[i].field_name:
                     value = getattr(loans[i].simulation_results, conditions[i].field_name)
@@ -94,6 +95,10 @@ class MerchantFactory:
                         return None
                     if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
+                if reference_loan:
+                    if self.context.loan_reference_type == LoanReferenceType:
+                        if not loans[i].revenue_cagr().is_close(reference_loan.revenue_cagr()):
+                            return None
             return loans if len(loans) > 1 else loans[0]
 
         return validator

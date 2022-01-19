@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from common import constants
-from common.enum import LoanSimulationType
+from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import O, ONE, Float, Percent, Int, TWO
 from finance.lender import Lender, LenderSimulationResults, AggregatedLoanSimulationResults, WEIGHT_FIELD
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation
@@ -22,6 +22,7 @@ class TestLender(StatisticalTestCase):
         self.lender = Lender(self.context, self.data_generator, self.merchants)
 
     def test_support_loan_types(self):
+        self.data_generator.num_merchants = 2
         self.data_generator.simulated_duration = self.data_generator.start_date + 1
         for loan_type in LoanSimulationType:
             self.lender = Lender(self.context, self.data_generator, self.merchants, loan_type)
@@ -40,22 +41,22 @@ class TestLender(StatisticalTestCase):
         self.assertEqual(
             self.lender.aggregate_results(
                 [
-                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
-                    LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, Int(5))
+                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+                    LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, five, Int(5))
                 ]),
             AggregatedLoanSimulationResults(
-                four, four, four, four, six, six, four, four, three, Percent(2 / 3), Int(2), four))
+                four, four, four, four, six, six, four, four, four, three, Percent(2 / 3), Int(2), four))
 
     def test_calculate_sharpe(self):
         five = Float(5)
         three = Float(3)
         results = [
-            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
-            LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, Int(3))
+            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+            LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, five, Int(3))
         ]
         std = np.std([ONE, five])
         self.context.cost_of_capital = three
-        self.assertAlmostEqual(self.lender.calculate_sharpe(results), ONE / std)
+        self.assertEqual(self.lender.calculate_sharpe(results), ONE / std)
 
     def test_calculate_results(self):
         self.data_generator.simulated_duration = 1
@@ -74,10 +75,10 @@ class TestLender(StatisticalTestCase):
     def test_calculate_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.ledger.total_credit = 1
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 2
@@ -104,10 +105,10 @@ class TestLender(StatisticalTestCase):
     def test_underwriting_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+        loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+        loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.ledger.total_credit = 1
         self.lender.loans = {1: loan1, 2: loan2}
         for risk_field in vars(self.context.risk_context).keys():
@@ -145,6 +146,7 @@ class TestLender(StatisticalTestCase):
         self.data_generator.random.assert_not_called()
 
     def test_generate_from_simulated_loans(self):
+        self.data_generator.simulated_duration = constants.YEAR
         factory = MerchantFactory(self.data_generator, self.context)
         merchants = factory.generate_merchants(num_merchants=5)
         lender1 = Lender(self.context, self.data_generator, merchants)
@@ -154,3 +156,17 @@ class TestLender(StatisticalTestCase):
             loan.simulate()
         lender2 = Lender.generate_from_simulated_loans(loans)
         self.assertDeepAlmostEqual(lender1.simulation_results, lender2.simulation_results)
+
+    def test_generate_from_reference_loans(self):
+        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        self.data_generator.simulated_duration = constants.YEAR
+        self.merchants = self.merchants[:2]
+        reference_loans = [
+            Lender.generate_loan(merchant, self.context, self.data_generator, LoanSimulationType.DEFAULT, None) for
+            merchant in self.merchants]
+        self.lender = Lender.generate_from_reference_loans(reference_loans)
+        self.assertDeepAlmostEqual(self.lender.merchants, self.merchants)
+        self.assertDeepAlmostEqual(list(self.lender.reference_loans.values()), reference_loans)
+        self.lender.simulate()
+        actual_reference_loans = [loan.reference_loan for loan in self.lender.loans.values()]
+        self.assertDeepAlmostEqual(actual_reference_loans, reference_loans)

@@ -29,29 +29,29 @@ class TestUnderwriting(StatisticalTestCase):
         self.assertDeepAlmostEqual([c.score for c in vars(self.underwriting.risk_context).values()], scores)
 
     def test_benchmark_comparison(self):
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE, True, ONE), ONE)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE + 0.1, True, ONE), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE, True, ONE), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE + 0.1, True, ONE), ONE)
 
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE, False, ONE), ONE)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE - 0.1, False, ONE), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE, False, ONE), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE - 0.1, False, ONE), ONE)
 
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(TWO, ONE, True, ONE), ONE / 2)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, TWO, False, ONE), ONE / 2)
+        self.assertEqual(self.underwriting.benchmark_comparison(TWO, ONE, True, ONE), ONE / 2)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, TWO, False, ONE), ONE / 2)
 
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE, True, TWO), ONE)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE, False, TWO), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE, True, TWO), ONE)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE, False, TWO), ONE)
 
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(TWO, ONE, True, TWO), ONE / 2)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, TWO, False, TWO), ONE / 2)
+        self.assertEqual(self.underwriting.benchmark_comparison(TWO, ONE, True, TWO), ONE / 2)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, TWO, False, TWO), ONE / 2)
 
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE * 3, ONE, True, TWO), ONE / 6)
-        self.assertAlmostEqual(self.underwriting.benchmark_comparison(ONE, ONE * 3, False, TWO), ONE / 6)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE * 3, ONE, True, TWO), ONE / 6)
+        self.assertEqual(self.underwriting.benchmark_comparison(ONE, ONE * 3, False, TWO), ONE / 6)
 
     def test_benchmark_score(self):
         for predictor, configuration in vars(self.context.risk_context).items():
             benchmark = getattr(self.context, f'{predictor}_benchmark')
             setattr(self.underwriting.merchant, predictor, MagicMock(return_value=benchmark))
-            self.assertAlmostEqual(self.underwriting.benchmark_score(predictor, self.data_generator.start_date), ONE)
+            self.assertEqual(self.underwriting.benchmark_score(predictor, self.data_generator.start_date), ONE)
             if hasattr(self.data_generator, f'{predictor}_median'):
                 median = getattr(self.data_generator, f'{predictor}_median')
                 setattr(self.underwriting.merchant, predictor, MagicMock(return_value=median))
@@ -63,7 +63,7 @@ class TestUnderwriting(StatisticalTestCase):
         for i, k in enumerate(vars(self.underwriting.risk_context)):
             vars(self.underwriting.risk_context)[k].score = scores[i]
             vars(self.underwriting.risk_context)[k].weight = weights[i]
-        self.assertAlmostEqual(self.underwriting.aggregated_score(), weighted_average(scores, weights))
+        self.assertEqual(self.underwriting.aggregated_score(), weighted_average(scores, weights))
 
     def test_approved(self):
         for configuration in vars(self.underwriting.risk_context).values():

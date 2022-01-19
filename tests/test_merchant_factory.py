@@ -1,7 +1,7 @@
 from copy import deepcopy
 from unittest.mock import MagicMock
 
-from common.enum import LoanSimulationType
+from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Percent, Dollar, O, ONE, O_INT
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation, LoanSimulationResults
@@ -13,12 +13,13 @@ from statistical_tests.statistical_util import StatisticalTestCase
 class TestMerchantFactory(StatisticalTestCase):
     def setUp(self) -> None:
         super(TestMerchantFactory, self).setUp()
+        self.data_generator.num_merchants = 10
         self.merchant = Merchant.generate_simulated(self.data_generator)
 
     def generate_mock_loan(self):
         loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         loan.simulate = MagicMock()
-        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O_INT)
+        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O_INT)
         return loan
 
     def generate_merchant_with_id(self, _id: int) -> Merchant:
@@ -50,6 +51,18 @@ class TestMerchantFactory(StatisticalTestCase):
         self.assertDeepAlmostEqual(
             self.factory.generate_diff_validator(conditions)(self.merchant), [loan1, loan2])
         self.assertIsNone(self.factory.generate_diff_validator(conditions)(self.merchant))
+
+    def test_generate_with_reference_loan(self):
+        self.data_generator.num_merchants = 1
+        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        condition1 = Condition(loan_type=LoanSimulationType.DEFAULT)
+        condition2 = Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)
+        merchant_and_results = self.factory.generate_from_conditions([condition1, condition2])
+        loan1: LoanSimulation = merchant_and_results[0][1][0]
+        loan2: LoanSimulation = merchant_and_results[0][1][1]
+        self.assertIsNone(loan1.reference_loan)
+        self.assertEqual(loan2.reference_loan, loan1)
+        self.assertTrue(loan1.revenue_cagr().is_close(loan2.revenue_cagr()))
 
     def test_generate_lsr_validator(self):
         field_name = 'lender_profit'

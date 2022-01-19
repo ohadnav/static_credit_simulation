@@ -52,15 +52,17 @@ class TestInventory(BaseTestCase):
 
     def test_current_inventory_valuation(self):
         batch: Batch = self.inventory[self.data_generator.start_date]
-        batch.remaining_stock = MagicMock(side_effect=[10, 5])
-        batch.sales_velocity = MagicMock(return_value=5)
+        ten = Float(10)
+        five = Float(5)
+        batch.remaining_stock = MagicMock(side_effect=[ten, five])
+        batch.sales_velocity = MagicMock(return_value=five)
         batch.product.price = 2
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.inventory.current_inventory_valuation(self.data_generator.start_date),
-            10 + 10 * constants.INVENTORY_NPV_DISCOUNT_FACTOR)
-        self.assertAlmostEqual(self.inventory.current_inventory_valuation(self.data_generator.start_date + 1), 10)
+            ten + ten * constants.INVENTORY_NPV_DISCOUNT_FACTOR)
+        self.assertEqual(self.inventory.current_inventory_valuation(self.data_generator.start_date + 1), ten)
         batch.sales_velocity = MagicMock(return_value=0)
-        self.assertAlmostEqual(self.inventory.current_inventory_valuation(self.data_generator.start_date), 0)
+        self.assertEqual(self.inventory.current_inventory_valuation(self.data_generator.start_date), 0)
 
     def test_purchase_order_valuation(self):
         batch: Batch = self.inventory[self.data_generator.start_date]
@@ -72,20 +74,20 @@ class TestInventory(BaseTestCase):
         batch.product.price = Dollar(1)
         dv = batch.product.price * velocity
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.inventory.purchase_order_valuation(self.data_generator.start_date), dv * (r ** 2) + dv * (r ** 3))
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.inventory.purchase_order_valuation(self.data_generator.start_date + 1),
             dv * (r ** 1) + dv * (r ** 2))
         batch.sales_velocity = MagicMock(return_value=0)
-        self.assertAlmostEqual(self.inventory.purchase_order_valuation(self.data_generator.start_date), 0)
+        self.assertEqual(self.inventory.purchase_order_valuation(self.data_generator.start_date), 0)
 
     def test_valuation(self):
         day = self.data_generator.start_date
         self.data_generator.include_purchase_order_in_valuation = False
-        self.assertAlmostEqual(self.inventory.valuation(day), self.inventory.current_inventory_valuation(day))
+        self.assertEqual(self.inventory.valuation(day), self.inventory.current_inventory_valuation(day))
         self.data_generator.include_purchase_order_in_valuation = True
-        self.assertAlmostEqual(
+        self.assertEqual(
             self.inventory.valuation(day), self.inventory.current_inventory_valuation(
                 day) + self.inventory.purchase_order_valuation(day))
 
@@ -102,9 +104,9 @@ class TestInventory(BaseTestCase):
 
     def test_discounted_inventory_value(self):
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(2), Duration(2)), 1 + r)
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(9), Duration(3)), 3 + 3 * r + 3 * r * r)
-        self.assertAlmostEqual(
+        self.assertEqual(Inventory.discounted_inventory_value(Dollar(2), Duration(2)), 1 + r)
+        self.assertEqual(Inventory.discounted_inventory_value(Dollar(9), Duration(3)), 3 + 3 * r + 3 * r * r)
+        self.assertEqual(
             Inventory.discounted_inventory_value(Dollar(9), Duration(3), Duration(1)),
             3 * r + 3 * r * r + 3 * r * r * r)
-        self.assertAlmostEqual(Inventory.discounted_inventory_value(Dollar(2), Duration(0)), 0)
+        self.assertEqual(Inventory.discounted_inventory_value(Dollar(2), Duration(0)), 0)

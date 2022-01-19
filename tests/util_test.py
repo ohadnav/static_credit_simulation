@@ -32,17 +32,17 @@ class BaseTestCase(TestCase):
         """
         Assert that two complex structures have almost equal contents.
         Compares lists, dicts and tuples recursively. Checks numeric values
-        using test_case's :py:meth:`unittest.TestCase.assertAlmostEqual` and
+        using test_case's :py:meth:`unittest.TestCase.assertEqual` and
         checks all other values with :py:meth:`unittest.TestCase.assertEqual`.
         Accepts additional positional and keyword arguments and pass those
-        intact to assertAlmostEqual() (that's how you specify comparison
+        intact to assertEqual() (that's how you specify comparison
         precision).
         """
         is_root = not '__trace' in kwargs
         trace = kwargs.pop('__trace', 'ROOT')
         try:
             if isinstance(expected, (int, float, long, complex)):
-                self.assertAlmostEqual(expected, actual, *args, **kwargs)
+                self.assertEqual(expected, actual, *args, **kwargs)
             elif isinstance(expected, (list, tuple, numpy.ndarray)):
                 self.assertEqual(len(expected), len(actual))
                 for index in range(len(expected)):

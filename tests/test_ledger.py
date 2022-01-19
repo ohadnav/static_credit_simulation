@@ -15,8 +15,8 @@ class TestLedger(BaseTestCase):
     def test_outstanding_balance(self):
         self.ledger.new_loan(self.one_loan)
         self.ledger.new_loan(self.one_loan)
-        self.assertAlmostEqual(self.ledger.outstanding_balance(), TWO)
-        self.assertAlmostEqual(self.ledger.outstanding_balance([self.one_loan]), ONE)
+        self.assertEqual(self.ledger.outstanding_balance(), TWO)
+        self.assertEqual(self.ledger.outstanding_balance([self.one_loan]), ONE)
 
     def test_repayments_from_amount_empty_result(self):
         self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(ONE_INT, O), [])
@@ -66,12 +66,12 @@ class TestLedger(BaseTestCase):
             self.ledger.repayments_from_amount(TWO_INT, ONE + half, loans), [repayment1, repayment2])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
         self.assertDeepAlmostEqual(loans, [loan2_mid])
-        self.assertAlmostEqual(self.one_loan.outstanding_balance, O)
-        self.assertAlmostEqual(loan2.outstanding_balance, half)
+        self.assertEqual(self.one_loan.outstanding_balance, O)
+        self.assertEqual(loan2.outstanding_balance, half)
 
         self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(three, half, loans), [repayment3])
         self.assertDeepAlmostEqual(loans, [])
-        self.assertAlmostEqual(loan2.outstanding_balance, O)
+        self.assertEqual(loan2.outstanding_balance, O)
 
     def test_initiate_loan_repayment(self):
         half = Dollar(0.5)

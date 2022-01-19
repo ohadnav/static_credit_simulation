@@ -28,7 +28,7 @@ class TestLineOfCredit(BaseTestCase):
         self.line_of_credit.credit_needed = MagicMock(return_value=1)
         prev_cash = self.line_of_credit.current_cash
         self.line_of_credit.update_credit()
-        self.assertAlmostEqual(self.line_of_credit.current_cash, prev_cash + 1)
+        self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
         self.line_of_credit.remaining_credit = MagicMock(return_value=0)
         self.line_of_credit.update_credit()
         self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
