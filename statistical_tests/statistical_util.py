@@ -1,5 +1,4 @@
 import logging
-from copy import deepcopy
 from typing import Callable, List, Optional, Tuple, Any
 
 from joblib import delayed
@@ -29,8 +28,10 @@ def statistical_test_mean_error(
     logging.getLogger().setLevel(logging.WARNING)
     desc = f'{test_case._testMethodName}'
     errors = TqdmParallel(desc=desc, total=times)(
-        delayed(test_iteration)(deepcopy(test_case.data_generator), deepcopy(test_case.context)) for _ in range(times))
-    test_case.assertLess(Float.sum(errors) / times, mean_error)
+        delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory) for _ in range(times))
+    actual_mean_error = Float.sum(errors) / times
+    test_case.assertLess(actual_mean_error, mean_error)
+    print(f'mean_error = {actual_mean_error}')
     logging.getLogger().setLevel(logging_level)
 
 

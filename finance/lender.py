@@ -30,6 +30,7 @@ class AggregatedLoanSimulationResults:
     lender_profit: Dollar
     total_credit: Dollar
     lender_profit_margin: Percent
+    total_interest: Dollar
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
@@ -39,7 +40,7 @@ class AggregatedLoanSimulationResults:
 
 
 WEIGHT_FIELD = 'valuation'
-SUM_FIELDS = ['total_credit', 'lender_profit']
+SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest']
 NO_WEIGHTS_FIELDS = ['bankruptcy_rate']
 
 LOAN_TYPES_MAPPING = {

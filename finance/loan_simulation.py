@@ -24,6 +24,7 @@ class LoanSimulationResults:
     lender_profit: Dollar
     total_credit: Dollar
     lender_profit_margin: Percent
+    total_interest: Dollar
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
@@ -200,12 +201,15 @@ class LoanSimulation(Primitive):
         self.simulation_results = LoanSimulationResults(
             self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.inventory_cagr(),
             self.net_cashflow_cagr(), self.valuation_cagr(),
-            self.lender_profit(), self.total_amount(), self.lender_profit_margin(),
+            self.lender_profit(), self.total_amount(), self.lender_profit_margin(), self.total_interest(),
             self.debt_to_valuation(), self.effective_apr(), self.calculate_bankruptcy_rate(),
             self.ledger.get_num_loans())
 
     def total_amount(self) -> Dollar:
         return self.debt_to_loan_amount(self.ledger.total_credit)
+
+    def total_interest(self) -> Dollar:
+        return self.ledger.total_credit - self.total_amount()
 
     def calculate_bankruptcy_rate(self) -> Percent:
         if self.bankruptcy_date is None:

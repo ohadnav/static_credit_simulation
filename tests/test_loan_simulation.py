@@ -313,15 +313,16 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.lender_profit = MagicMock(return_value=Float(5))
         self.loan_simulation.debt_to_loan_amount = MagicMock(return_value=Float(6))  # total credit
         self.loan_simulation.lender_profit_margin = MagicMock(return_value=Float(7))
-        self.loan_simulation.debt_to_valuation = MagicMock(return_value=Float(8))
-        self.loan_simulation.effective_apr = MagicMock(return_value=Float(9))
-        self.loan_simulation.calculate_bankruptcy_rate = MagicMock(return_value=Float(10))
-        self.loan_simulation.ledger.get_num_loans = MagicMock(return_value=Int(11))
+        self.loan_simulation.total_interest = MagicMock(return_value=Float(8))
+        self.loan_simulation.debt_to_valuation = MagicMock(return_value=Float(9))
+        self.loan_simulation.effective_apr = MagicMock(return_value=Float(10))
+        self.loan_simulation.calculate_bankruptcy_rate = MagicMock(return_value=Float(11))
+        self.loan_simulation.ledger.get_num_loans = MagicMock(return_value=Int(12))
         self.loan_simulation.calculate_results()
         self.assertEqual(
             self.loan_simulation.simulation_results, LoanSimulationResults(
                 O, Float(1), Float(2), Float(3), Float(4), Float(5), Float(6), Float(7), Float(8), Float(9), Float(10),
-                Int(11)))
+                Float(11), Int(12)))
 
     def test_calculate_bankruptcy_rate(self):
         self.loan_simulation.bankruptcy_date = None

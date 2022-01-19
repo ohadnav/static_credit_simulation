@@ -19,7 +19,7 @@ class TestMerchantFactory(StatisticalTestCase):
     def generate_mock_loan(self):
         loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         loan.simulate = MagicMock()
-        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O_INT)
+        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O, O_INT)
         return loan
 
     def generate_merchant_with_id(self, _id: int) -> Merchant:

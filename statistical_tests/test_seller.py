@@ -186,7 +186,7 @@ class TestStatisticalSeller(StatisticalTestCase):
             diff = abs(actual_top_line / expected_sales - 1)
             return diff
 
-        statistical_test_mean_error(self, test_iteration, times=1)
+        statistical_test_mean_error(self, test_iteration, times=10)
 
     def test_risk_scores_distribution(self):
         mid_score = Percent(0.5)
