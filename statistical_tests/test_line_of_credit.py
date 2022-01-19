@@ -20,18 +20,11 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
             loan_without_capital = loans[1].simulation_results
-            is_true.append(
-                (
-                    loan_with_capital.revenues_cagr > loan_without_capital.revenues_cagr,
-                    (
-                        loan_with_capital.revenues_cagr - loan_without_capital.revenues_cagr, loans)))
-            is_true.append(
-                (
-                    loan_with_capital.lender_profit > 0,
-                    (loan_with_capital.lender_profit, loan_with_capital)))
+            is_true.append((loan_with_capital.revenues_cagr > loan_without_capital.revenues_cagr, loans))
+            is_true.append((loan_with_capital.bankruptcy_rate <= loan_without_capital.bankruptcy_rate, loans))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.6, times=50)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
 
     def test_line_of_credit_superior(self):
         self.data_generator.num_merchants = 50
@@ -60,11 +53,11 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             regular_lender.simulation_results.funded.revenues_cagr,
             loc_lender.simulation_results.funded.revenues_cagr)
         self.assertLess(
-            regular_lender.simulation_results.funded.apr,
-            loc_lender.simulation_results.funded.apr)
-        self.assertLess(
             regular_lender.simulation_results.funded.total_credit,
             loc_lender.simulation_results.funded.total_credit)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.apr,
+            loc_lender.simulation_results.funded.apr)
         self.assertGreaterEqual(
             regular_lender.simulation_results.funded.bankruptcy_rate,
             loc_lender.simulation_results.funded.bankruptcy_rate)
@@ -85,20 +78,5 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             loc_lender.simulation_results.funded.lender_profit,
             dynamic_lender.simulation_results.funded.lender_profit)
         self.assertLess(
-            loc_lender.simulation_results.funded.valuation_cagr,
-            dynamic_lender.simulation_results.funded.valuation_cagr)
-        self.assertLess(
-            loc_lender.simulation_results.funded.revenues_cagr,
-            dynamic_lender.simulation_results.funded.revenues_cagr)
-        self.assertLess(
-            loc_lender.simulation_results.funded.apr,
-            dynamic_lender.simulation_results.funded.apr)
-        self.assertLess(
             loc_lender.simulation_results.funded.total_credit,
             dynamic_lender.simulation_results.funded.total_credit)
-        self.assertLess(
-            loc_lender.simulation_results.sharpe,
-            dynamic_lender.simulation_results.sharpe)
-        self.assertGreaterEqual(
-            loc_lender.simulation_results.funded.bankruptcy_rate,
-            dynamic_lender.simulation_results.funded.bankruptcy_rate)

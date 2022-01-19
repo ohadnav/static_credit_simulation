@@ -70,17 +70,20 @@ class TestNumbers(BaseTestCase):
         self.assertEqual(human_format(9900), '9.9K')
         self.assertEqual(human_format(1), '1')
         self.assertEqual(human_format(0.5), '0.5')
+        self.assertEqual(human_format(1.51), '1.51')
         self.assertEqual(human_format(0.0099), '0.01')
         self.assertEqual(human_format(0.00099), '0')
 
     def test_human_format_duration(self):
+        self.assertEqual(human_format_duration(-10), '-10d')
+        self.assertEqual(human_format_duration(0), '0d')
         self.assertEqual(human_format_duration(1), '1d')
         self.assertEqual(human_format_duration(6), '6d')
         self.assertEqual(human_format_duration(7), '1wk')
         self.assertEqual(human_format_duration(14), '2wk')
-        self.assertEqual(human_format_duration(13), '1.9wk')
-        self.assertEqual(human_format_duration(29), '4.1wk')
+        self.assertEqual(human_format_duration(13), '1wk 6d')
         self.assertEqual(human_format_duration(30), '1mon')
+        self.assertEqual(human_format_duration(31), '1mon 1d')
         self.assertEqual(human_format_duration(365), '1yr')
         self.assertEqual(human_format_duration(3650), '10yr')
 
@@ -96,6 +99,8 @@ class TestInt(BaseTestCase):
         self.assertEqual(self._int * 2, 4)
         self.assertEqual(self._int / 2, 1)
         self.assertEqual(self._int ** 2, 4)
+
+    def test_typing(self):
         self.assertTrue(type(self._int + 1), Int)
         self.assertTrue(type(self._int + Float(1)), Int)
         self.assertTrue(type(self._int + Float(1.5)), Float)
@@ -103,7 +108,8 @@ class TestInt(BaseTestCase):
         self.assertTrue(type(self._int - Float(1.5)), Float)
         self.assertTrue(type(self._int * 1), Int)
         self.assertTrue(type(self._int * 1.1), Float)
-        self.assertTrue(type(self._int / 1), Float)
+        self.assertTrue(type(self._int / 1), Int)
+        self.assertTrue(type(self._int / 1.1), Float)
         self.assertTrue(type(self._int ** 1), Int)
         self.assertTrue(type(self._int ** Float(1)), Int)
         self.assertTrue(type(self._int ** 1.1), Float)
@@ -117,13 +123,14 @@ class TestDuration(TestCase):
         super(TestDuration, self).setUp()
         self.duration = Duration(2)
 
-    def test_arithmetic(self):
+    def test_typing(self):
         self.assertTrue(type(self.duration + 1), Duration)
         self.assertTrue(type(self.duration + Int(1)), Duration)
         self.assertTrue(type(self.duration + Float(1)), Duration)
         self.assertTrue(type(self.duration - 1), Duration)
         self.assertTrue(type(self.duration * 1), Duration)
-        self.assertTrue(type(self.duration / 1), Float)
+        self.assertTrue(type(self.duration / 1), Duration)
+        self.assertTrue(type(self.duration / 1.1), Float)
         self.assertTrue(type(self.duration ** 1), Duration)
 
     def test_str(self):

@@ -31,7 +31,7 @@ class Inventory(Primitive):
         new_inventory = Inventory(data_generator, product, batches)
         return new_inventory
 
-    def __getitem__(self, day) -> Batch:
+    def __getitem__(self, day: Date) -> Batch:
         assert day in self, f'{day} not in {[(batch.start_date, batch.last_date) for batch in self.batches]}'
         return [batch for batch in self.batches if batch.start_date <= day <= batch.last_date][0]
 
@@ -55,7 +55,7 @@ class Inventory(Primitive):
             return O
         purchase_order_stock = self[day].purchase_order.stock
         next_purchase_order_value = purchase_order_stock * self.product.price
-        remaining_lead_time = self[day].last_date - day + 1
+        remaining_lead_time = self[day].last_date.from_date(day)
         time_to_sell = self.duration_to_sell(day, purchase_order_stock)
         return Inventory.discounted_inventory_value(next_purchase_order_value, time_to_sell, remaining_lead_time)
 

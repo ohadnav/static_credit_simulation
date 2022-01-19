@@ -12,7 +12,7 @@ from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
 @dataclass(unsafe_hash=True)
 class DataGenerator:
     randomness = True
-    simulated_duration = constants.SIMULATION_DURATION
+    simulated_duration: Duration = constants.SIMULATION_DURATION
     num_merchants = constants.NUM_SIMULATED_MERCHANTS
     num_products = constants.NUM_PRODUCTS
     max_num_products = constants.MAX_NUM_PRODUCTS
@@ -127,7 +127,7 @@ class SimulationContext:
                     setattr(context, key, Duration(value) if 'duration' in key else Int(value))
         return context
 
-    # Loan
+    # Loan Simulation
     rbf_flat_fee = constants.RBF_FLAT_FEE
     loan_duration = constants.LOAN_DURATION
     loan_amount_per_monthly_income = constants.LOAN_AMOUNT_PER_MONTHLY_INCOME
@@ -136,6 +136,7 @@ class SimulationContext:
     agg_score_benchmark = constants.AGG_SCORE_BENCHMARK
     max_loan_amount = constants.MAX_LOAN_AMOUNT
     max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
+    marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL

@@ -165,7 +165,7 @@ class Lender(Primitive):
         return [loan.simulation_results for loan in self.funded_merchants_loans()]
 
     def funded_merchants_loans(self) -> List[LoanSimulation]:
-        return [loan for loan in self.loans.values() if loan.total_credit > 0]
+        return [loan for loan in self.loans.values() if loan.ledger.total_credit > 0]
 
     def simulate(self):
         simulated_loans = TqdmParallel(desc=f'{self.id}({self.loan_type.value})', total=len(self.merchants))(

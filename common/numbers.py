@@ -105,8 +105,12 @@ class Int(int):
             return Float(self) - other
         return Int(super(Int, self).__sub__(round(other)))
 
-    def __truediv__(self, other) -> Float:
-        return Float(self) / other
+    def __truediv__(self, other) -> Union[Float, Int]:
+        result = Float(self) / other
+        if Int.is_true_float(result):
+            return result
+        else:
+            return Int(result)
 
     def __pow__(self, power, modulo=None) -> Union[Int, Float]:
         if Int.is_true_float(power):
@@ -159,8 +163,11 @@ class Duration(Int):
             return Float(self) - other
         return Duration(super(Duration, self).__sub__(other))
 
-    def __truediv__(self, other) -> Float:
-        return Float(self) / other
+    def __truediv__(self, other) -> Union[Float, Duration]:
+        result = super(Duration, self).__truediv__(other)
+        if type(result) == Int:
+            return Duration(result)
+        return result
 
     def __pow__(self, power, modulo=None) -> Union[Duration, Float]:
         if Int.is_true_float(power):
@@ -176,6 +183,9 @@ class Duration(Int):
     def __repr__(self):
         return f'Duration({human_format_duration(self)})'
 
+    def from_date(self, date: Date) -> Duration:
+        return self - date + 1
+
     @staticmethod
     def sum(*args, **kwargs) -> Duration:
         return Duration(Int.sum(*args, **kwargs))
@@ -190,15 +200,17 @@ class Duration(Int):
 
 
 def human_format_duration(days: int) -> str:
-    magnitude = 0
+    if days <= 0:
+        return f'{int(days)}d'
     sizes = [1, constants.WEEK, constants.MONTH, constants.YEAR]
     postfix = ['d', 'wk', 'mon', 'yr']
+    numbers = {}
+    remainder = days
     for i in reversed(range(len(sizes))):
-        if days >= sizes[i]:
-            magnitude = i
-            break
-    return '{}{}'.format(
-        '{:.1f}'.format(days / sizes[magnitude]).rstrip('0').rstrip('.'), postfix[magnitude])
+        if remainder >= sizes[i]:
+            numbers[postfix[i]] = remainder // sizes[i]
+            remainder -= numbers[postfix[i]] * sizes[i]
+    return ' '.join([f'{n}{p}' for p, n in numbers.items()])
 
 
 def human_format(num: Union[float, int]) -> str:
@@ -208,7 +220,7 @@ def human_format(num: Union[float, int]) -> str:
     while abs(num) >= 1000 and magnitude < len(postfix) - 1:
         magnitude += 1
         num /= 1000.0
-    deci = 1 if abs(num) > 1 else 2
+    deci = 1 if abs(num) > 2 else 2
     return '{}{}'.format('{:.{deci}f}'.format(num, deci=deci).rstrip('0').rstrip('.'), postfix[magnitude])
 
 
@@ -221,3 +233,5 @@ O = Float(0)
 O_INT = Int(0)
 ONE = Float(1)
 TWO = Float(2)
+ONE_INT = Duration(1)
+TWO_INT = Duration(2)

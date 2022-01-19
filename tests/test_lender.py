@@ -75,10 +75,10 @@ class TestLender(StatisticalTestCase):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
-        loan1.total_credit = 1
+        loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
-        loan2.total_credit = 1
+        loan2.ledger.total_credit = 1
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 2
             getattr(loan2.underwriting.initial_risk_context, risk_field).score = 2
@@ -105,10 +105,10 @@ class TestLender(StatisticalTestCase):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
-        loan1.total_credit = 1
+        loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
-        loan2.total_credit = 1
+        loan2.ledger.total_credit = 1
         self.lender.loans = {1: loan1, 2: loan2}
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 1.5
