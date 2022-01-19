@@ -58,6 +58,9 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         self.assertGreater(
             regular_lender.simulation_results.funded.apr,
             loc_lender.simulation_results.funded.apr)
+        self.assertGreater(
+            regular_lender.simulation_results.funded.num_loans,
+            loc_lender.simulation_results.funded.num_loans)
         self.assertGreaterEqual(
             regular_lender.simulation_results.funded.bankruptcy_rate,
             loc_lender.simulation_results.funded.bankruptcy_rate)
