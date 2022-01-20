@@ -22,7 +22,8 @@ class LineOfCreditSimulation(LoanSimulation):
         return True
 
     def calculate_amount(self) -> Dollar:
-        amount = Float.min(self.credit_needed(), self.remaining_credit())
+        amount = Float.min(
+            self.credit_needed(), self.remaining_credit(), super(LineOfCreditSimulation, self).calculate_amount())
         return amount
 
 

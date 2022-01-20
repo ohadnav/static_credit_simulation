@@ -154,11 +154,11 @@ class TestStatisticalLoan(StatisticalTestCase):
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
             loan_without_capital = loans[1].simulation_results
-            is_true.append((loan_with_capital.revenues_cagr > loan_without_capital.revenues_cagr, loans))
+            is_true.append((loan_with_capital.revenue_cagr > loan_without_capital.revenue_cagr, loans))
             is_true.append((loan_with_capital.bankruptcy_rate <= loan_without_capital.bankruptcy_rate, loans))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8)
 
     def test_loans_profitable(self):
         def test_iteration(
@@ -173,7 +173,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan.simulation_results.lender_profit < loan.simulation_results.total_credit, loan))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8, times=50)
+        statistical_test_bool(self, test_iteration, min_frequency=0.8)
 
     def test_merchants_grow_without_capital(self):
         def test_iteration(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
@@ -182,7 +182,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             loan = NoCapitalLoanSimulation(context, data_generator, merchant)
             loan.simulate()
             is_true.append(
-                (0 < loan.simulation_results.revenues_cagr < 2, (loan.simulation_results.revenues_cagr, loan)))
+                (0 < loan.simulation_results.revenue_cagr < 2, (loan.simulation_results.revenue_cagr, loan)))
             is_true.append(
                 (0 < loan.simulation_results.valuation_cagr < 3, (loan.simulation_results.valuation_cagr, loan)))
             is_true.append(

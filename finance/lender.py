@@ -23,7 +23,7 @@ from seller.merchant import Merchant
 
 @dataclass(unsafe_hash=True)
 class AggregatedLoanSimulationResults:
-    revenues_cagr: Percent
+    revenue_cagr: Percent
     inventory_cagr: Percent
     net_cashflow_cagr: Percent
     valuation_cagr: Percent

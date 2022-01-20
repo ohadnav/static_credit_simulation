@@ -163,7 +163,7 @@ class TestLender(StatisticalTestCase):
         self.assertDeepAlmostEqual(lender1.simulation_results, lender2.simulation_results)
 
     def test_generate_from_reference_loans(self):
-        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
         self.data_generator.simulated_duration = constants.YEAR
         self.merchants = self.merchants[:2]
         reference_loans = [

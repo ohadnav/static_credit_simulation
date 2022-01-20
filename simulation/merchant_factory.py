@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Union, Tuple
 from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
-from common.enum import LoanSimulationType, LoanReferenceType
+from common.enum import LoanSimulationType
 from common.numbers import Float
 from common.util import TqdmParallel, LIVE_RATE
 from finance.lender import Lender
@@ -95,11 +95,9 @@ class MerchantFactory:
                         return None
                     if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
-                if reference_loan:
-                    if self.context.loan_reference_type == LoanReferenceType and conditions[
-                        i].loan_type != LoanSimulationType.NO_CAPITAL:
-                        if not loans[i].revenue_cagr().is_close(reference_loan.revenue_cagr()):
-                            return None
+                if reference_loan and conditions[i].loan_type != LoanSimulationType.NO_CAPITAL:
+                    if not loans[i].compare_reference_loan():
+                        return None
             return loans if len(loans) > 1 else loans[0]
 
         return validator

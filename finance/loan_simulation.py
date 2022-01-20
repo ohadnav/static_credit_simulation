@@ -17,7 +17,7 @@ from seller.merchant import Merchant
 @dataclass(unsafe_hash=True)
 class LoanSimulationResults:
     valuation: Dollar
-    revenues_cagr: Percent
+    revenue_cagr: Percent
     inventory_cagr: Percent
     net_cashflow_cagr: Percent
     valuation_cagr: Percent
@@ -116,11 +116,19 @@ class LoanSimulation(Primitive):
     def update_repayment_rate(self):
         pass
 
+    def compare_reference_loan(self) -> bool:
+        assert self.reference_loan
+        value1 = getattr(self, self.context.loan_reference_type.name.lower())()
+        value2 = getattr(self.reference_loan, self.context.loan_reference_type.name.lower())()
+        return value1.is_close(value2)
+
     def reference_conditions(self) -> bool:
         if self.reference_loan is None or self.context.loan_reference_type is None:
             return True
-        if self.context.loan_reference_type == LoanReferenceType.EQUAL_GROWTH:
+        if self.context.loan_reference_type == LoanReferenceType.REVENUE_CAGR:
             return self.revenue_cagr() < self.reference_loan.revenue_cagr()
+        if self.context.loan_reference_type == LoanReferenceType.TOTAL_INTEREST:
+            return self.total_interest() < self.reference_loan.total_interest()
         return True
 
     def primary_approval_conditions(self) -> bool:
@@ -131,6 +139,10 @@ class LoanSimulation(Primitive):
 
     def calculate_amount(self) -> Dollar:
         amount = self.approved_amount()
+        if self.reference_loan and self.context.loan_reference_type == LoanReferenceType.TOTAL_INTEREST:
+            remaining_interest = self.reference_loan.total_interest() - self.total_interest()
+            remaining_amount = remaining_interest / self.flat_fee
+            amount = Float.min(remaining_amount, amount)
         return amount
 
     def simulate_day(self):
@@ -227,7 +239,7 @@ class LoanSimulation(Primitive):
 
     def revenue_cagr(self) -> Percent:
         cagr = calculate_cagr(
-            self.merchant.annual_top_line(self.data_generator.start_date), self.total_revenues,
+            self.merchant.annual_top_line(self.data_generator.start_date), self.merchant.annual_top_line(self.today),
             self.duration_until_today())
         return cagr
 

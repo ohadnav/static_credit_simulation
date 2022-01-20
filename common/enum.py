@@ -6,7 +6,7 @@ from typing import List
 
 class ExtendedEnum(Enum):
     @classmethod
-    def list(cls) -> List[LoanSimulationType]:
+    def list(cls) -> List:
         return list(map(lambda c: c, cls))
 
 
@@ -19,4 +19,5 @@ class LoanSimulationType(ExtendedEnum):
 
 
 class LoanReferenceType(ExtendedEnum):
-    EQUAL_GROWTH = 0
+    REVENUE_CAGR = 0
+    TOTAL_INTEREST = 1

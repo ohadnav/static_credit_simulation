@@ -54,15 +54,16 @@ class TestMerchantFactory(StatisticalTestCase):
 
     def test_generate_with_reference_loan(self):
         self.data_generator.num_merchants = 1
-        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
-        condition1 = Condition(loan_type=LoanSimulationType.DEFAULT)
-        condition2 = Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)
-        merchant_and_results = self.factory.generate_from_conditions([condition1, condition2])
-        loan1: LoanSimulation = merchant_and_results[0][1][0]
-        loan2: LoanSimulation = merchant_and_results[0][1][1]
-        self.assertIsNone(loan1.reference_loan)
-        self.assertEqual(loan2.reference_loan, loan1)
-        self.assertTrue(loan1.revenue_cagr().is_close(loan2.revenue_cagr()))
+        for loan_reference_type in LoanReferenceType.list():
+            self.context.loan_reference_type = loan_reference_type
+            condition1 = Condition(loan_type=LoanSimulationType.DEFAULT)
+            condition2 = Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)
+            merchant_and_results = self.factory.generate_from_conditions([condition1, condition2])
+            loan1: LoanSimulation = merchant_and_results[0][1][0]
+            loan2: LoanSimulation = merchant_and_results[0][1][1]
+            self.assertIsNone(loan1.reference_loan)
+            self.assertEqual(loan2.reference_loan, loan1)
+            self.assertTrue(loan1.compare_reference_loan())
 
     def test_generate_lsr_validator(self):
         field_name = 'lender_profit'

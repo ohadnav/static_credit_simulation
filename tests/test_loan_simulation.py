@@ -118,13 +118,13 @@ class TestLoanSimulation(BaseTestCase):
 
     def test_reference_conditions(self):
         self.loan_simulation.reference_loan = None
-        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
         self.assertTrue(self.loan_simulation.reference_conditions())
         reference_loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         self.loan_simulation.reference_loan = reference_loan
         self.context.loan_reference_type = None
         self.assertTrue(self.loan_simulation.reference_conditions())
-        self.context.loan_reference_type = LoanReferenceType.EQUAL_GROWTH
+        self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
         reference_loan.revenue_cagr = MagicMock(return_value=ONE)
         self.loan_simulation.revenue_cagr = MagicMock(return_value=O)
         self.assertTrue(self.loan_simulation.reference_conditions())
@@ -155,6 +155,19 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.ledger.initiate_loan_repayment(
             self.loan_simulation.today, self.loan_simulation.ledger.outstanding_balance())
         self.assertTrue(self.loan_simulation.primary_approval_conditions())
+
+    def test_calculate_amount(self):
+        self.loan_simulation.approved_amount = MagicMock(return_value=ONE)
+        self.context.loan_reference_type = None
+        self.assertEqual(ONE, self.loan_simulation.calculate_amount())
+        self.context.loan_reference_type = LoanReferenceType.TOTAL_INTEREST
+        reference_loan = LoanSimulation(self.context, self.data_generator, self.merchant)
+        self.loan_simulation.reference_loan = reference_loan
+        self.assertEqual(O, self.loan_simulation.calculate_amount())
+        reference_loan.total_interest = MagicMock(return_value=ONE)
+        self.assertEqual(ONE, self.loan_simulation.calculate_amount())
+        self.loan_simulation.total_interest = MagicMock(return_value=ONE)
+        self.assertEqual(O, self.loan_simulation.calculate_amount())
 
     def test_simulate_day(self):
         self.loan_simulation.update_credit = MagicMock()
@@ -362,8 +375,7 @@ class TestLoanSimulation(BaseTestCase):
     def test_revenue_cagr(self):
         self.loan_simulation.today = Date(constants.YEAR)
         self.merchant.annual_top_line = MagicMock(side_effect=[1, 3])
-        self.loan_simulation.total_revenues = 1.5
-        self.assertEqual(self.loan_simulation.revenue_cagr(), 0.5)
+        self.assertEqual(self.loan_simulation.revenue_cagr(), 2)
 
     def test_is_default(self):
         self.assertFalse(self.loan_simulation.is_default())

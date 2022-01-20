@@ -23,12 +23,14 @@ class StatisticalTestCase(BaseTestCase):
 
 
 def statistical_test_mean_error(
-        test_case: StatisticalTestCase, test_iteration: Callable, mean_error: float = 0.01, times: int = 100):
+        test_case: StatisticalTestCase, test_iteration: Callable, mean_error: float = 0.01, times: int = 100, *args,
+        **kwargs):
     logging_level = logging.getLogger().getEffectiveLevel()
     logging.getLogger().setLevel(logging.WARNING)
     desc = f'{test_case._testMethodName}'
     errors = TqdmParallel(desc=desc, total=times)(
-        delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory) for _ in range(times))
+        delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory, *args, **kwargs) for _
+        in range(times))
     actual_mean_error = Float.sum(errors) / times
     test_case.assertLess(actual_mean_error, mean_error)
     print(f'mean_error = {actual_mean_error}')
@@ -37,7 +39,7 @@ def statistical_test_mean_error(
 
 def statistical_test_bool(
         test_case: StatisticalTestCase, test_iteration: Callable,
-        times: int = 100, min_frequency: Optional[float] = None, max_frequency: Optional[float] = None):
+        times: int = 20, min_frequency: Optional[float] = None, max_frequency: Optional[float] = None):
     assert min_frequency is not None or max_frequency is not None
     logging_level = logging.getLogger().getEffectiveLevel()
     logging.getLogger().setLevel(logging.WARNING)
