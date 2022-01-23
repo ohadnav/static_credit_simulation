@@ -92,7 +92,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan.simulation_results.bankruptcy_rate < 0.1, loan))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.5)
+        statistical_test_bool(self, test_iteration, min_frequency=0.5, max_frequency=0.9)
 
     def test_bankruptcy_rate_with_credit(self):
         def test_iteration(
