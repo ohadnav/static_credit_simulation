@@ -10,7 +10,7 @@ from common.context import DataGenerator, SimulationContext
 from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Float, O
 from common.util import TqdmParallel, LIVE_RATE
-from finance.lender import Lender
+from finance import lender
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
 
@@ -24,12 +24,12 @@ class Condition:
 
     def __str__(self):
         s = f'{self.loan_type.name} and ' if self.loan_type else ''
-        if self.min_value:
-            if self.max_value:
+        if self.min_value is not None:
+            if self.max_value is not None:
                 s += f'{self.min_value.__str__()} < {self.field_name} < {self.max_value.__str__()}'
             else:
                 s += f'{self.field_name} > {self.min_value.__str__()}'
-        elif self.max_value:
+        elif self.max_value is not None:
             s += f'{self.field_name} < {self.max_value.__str__()}'
         return s
 
@@ -73,7 +73,7 @@ class MerchantFactory:
     def generate_diff_validator(self, conditions: ConditionsEntityOrList) -> ValidatorMethod:
         lsr_validator = self.generate_lsr_validator(conditions)
 
-        def validator(merchant: Merchant) -> EntityOrList:
+        def diff_validator(merchant: Merchant) -> EntityOrList:
             loans = lsr_validator(merchant)
             if loans is None:
                 return None
@@ -82,7 +82,7 @@ class MerchantFactory:
                 return None
             return loans
 
-        return validator
+        return diff_validator
 
     def generate_lsr_validator(self, conditions: ConditionsEntityOrList) -> ValidatorMethod:
         if isinstance(conditions, Condition):
@@ -93,7 +93,7 @@ class MerchantFactory:
             for i in range(len(conditions)):
                 reference_loan = loans[0] if loans and self.context.loan_reference_type else None
                 loans.append(
-                    Lender.generate_loan(
+                    lender.Lender.generate_loan(
                         deepcopy(merchant), self.context, self.data_generator, conditions[i].loan_type, reference_loan))
                 loans[i].simulate()
                 if conditions[i].field_name:

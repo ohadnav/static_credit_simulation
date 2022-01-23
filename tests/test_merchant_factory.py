@@ -1,10 +1,9 @@
 from copy import deepcopy
 from typing import Optional, Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Percent, Dollar, O, ONE, O_INT
-from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation, LoanSimulationResults
 from seller.merchant import Merchant
 from simulation.merchant_factory import Condition, MerchantFactory
@@ -42,13 +41,14 @@ class TestMerchantFactory(StatisticalTestCase):
         self.assertIsNone(self.factory.generate_merchant_validator(condition_eq)(self.merchant))
         self.assertEqual(self.factory.generate_merchant_validator(condition_lt)(self.merchant), margin)
 
-    def test_generate_diff_validator(self):
+    @patch('finance.lender.Lender')
+    def test_generate_diff_validator(self, lender_mock: MagicMock):
         field_name = 'bankruptcy_rate'
         loan1 = self.generate_mock_loan()
         setattr(loan1.simulation_results, field_name, Percent(0.1))
         loan2 = self.generate_mock_loan()
         setattr(loan2.simulation_results, field_name, Percent(0.2))
-        Lender.generate_loan = MagicMock(side_effect=[loan1, loan2, loan2, loan2])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan1, loan2, loan2, loan2])
         conditions = [Condition(field_name, LoanSimulationType.DEFAULT, O),
             Condition(field_name, LoanSimulationType.DEFAULT, O)]
         self.assertDeepAlmostEqual(
@@ -68,7 +68,8 @@ class TestMerchantFactory(StatisticalTestCase):
             self.assertEqual(loan2.reference_loan, loan1)
             self.assertTrue(loan2.compare_reference_loan())
 
-    def test_generate_lsr_validator(self):
+    @patch('finance.lender.Lender')
+    def test_generate_lsr_validator(self, lender_mock: MagicMock):
         field_name = 'lender_profit'
         field_name2 = 'total_credit'
         profit = ONE
@@ -84,12 +85,12 @@ class TestMerchantFactory(StatisticalTestCase):
         condition2_gt = Condition(
             field_name2, LoanSimulationType.LINE_OF_CREDIT, min_value=credit + 0.1)
 
-        Lender.generate_loan = MagicMock(return_value=loan1)
+        lender_mock.generate_loan = MagicMock(return_value=loan1)
         self.assertIsNone(self.factory.generate_lsr_validator(condition_gt)(self.merchant))
         self.assertIsNone(self.factory.generate_lsr_validator(condition_eq)(self.merchant))
         self.assertDeepAlmostEqual(self.factory.generate_lsr_validator(condition_lt)(self.merchant), loan1)
 
-        Lender.generate_loan = MagicMock(side_effect=[loan1, loan2, loan1, loan2, loan1, loan2])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan1, loan2, loan1, loan2, loan1, loan2])
         self.assertIsNone(
             self.factory.generate_lsr_validator([condition_gt, condition2_lt])(self.merchant))
         self.assertIsNone(
@@ -112,7 +113,8 @@ class TestMerchantFactory(StatisticalTestCase):
         merchants_and_results = self.factory.generate_merchants(num_merchants=num_merchants)
         self.assertEqual(len(merchants_and_results), num_merchants)
 
-    def test_generate_validator(self):
+    @patch('finance.lender.Lender')
+    def test_generate_validator(self, lender_mock: MagicMock):
         field_name1 = 'bankruptcy_rate'
         rate = Percent(0.1)
         loan1 = self.generate_mock_loan(field_name1, rate)
@@ -129,12 +131,12 @@ class TestMerchantFactory(StatisticalTestCase):
         condition3 = Condition(field_name2, min_value=margin)
         conditions = [condition1, condition2, condition3]
 
-        Lender.generate_loan = MagicMock(return_value=None)
+        lender_mock.generate_loan = MagicMock(return_value=None)
         self.assertIsNone(self.factory.generate_validator(conditions)(merchant1))
         self.assertIsNone(self.factory.generate_validator([condition3])(merchant1))
-        Lender.generate_loan = MagicMock(side_effect=[loan1])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan1])
         self.assertIsNone(self.factory.generate_validator(conditions)(merchant2))
-        Lender.generate_loan = MagicMock(side_effect=[loan2, loan2])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan2, loan2])
         self.assertIsNone(self.factory.generate_validator(conditions)(merchant2))
-        Lender.generate_loan = MagicMock(side_effect=[loan2, loan3])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan2, loan3])
         self.assertDeepAlmostEqual(self.factory.generate_validator(conditions)(merchant2), [loan2, loan3])
