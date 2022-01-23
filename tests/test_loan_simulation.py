@@ -375,8 +375,8 @@ class TestLoanSimulation(BaseTestCase):
 
     def test_revenue_cagr(self):
         self.loan_simulation.today = Date(constants.YEAR)
-        self.merchant.annual_top_line = MagicMock(side_effect=[1, 3])
-        self.merchant.total_revenues = Dollar(3)
+        self.merchant.annual_top_line = MagicMock(return_value=ONE)
+        self.loan_simulation.total_revenues = Dollar(3)
         self.assertEqual(self.loan_simulation.revenue_cagr(), 2)
 
     def test_is_default(self):
