@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union, Tuple
@@ -5,8 +7,8 @@ from typing import Callable, List, Optional, Union, Tuple
 from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
-from common.enum import LoanSimulationType
-from common.numbers import Float
+from common.enum import LoanSimulationType, LoanReferenceType
+from common.numbers import Float, O
 from common.util import TqdmParallel, LIVE_RATE
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
@@ -24,7 +26,7 @@ class Condition:
         s = f'{self.loan_type.name} and ' if self.loan_type else ''
         if self.min_value:
             if self.max_value:
-                s += f'{self.min_value.__str__()} < {self.field_name} < {self.min_value.__str__()}'
+                s += f'{self.min_value.__str__()} < {self.field_name} < {self.max_value.__str__()}'
             else:
                 s += f'{self.field_name} > {self.min_value.__str__()}'
         elif self.max_value:
@@ -33,6 +35,11 @@ class Condition:
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def generate_from_loan_reference_type(
+            cls, loan_reference_type: LoanReferenceType, loan_type: LoanSimulationType) -> Condition:
+        return Condition(loan_reference_type.name.lower(), loan_type, O)
 
 
 ConditionsEntityOrList = Union[Condition, List[Condition]]
@@ -147,18 +154,29 @@ class MerchantFactory:
                     LIVE_RATE.positive += 1
                 return merchant, result
 
-    def generate_validator(self, conditions: List[Condition], ensure_diff=False) -> ValidatorMethod:
-        has_loan_type = max([1 if condition.loan_type is None else 0 for condition in conditions]) == 0
-        if not has_loan_type:
-            return self.generate_merchant_validator(conditions)
-        if ensure_diff:
-            return self.generate_diff_validator(conditions)
-        return self.generate_lsr_validator(conditions)
+    def generate_validator(self, conditions: List[Condition]) -> ValidatorMethod:
+        ensure_diff = len(set([condition.loan_type for condition in conditions if condition.loan_type is not None])) > 1
+        lsr_conditions = [condition for condition in conditions if condition.loan_type is not None]
+        merchant_conditions = [condition for condition in conditions if condition.loan_type is None]
+
+        def validator_wrapper(merchant: Merchant) -> EntityOrList:
+            merchant_validator = self.generate_merchant_validator(merchant_conditions) if merchant_conditions else None
+            lsr_validator = self.generate_lsr_validator(lsr_conditions) if lsr_conditions else None
+            if ensure_diff:
+                lsr_validator = self.generate_diff_validator(lsr_conditions)
+            if merchant_validator:
+                merchant_validator_result = merchant_validator(merchant)
+                if not merchant_validator_result:
+                    return None
+                if not lsr_validator:
+                    return merchant_validator_result
+            return lsr_validator(merchant)
+
+        return validator_wrapper
 
     def generate_from_conditions(self, conditions: Optional[List[Condition]]) -> List[
         Union[MerchantAndResult, Merchant]]:
         if not conditions:
             return self.generate_merchants()
-        ensure_diff = len(set([condition.loan_type for condition in conditions])) > 1
-        validator = self.generate_validator(conditions, ensure_diff)
+        validator = self.generate_validator(conditions)
         return self.generate_merchants(validator)

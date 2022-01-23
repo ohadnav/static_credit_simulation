@@ -330,12 +330,13 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.debt_to_valuation = MagicMock(return_value=Float(9))
         self.loan_simulation.effective_apr = MagicMock(return_value=Float(10))
         self.loan_simulation.calculate_bankruptcy_rate = MagicMock(return_value=Float(11))
-        self.loan_simulation.ledger.get_num_loans = MagicMock(return_value=Int(12))
+        self.loan_simulation.calculate_hyper_growth_rate = MagicMock(return_value=Float(12))
+        self.loan_simulation.ledger.get_num_loans = MagicMock(return_value=Int(13))
         self.loan_simulation.calculate_results()
         self.assertEqual(
             self.loan_simulation.simulation_results, LoanSimulationResults(
                 O, Float(1), Float(2), Float(3), Float(4), Float(5), Float(6), Float(7), Float(8), Float(9), Float(10),
-                Float(11), Int(12)))
+                Float(11), Float(12), Int(13)))
 
     def test_calculate_bankruptcy_rate(self):
         self.loan_simulation.bankruptcy_date = None
@@ -375,6 +376,7 @@ class TestLoanSimulation(BaseTestCase):
     def test_revenue_cagr(self):
         self.loan_simulation.today = Date(constants.YEAR)
         self.merchant.annual_top_line = MagicMock(side_effect=[1, 3])
+        self.merchant.total_revenues = Dollar(3)
         self.assertEqual(self.loan_simulation.revenue_cagr(), 2)
 
     def test_is_default(self):

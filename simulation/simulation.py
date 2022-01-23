@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import time
@@ -10,7 +12,7 @@ import pandas as pd
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.enum import LoanSimulationType
+from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Dollar, Float
 from common.util import shout_print
 from finance.lender import Lender
@@ -21,86 +23,97 @@ from simulation.merchant_factory import Condition, MerchantFactory
 class Scenario:
     conditions: Optional[List[Condition]] = None
     volatile: bool = False
+    loan_simulation_types: Optional[List[LoanSimulationType]] = None
+    loan_reference_type: Optional[LoanReferenceType] = None
 
     def __str__(self):
-        s = 'Volatile ' if self.volatile else ''
+        to_join = []
+        to_join.append('Volatile' if self.volatile else '')
+        to_join.append(self.loan_reference_type.name if self.loan_reference_type else '')
         if self.conditions:
-            s += ' & '.join([condition.__str__() for condition in self.conditions])
-        return s
+            to_join.extend([condition.__str__() for condition in self.conditions])
+        return ' '.join(filter(None, to_join))
 
     def __repr__(self):
         return self.__str__()
 
+    @staticmethod
+    def generate_scenario_variants(scenario: Scenario) -> List[Scenario]:
+        assert scenario.loan_simulation_types is None
+        assert scenario.loan_reference_type is None
+        scenarios = [scenario]
+        for loan_reference_type in LoanReferenceType.list():
+            reference_scenario = deepcopy(scenario)
+            reference_scenario.loan_reference_type = loan_reference_type
+            reference_scenario.loan_simulation_types = BENCHMARK_LOAN_TYPES
+            if not reference_scenario.conditions:
+                reference_scenario.conditions = []
+            for loan_type in BENCHMARK_LOAN_TYPES:
+                reference_scenario.conditions.append(
+                    Condition.generate_from_loan_reference_type(loan_reference_type, loan_type))
+            scenarios.append(reference_scenario)
+        return scenarios
 
-BENCHMARK_MODELS = [
+
+BENCHMARK_LOAN_TYPES = [
     LoanSimulationType.INCREASING_REBATE,
     LoanSimulationType.LINE_OF_CREDIT,
-    LoanSimulationType.DYNAMIC_LINE_OF_CREDIT,
-    LoanSimulationType.NO_CAPITAL
+    LoanSimulationType.DYNAMIC_LINE_OF_CREDIT
 ]
 
 PREDEFINED_SCENARIOS = [
+    Scenario([Condition('annual_top_line', min_value=Dollar(10 ** 5), max_value=Dollar(10 ** 6))]),
     Scenario([Condition('annual_top_line', max_value=Dollar(10 ** 5))]),
     Scenario([Condition('annual_top_line', min_value=Dollar(10 ** 6))]),
-    Scenario([Condition('annual_top_line', min_value=Dollar(10 ** 5), max_value=Dollar(10 ** 6))]),
     Scenario([Condition('num_products', max_value=Float(3))]),
     Scenario(volatile=True)
 ]
 
-IGNORE_VOLATILE = [
-    'num_products_std',
-    'cogs_margin_std',
-    'sgna_rate_std',
-    'manufacturing_duration_std',
-    'first_batch_std_factor',
-    'initial_stock_std',
-    'price_std'
-]
-
-
 class Simulation:
     def __init__(self, scenario: Scenario, save_dir: Optional[str] = None):
         self.scenario = scenario
-        self.context = SimulationContext.generate_context()
-        self.data_generator = DataGenerator.generate_data_generator()
-        if self.scenario.volatile:
-            self.apply_volatile()
+        self.context = self.generate_context()
+        self.data_generator = self.generate_data_generator()
         self.lenders = self.generate_lenders()
         self.save_dir = save_dir
+
+    def generate_data_generator(self) -> DataGenerator:
+        data_generator = DataGenerator.generate_data_generator(self.scenario.volatile)
+        return data_generator
+
+    def generate_context(self) -> SimulationContext:
+        context = SimulationContext.generate_context()
+        context.loan_reference_type = self.scenario.loan_reference_type if self.scenario.loan_reference_type else None
+        return context
 
     @staticmethod
     def run_all_scenarios():
         time_str = str(round(time.time()))[3:]
         run_dir = f'{constants.OUT_DIR}/{time_str}'
         os.mkdir(run_dir)
-        for scenario in PREDEFINED_SCENARIOS:
-            shout_print(f'SIMULATING {scenario.__str__()}')
-            scenario_dir = f'{run_dir}/{scenario.__str__()}'
-            os.mkdir(scenario_dir)
-            simulation = Simulation(scenario, scenario_dir)
-            simulation.simulate()
-
-    def apply_volatile(self):
-        for key in dir(self.data_generator):
-            if not key.startswith('_'):
-                if 'std' in key and key not in IGNORE_VOLATILE:
-                    value = getattr(self.data_generator, key)
-                    setattr(self.data_generator, key, Float(value * 2))
+        for generic_scenario in PREDEFINED_SCENARIOS:
+            for scenario in Scenario.generate_scenario_variants(generic_scenario):
+                shout_print(f'SIMULATING {scenario.__str__()}')
+                scenario_dir = f'{run_dir}/{scenario.__str__()}'
+                os.mkdir(scenario_dir)
+                simulation = Simulation(scenario, scenario_dir)
+                simulation.simulate()
 
     def simulate(self):
-        for lender in self.lenders:
-            lender.simulate()
+        for i in range(len(self.lenders)):
+            if i > 0:
+                self.lenders[i].reference_loans = self.lenders[0].loans
+            self.lenders[i].simulate()
         self.compare()
 
     def generate_lenders(self) -> List[Lender]:
-        # TODO: regard reference loan
         factory = MerchantFactory(self.data_generator, self.context)
         results = factory.generate_from_conditions(self.scenario.conditions)
         merchants = results
         if self.scenario.conditions:
             merchants = [mnr[0] for mnr in results]
-        return [Lender(self.context, self.data_generator, deepcopy(merchants), loan_type) for loan_type in
-            BENCHMARK_MODELS]
+        loan_types = self.scenario.loan_simulation_types or LoanSimulationType.list()
+        return [Lender(self.context, self.data_generator, deepcopy(merchants), loan_type) for loan_type in loan_types]
 
     def to_dataframe(self) -> Tuple[pd.DataFrame, Mapping[str, pd.DataFrame]]:
         results_df = pd.DataFrame()

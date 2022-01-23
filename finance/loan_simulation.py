@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -28,6 +29,7 @@ class LoanSimulationResults:
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
+    hyper_growth_rate: Percent
     num_loans: Int
 
     def __str__(self):
@@ -215,6 +217,7 @@ class LoanSimulation(Primitive):
             self.net_cashflow_cagr(), self.valuation_cagr(),
             self.lender_profit(), self.total_amount(), self.lender_profit_margin(), self.total_interest(),
             self.debt_to_valuation(), self.effective_apr(), self.calculate_bankruptcy_rate(),
+            self.calculate_hyper_growth_rate(),
             self.ledger.get_num_loans())
 
     def total_amount(self) -> Dollar:
@@ -230,6 +233,12 @@ class LoanSimulation(Primitive):
         rate = remaining_duration / self.data_generator.simulated_duration
         return rate
 
+    def calculate_hyper_growth_rate(self) -> Percent:
+        revenue_cagr = self.revenue_cagr()
+        if revenue_cagr < 10:
+            return O
+        return min_max(math.log(revenue_cagr) - 1, O, ONE)
+
     def duration_until_today(self) -> Duration:
         return self.today.from_date(self.data_generator.start_date)
 
@@ -239,7 +248,7 @@ class LoanSimulation(Primitive):
 
     def revenue_cagr(self) -> Percent:
         cagr = calculate_cagr(
-            self.merchant.annual_top_line(self.data_generator.start_date), self.merchant.annual_top_line(self.today),
+            self.merchant.annual_top_line(self.data_generator.start_date), self.total_revenues,
             self.duration_until_today())
         return cagr
 

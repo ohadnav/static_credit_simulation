@@ -17,8 +17,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
     @staticmethod
     def generate_conditions(loan_reference_type: Optional[LoanReferenceType] = None):
         if loan_reference_type:
-            return [Condition(loan_reference_type.name.lower(), LoanSimulationType.DEFAULT, O),
-                Condition(loan_reference_type.name.lower(), LoanSimulationType.LINE_OF_CREDIT, O)]
+            return [Condition.generate_from_loan_reference_type(loan_reference_type, LoanSimulationType.DEFAULT),
+                Condition.generate_from_loan_reference_type(loan_reference_type, LoanSimulationType.LINE_OF_CREDIT)]
         else:
             return [Condition(loan_type=LoanSimulationType.DEFAULT),
                 Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)]
@@ -131,6 +131,9 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         print(regular_lender.simulation_results)
         print(loc_lender.simulation_results)
         self.assertNotEqual(regular_lender.simulation_results, loc_lender.simulation_results)
+        self.assertLessEqual(
+            regular_lender.simulation_results.funded.hyper_growth_rate,
+            loc_lender.simulation_results.funded.hyper_growth_rate)
         self.assertLess(
             regular_lender.simulation_results.funded.lender_profit,
             loc_lender.simulation_results.funded.lender_profit)

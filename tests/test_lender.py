@@ -41,19 +41,19 @@ class TestLender(StatisticalTestCase):
         self.assertEqual(
             self.lender.aggregate_results(
                 [
-                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+                    LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
                     LoanSimulationResults(
-                        three, five, five, five, five, five, five, five, five, five, five, five, Int(5))
+                        three, five, five, five, five, five, five, five, five, five, five, five, five, Int(5))
                 ]),
             AggregatedLoanSimulationResults(
-                four, four, four, four, six, six, four, six, four, four, three, Percent(2 / 3), Int(2), four))
+                four, four, four, four, six, six, four, six, four, four, three, three, Percent(2 / 3), Int(2), four))
 
     def test_calculate_sharpe(self):
         five = Float(5)
         three = Float(3)
         results = [
-            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
-            LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, five, five, Int(3))
+            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+            LoanSimulationResults(three, five, five, five, five, five, five, five, five, five, five, five, five, Int(3))
         ]
         std = np.std([ONE, five])
         self.context.cost_of_capital = three
@@ -77,11 +77,11 @@ class TestLender(StatisticalTestCase):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(
-            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(
-            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.ledger.total_credit = 1
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 2
@@ -109,11 +109,11 @@ class TestLender(StatisticalTestCase):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
         loan1.simulation_results = LoanSimulationResults(
-            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
         loan1.ledger.total_credit = 1
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
         loan2.simulation_results = LoanSimulationResults(
-            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
         loan2.ledger.total_credit = 1
         self.lender.loans = {1: loan1, 2: loan2}
         for risk_field in vars(self.context.risk_context).keys():

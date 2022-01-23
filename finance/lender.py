@@ -34,6 +34,7 @@ class AggregatedLoanSimulationResults:
     debt_to_valuation: Percent
     apr: Percent
     bankruptcy_rate: Percent
+    hyper_growth_rate: Percent
     acceptance_rate: Percent
     num_merchants: Int
     num_loans: Float
@@ -41,7 +42,7 @@ class AggregatedLoanSimulationResults:
 
 WEIGHT_FIELD = 'valuation'
 SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest']
-NO_WEIGHTS_FIELDS = ['bankruptcy_rate']
+NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate']
 
 LOAN_TYPES_MAPPING = {
     LoanSimulationType.INCREASING_REBATE: IncreasingRebateLoanSimulation,

@@ -9,6 +9,15 @@ from common import constants
 from common.enum import LoanReferenceType
 from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
 
+VOLATILE_FIELDS = [
+    'account_suspension_chance',
+    'organic_rate_std',
+    'roas_std',
+    'inventory_turnover_ratio_std',
+    'out_of_stock_rate_std',
+    'shipping_duration_std'
+]
+
 
 @dataclass(unsafe_hash=True)
 class DataGenerator:
@@ -57,7 +66,7 @@ class DataGenerator:
     account_suspension_chance = constants.ACCOUNT_SUSPENSION_CHANCE
 
     @classmethod
-    def generate_data_generator(cls) -> DataGenerator:
+    def generate_data_generator(cls, volatile=False) -> DataGenerator:
         data_generator = DataGenerator()
         for key in dir(data_generator):
             if not key.startswith('_'):
@@ -68,6 +77,14 @@ class DataGenerator:
                     setattr(
                         data_generator, key, Duration(value) if ('duration' in key or 'date' in key) else Int(value))
         return data_generator
+
+    @classmethod
+    def apply_volatile(cls, data_generator: DataGenerator):
+        for key in dir(data_generator):
+            if not key.startswith('_'):
+                if key not in VOLATILE_FIELDS:
+                    value = getattr(data_generator, key)
+                    setattr(data_generator, key, Float(value * 2))
 
     def random(self) -> Percent:
         if self.randomness:
@@ -160,4 +177,5 @@ class SimulationContext:
     def to_dict(self) -> Mapping[str, Any]:
         result = self.__dict__
         result['risk_context'] = self.risk_context.to_dict()
+        result['loan_reference_type'] = self.loan_reference_type.name if self.loan_reference_type else 'None'
         return result
