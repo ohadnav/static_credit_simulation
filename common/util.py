@@ -28,13 +28,13 @@ def calculate_cagr(first_value: Float, last_value: Float, duration: Duration) ->
         else:
             return ONE
     elif last_value <= O:
-        return -ONE
+        return Float(-1)
     return (last_value / first_value) ** (constants.YEAR / duration) - ONE
 
 
 def inverse_cagr(cagr: Percent, duration: Duration) -> Optional[Percent]:
     if cagr <= O:
-        return -ONE
+        return Float(-1)
     return (1 + cagr) ** (duration / constants.YEAR) - 1
 
 

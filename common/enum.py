@@ -19,5 +19,6 @@ class LoanSimulationType(ExtendedEnum):
 
 
 class LoanReferenceType(ExtendedEnum):
-    REVENUE_CAGR = 0
     TOTAL_INTEREST = 1
+    TOTAL_REVENUE = 2
+    REVENUE_CAGR = 3

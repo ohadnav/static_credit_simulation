@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any, Tuple
 
 from common.context import DataGenerator
+from common.numbers import Float, Int
 
 NEXT_ID = {}
 
@@ -25,9 +26,9 @@ class Primitive:
         self.id, self.int_id = generate_id(self)
 
     def str_type_encoder(self, value: Any) -> str:
-        if (isinstance(value, str) or isinstance(value, int) or is_dataclass(value)
-                or isinstance(value, bool) or isinstance(value, Enum)):
-            return str(value)
+        if (isinstance(value, str) or isinstance(value, int) or isinstance(value, Float) or isinstance(
+                value, Int) or is_dataclass(value) or isinstance(value, bool) or isinstance(value, Enum)):
+            return value.__str__()
         elif isinstance(value, float):
             return str(round(value, 2))
         elif value is None:

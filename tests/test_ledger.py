@@ -4,6 +4,8 @@ from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_IN
 from finance.ledger import Ledger, Loan, Repayment
 from tests.util_test import BaseTestCase
 
+HALF = Dollar(0.5)
+
 
 class TestLedger(BaseTestCase):
     def setUp(self) -> None:
@@ -31,60 +33,58 @@ class TestLedger(BaseTestCase):
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
 
     def test_repayments_from_amount_multiple_loans(self):
-        half = Dollar(0.5)
+        HALF = Dollar(0.5)
         three = Duration(3)
         loan2 = Loan(ONE, ONE, TWO_INT)
-        loan2_mid = Loan(ONE, half, TWO_INT)
+        loan2_mid = Loan(ONE, HALF, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
         repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
-        repayment2 = Repayment(TWO_INT, half, ONE_INT)
-        repayment3 = Repayment(three, half, TWO_INT)
+        repayment2 = Repayment(TWO_INT, HALF, ONE_INT)
+        repayment3 = Repayment(three, HALF, TWO_INT)
 
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
         self.assertDeepAlmostEqual(
-            self.ledger.repayments_from_amount(TWO_INT, ONE + half), [repayment1, repayment2])
+            self.ledger.repayments_from_amount(TWO_INT, ONE + HALF), [repayment1, repayment2])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [loan2_mid])
         self.assertDeepAlmostEqual(self.ledger.loans_history, [self.one_loan, loan2])
-        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(three, half), [repayment3])
+        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(three, HALF), [repayment3])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
         self.assertDeepAlmostEqual(self.ledger.loans_history, [self.one_loan, loan2])
 
     def test_repayments_from_amount_non_self_loans(self):
-        half = Dollar(0.5)
         three = Duration(3)
         loan2 = Loan(ONE, ONE, TWO_INT)
-        loan2_mid = Loan(ONE, half, TWO_INT)
+        loan2_mid = Loan(ONE, HALF, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
         repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
-        repayment2 = Repayment(TWO_INT, half, ONE_INT)
-        repayment3 = Repayment(three, half, TWO_INT)
+        repayment2 = Repayment(TWO_INT, HALF, ONE_INT)
+        repayment3 = Repayment(three, HALF, TWO_INT)
         loans = [self.one_loan, loan2]
 
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
         self.assertDeepAlmostEqual(
-            self.ledger.repayments_from_amount(TWO_INT, ONE + half, loans), [repayment1, repayment2])
+            self.ledger.repayments_from_amount(TWO_INT, ONE + HALF, loans), [repayment1, repayment2])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
         self.assertDeepAlmostEqual(loans, [loan2_mid])
         self.assertEqual(self.one_loan.outstanding_balance, O)
-        self.assertEqual(loan2.outstanding_balance, half)
+        self.assertEqual(loan2.outstanding_balance, HALF)
 
-        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(three, half, loans), [repayment3])
+        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(three, HALF, loans), [repayment3])
         self.assertDeepAlmostEqual(loans, [])
         self.assertEqual(loan2.outstanding_balance, O)
 
     def test_initiate_loan_repayment(self):
-        half = Dollar(0.5)
         three = Duration(3)
         loan2 = Loan(ONE, ONE, TWO_INT)
-        loan2_mid = Loan(ONE, half, TWO_INT)
+        loan2_mid = Loan(ONE, HALF, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
         repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
-        repayment2 = Repayment(TWO_INT, half, ONE_INT)
-        repayment3 = Repayment(three, half, TWO_INT)
+        repayment2 = Repayment(TWO_INT, HALF, ONE_INT)
+        repayment3 = Repayment(three, HALF, TWO_INT)
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
-        self.ledger.initiate_loan_repayment(TWO_INT, ONE + half)
+        self.ledger.initiate_loan_repayment(TWO_INT, ONE + HALF)
         self.assertDeepAlmostEqual(self.ledger.repayments, [repayment1, repayment2])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [loan2_mid])
         self.ledger.initiate_loan_repayment(three, ONE)
@@ -100,22 +100,21 @@ class TestLedger(BaseTestCase):
         self.assertDeepAlmostEqual(self.ledger.repayments, [])
 
     def test_projected_repayments(self):
-        half = Dollar(0.5)
         cent = Dollar(0.01)
         today = Date(TWO_INT)
         loan2 = Loan(ONE, ONE, today)
-        repayments_half = [
+        repayments_HALF = [
             Repayment(
-                ONE_INT + 1 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 1 * self.context.marketplace_payment_cycle, HALF,
                 ONE_INT + 1 * self.context.marketplace_payment_cycle),
             Repayment(
-                ONE_INT + 2 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 2 * self.context.marketplace_payment_cycle, HALF,
                 ONE_INT + 2 * self.context.marketplace_payment_cycle),
             Repayment(
-                ONE_INT + 3 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 3 * self.context.marketplace_payment_cycle, HALF,
                 O_INT + 3 * self.context.marketplace_payment_cycle),
             Repayment(
-                ONE_INT + 4 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 4 * self.context.marketplace_payment_cycle, HALF,
                 O_INT + 4 * self.context.marketplace_payment_cycle),
         ]
         repayments_cent = [Repayment(
@@ -125,12 +124,28 @@ class TestLedger(BaseTestCase):
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
 
-        self.assertDeepAlmostEqual(self.ledger.projected_repayments(self.ledger.outstanding_balance(), today, half), [])
+        self.assertDeepAlmostEqual(self.ledger.projected_repayments(self.ledger.outstanding_balance(), today, HALF), [])
         self.assertDeepAlmostEqual(self.ledger.projected_repayments(O, today, O), [])
-        self.assertDeepAlmostEqual(self.ledger.projected_repayments(O, today, half), repayments_half)
+        self.assertDeepAlmostEqual(self.ledger.projected_repayments(O, today, HALF), repayments_HALF)
         self.assertDeepAlmostEqual(self.ledger.projected_repayments(O, today, cent), repayments_cent)
-        self.assertDeepAlmostEqual(self.ledger.projected_repayments(ONE, today, half), repayments_half[:2])
+        self.assertDeepAlmostEqual(self.ledger.projected_repayments(ONE, today, HALF), repayments_HALF[:2])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [self.one_loan, loan2])
+
+    def test_undo_active_loans(self):
+        repaid = Dollar(0.6)
+        self.ledger.new_loan(deepcopy(self.one_loan))
+        self.ledger.undo_active_loans()
+        self.assertEqual(self.ledger.total_credit(), O)
+        self.assertEqual(self.ledger.outstanding_balance(), O)
+        self.assertDeepAlmostEqual(self.ledger.loans_history, [])
+        self.assertDeepAlmostEqual(self.ledger.active_loans, [])
+        self.ledger.new_loan(deepcopy(Loan(repaid, repaid * 2, ONE_INT)))
+        self.ledger.initiate_loan_repayment(ONE_INT, repaid)
+        self.ledger.undo_active_loans()
+        self.assertDeepAlmostEqual(self.ledger.loans_history, [Loan(repaid / 2, repaid, ONE_INT)])
+        self.assertDeepAlmostEqual(self.ledger.active_loans, [])
+        self.assertEqual(self.ledger.outstanding_balance(), O)
+        self.assertEqual(self.ledger.total_credit(), repaid / 2)
 
 
 class TestRepayment(BaseTestCase):
@@ -141,13 +156,13 @@ class TestRepayment(BaseTestCase):
             Repayment(three, ONE, three.from_date(ONE)))
 
     def test_repay(self):
-        half = Dollar(0.5)
-        repayment = Repayment(ONE_INT, half, ONE_INT)
-        loan1 = Loan(half, ONE, ONE_INT)
-        loan1_mid = Loan(half, half, ONE_INT)
-        loan1_repaid = Loan(half, O, ONE_INT)
-        loan2 = Loan(half, half, ONE_INT)
-        loan2_repaid = Loan(half, O, ONE_INT)
+        HALF = Dollar(0.5)
+        repayment = Repayment(ONE_INT, HALF, ONE_INT)
+        loan1 = Loan(HALF, ONE, ONE_INT)
+        loan1_mid = Loan(HALF, HALF, ONE_INT)
+        loan1_repaid = Loan(HALF, O, ONE_INT)
+        loan2 = Loan(HALF, HALF, ONE_INT)
+        loan2_repaid = Loan(HALF, O, ONE_INT)
         loans = [loan1, loan2]
         repayment.repay(loans)
         self.assertDeepAlmostEqual(loans, [loan1_mid, loan2])

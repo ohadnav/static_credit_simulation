@@ -19,7 +19,7 @@ class TestMerchantFactory(StatisticalTestCase):
     def generate_mock_loan(self, field_name: Optional[str] = None, value: Optional[Any] = None):
         loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         loan.simulate = MagicMock()
-        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O, O, O_INT)
+        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O_INT)
         if field_name:
             setattr(loan.simulation_results, field_name, value)
         return loan
@@ -48,19 +48,29 @@ class TestMerchantFactory(StatisticalTestCase):
         setattr(loan1.simulation_results, field_name, Percent(0.1))
         loan2 = self.generate_mock_loan()
         setattr(loan2.simulation_results, field_name, Percent(0.2))
-        lender_mock.generate_loan = MagicMock(side_effect=[loan1, loan2, loan2, loan2])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan1, loan2])
+        loan2.set_reference_loan(loan1)
         conditions = [Condition(field_name, LoanSimulationType.DEFAULT, O),
             Condition(field_name, LoanSimulationType.DEFAULT, O)]
         self.assertDeepAlmostEqual(
             self.factory.generate_diff_validator(conditions)(self.merchant), [loan1, loan2])
+        lender_mock.generate_loan = MagicMock(side_effect=[loan2, loan2])
+        loan2.set_reference_loan(loan2)
+        self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
+        self.assertIsNone(self.factory.generate_diff_validator(conditions)(self.merchant))
+        lender_mock.generate_loan = MagicMock(side_effect=[loan2, loan2])
+        loan2.reference_loan = None
+        self.context.loan_reference_type = None
         self.assertIsNone(self.factory.generate_diff_validator(conditions)(self.merchant))
 
     def test_generate_with_reference_loan(self):
         self.data_generator.num_merchants = 1
         for loan_reference_type in LoanReferenceType.list():
+            print(f'Testing...{loan_reference_type.name}')
             self.context.loan_reference_type = loan_reference_type
-            condition1 = Condition(loan_type=LoanSimulationType.DEFAULT)
-            condition2 = Condition(loan_type=LoanSimulationType.LINE_OF_CREDIT)
+            condition1 = Condition.generate_from_loan_reference_type(loan_reference_type, LoanSimulationType.DEFAULT)
+            condition2 = Condition.generate_from_loan_reference_type(
+                loan_reference_type, LoanSimulationType.LINE_OF_CREDIT)
             merchant_and_results = self.factory.generate_from_conditions([condition1, condition2])
             loan1: LoanSimulation = merchant_and_results[0][1][0]
             loan2: LoanSimulation = merchant_and_results[0][1][1]

@@ -24,6 +24,7 @@ from seller.merchant import Merchant
 @dataclass(unsafe_hash=True)
 class AggregatedLoanSimulationResults:
     revenue_cagr: Percent
+    total_revenue: Dollar
     inventory_cagr: Percent
     net_cashflow_cagr: Percent
     valuation_cagr: Percent
@@ -35,14 +36,15 @@ class AggregatedLoanSimulationResults:
     apr: Percent
     bankruptcy_rate: Percent
     hyper_growth_rate: Percent
+    duration_in_debt_rate: Percent
     acceptance_rate: Percent
     num_merchants: Int
     num_loans: Float
 
 
 WEIGHT_FIELD = 'valuation'
-SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest']
-NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate']
+SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest', 'total_revenue']
+NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate']
 
 LOAN_TYPES_MAPPING = {
     LoanSimulationType.INCREASING_REBATE: IncreasingRebateLoanSimulation,
@@ -181,7 +183,7 @@ class Lender(Primitive):
         return [loan.simulation_results for loan in self.funded_merchants_loans()]
 
     def funded_merchants_loans(self) -> List[LoanSimulation]:
-        return [loan for loan in self.loans.values() if loan.ledger.total_credit > 0]
+        return [loan for loan in self.loans.values() if loan.ledger.total_credit() > 0]
 
     def simulate(self):
         simulated_loans = TqdmParallel(desc=f'{self.id}({self.loan_type.value})', total=len(self.merchants))(

@@ -77,9 +77,14 @@ class MerchantFactory:
             loans = lsr_validator(merchant)
             if loans is None:
                 return None
-            lsr = [loan.simulation_results for loan in loans]
-            if len(lsr) > len(set(lsr)):
-                return None
+            for i in range(1, len(loans)):
+                if self.context.loan_reference_type is not None:
+                    if not loans[i].loan_reference_diff.fast_diff(loans[i].today, loans[i].reference_loan.today):
+                        return None
+                else:
+                    lsr = [loan.simulation_results for loan in loans]
+                    if len(lsr) > len(set(lsr)):
+                        return None
             return loans
 
         return diff_validator

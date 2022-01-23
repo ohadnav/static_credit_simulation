@@ -19,11 +19,6 @@ class Loan:
     def current_loan(loans: List[Loan]):
         return loans[0]
 
-    def __sub__(self, other: Loan):
-        return Loan(
-            self.amount - other.amount, self.outstanding_balance - other.outstanding_balance,
-            self.start_date - other.start_date)
-
 
 @dataclass(unsafe_hash=True)
 class Repayment:
@@ -43,9 +38,6 @@ class Repayment:
         if Loan.current_loan(loans).outstanding_balance == O:
             loans.pop(0)
 
-    def __sub__(self, other: Repayment):
-        return Loan(self.day - other.day, self.amount - other.amount, self.duration - other.duration)
-
 
 class Ledger(Primitive):
     def __init__(self, data_generator: DataGenerator, context: SimulationContext):
@@ -55,7 +47,10 @@ class Ledger(Primitive):
         self.loans_history: List[Loan] = []
         self.repayments: List[Repayment] = []
         self.cash_history: MutableMapping[Date, Dollar] = {}
-        self.total_credit = O
+        self.paid_balance = O
+
+    def total_credit(self) -> Dollar:
+        return Float.sum([loan.amount for loan in self.loans_history])
 
     def get_num_loans(self) -> Int:
         return Int(len(self.loans_history))
@@ -66,7 +61,6 @@ class Ledger(Primitive):
     def new_loan(self, loan: Loan):
         self.active_loans.append(loan)
         self.loans_history.append(deepcopy(loan))
-        self.total_credit += loan.outstanding_balance
 
     def record_cash(self, day: Date, amount: Dollar):
         self.cash_history[day] = amount
@@ -94,6 +88,7 @@ class Ledger(Primitive):
         actual_amount = Float.min(self.outstanding_balance(), max_amount)
         new_repayments = self.repayments_from_amount(today, actual_amount)
         self.repayments.extend(new_repayments)
+        self.paid_balance += actual_amount
 
     def projected_repayments(
             self, projected_remaining_debt: Dollar, today: Date, projected_amount_per_repayment: Dollar) -> List[
@@ -119,3 +114,17 @@ class Ledger(Primitive):
 
     def remaining_durations(self, today: Date) -> List[Duration]:
         return [self.remaining_loan_duration(today, loan) for loan in self.active_loans]
+
+    def undo_active_loans(self):
+        adjustment = 0
+        for i in range(len(self.active_loans)):
+            history_index = -1 - i + adjustment
+            if self.active_loans[-1].outstanding_balance == self.loans_history[history_index].outstanding_balance:
+                adjustment += 1
+                self.loans_history.pop()
+            else:
+                remaining_rate = 1 - self.active_loans[-1].outstanding_balance / self.loans_history[
+                    history_index].outstanding_balance
+                self.loans_history[history_index].outstanding_balance = self.active_loans[-1].outstanding_balance
+                self.loans_history[history_index].amount -= remaining_rate * self.active_loans[-1].amount
+            self.active_loans.pop()

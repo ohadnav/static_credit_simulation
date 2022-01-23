@@ -3,7 +3,7 @@ from copy import deepcopy
 from common import constants
 from common.context import DataGenerator, SimulationContext
 from common.enum import LoanSimulationType
-from common.numbers import O, Dollar
+from common.numbers import O, Dollar, Duration
 from finance.line_of_credit import LineOfCreditSimulation
 from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
 from seller.merchant import Merchant
@@ -78,7 +78,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             merchant = Merchant.generate_simulated(data_generator)
             loan = LoanSimulation(context, data_generator, merchant)
             loan.simulate()
-            is_true.append((loan.ledger.total_credit > 0, loan))
+            is_true.append((loan.ledger.total_credit() > 0, loan))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.2, max_frequency=0.5)
@@ -117,10 +117,10 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true = []
             loan = LoanSimulation(context, data_generator, merchant)
             loan.simulate()
-            is_true.append((loan.ledger.total_credit > 0, loan))
+            is_true.append((loan.ledger.total_credit() > 0, loan))
             return is_true
 
-        self.data_generator.simulated_duration = constants.YEAR
+        self.data_generator.simulated_duration = Duration(constants.YEAR)
         statistical_test_bool(self, test_iteration, min_frequency=0.2)
 
     def test_cost_of_acquisition_reduce_approval_rates(self):
@@ -133,8 +133,8 @@ class TestStatisticalLoan(StatisticalTestCase):
             loan2 = LoanSimulation(context2, data_generator, deepcopy(merchant))
             loan.simulate()
             loan2.simulate()
-            only1 = loan.ledger.total_credit > 0 and loan2.ledger.total_credit == 0
-            only2 = loan.ledger.total_credit == 0 and loan2.ledger.total_credit > 0
+            only1 = loan.ledger.total_credit() > 0 and loan2.ledger.total_credit() == 0
+            only2 = loan.ledger.total_credit() == 0 and loan2.ledger.total_credit() > 0
             is_true.append((not only1, merchant))
             is_true.append((not only2, merchant))
             return is_true
