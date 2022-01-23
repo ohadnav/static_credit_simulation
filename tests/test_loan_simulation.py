@@ -310,7 +310,7 @@ class TestLoanSimulation(BaseTestCase):
         self.assertEqual(self.loan_simulation.current_cash, prev_cash - debt)
         self.assertEqual(self.loan_simulation.ledger.active_loans, [])
         self.assertEqual(self.loan_simulation.ledger.loans_history, [loan])
-        self.assertEqual(self.loan_simulation.ledger.repayments, [Repayment(debt, ONE_INT)])
+        self.assertEqual(self.loan_simulation.ledger.repayments, [Repayment(ONE_INT, debt, ONE_INT)])
 
     def test_on_bankruptcy(self):
         self.loan_simulation.today = randint(self.data_generator.start_date, self.data_generator.simulated_duration)
@@ -425,7 +425,7 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.projected_remaining_debt = MagicMock(return_value=ONE)
         # Simulating repayment
         duration = Duration(constants.MONTH)
-        self.loan_simulation.ledger.repayments.append(Repayment(ONE, duration))
+        self.loan_simulation.ledger.repayments.append(Repayment(ONE_INT, ONE, duration))
         self.assertEqual(
             self.loan_simulation.cost_of_capital(),
             repaid2 * coc[0] + repaid2 * self.loan_simulation.calculate_cost_of_capital_rate(duration))

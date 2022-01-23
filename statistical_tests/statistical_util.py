@@ -6,7 +6,6 @@ from joblib import delayed
 from common.context import DataGenerator, SimulationContext
 from common.numbers import Float
 from common.util import TqdmParallel
-from simulation.merchant_factory import MerchantFactory
 from tests.util_test import BaseTestCase
 
 
@@ -19,7 +18,6 @@ class StatisticalTestCase(BaseTestCase):
         super(StatisticalTestCase, self).setUp()
         self.data_generator.num_merchants = 100
         self.data_generator.num_products = 10
-        self.factory = MerchantFactory(self.data_generator, self.context)
 
 
 def statistical_test_mean_error(
@@ -30,7 +28,7 @@ def statistical_test_mean_error(
     desc = f'{test_case._testMethodName}'
     errors = TqdmParallel(desc=desc, total=times)(
         delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory, *args, **kwargs) for _
-        in range(times))
+            in range(times))
     actual_mean_error = Float.sum(errors) / times
     test_case.assertLess(actual_mean_error, mean_error)
     print(f'mean_error = {actual_mean_error}')

@@ -19,9 +19,15 @@ class Loan:
     def current_loan(loans: List[Loan]):
         return loans[0]
 
+    def __sub__(self, other: Loan):
+        return Loan(
+            self.amount - other.amount, self.outstanding_balance - other.outstanding_balance,
+            self.start_date - other.start_date)
+
 
 @dataclass(unsafe_hash=True)
 class Repayment:
+    day: Date
     amount: Dollar
     duration: Duration
 
@@ -29,13 +35,16 @@ class Repayment:
     def generate_from_loan(cls, repayment_date: Date, loan: Loan, amount: Dollar) -> Repayment:
         assert repayment_date >= loan.start_date
         duration = repayment_date.from_date(loan.start_date)
-        repayment = Repayment(amount, duration)
+        repayment = Repayment(repayment_date, amount, duration)
         return repayment
 
     def repay(self, loans: List[Loan]):
         Loan.current_loan(loans).outstanding_balance -= self.amount
         if Loan.current_loan(loans).outstanding_balance == O:
             loans.pop(0)
+
+    def __sub__(self, other: Repayment):
+        return Loan(self.day - other.day, self.amount - other.amount, self.duration - other.duration)
 
 
 class Ledger(Primitive):

@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT
+from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT, Date
 from finance.ledger import Ledger, Loan, Repayment
 from tests.util_test import BaseTestCase
 
@@ -27,7 +27,7 @@ class TestLedger(BaseTestCase):
 
     def test_repayments_from_amount_single_loan(self):
         self.ledger.new_loan(self.one_loan)
-        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(ONE_INT, ONE), [Repayment(ONE, ONE_INT)])
+        self.assertDeepAlmostEqual(self.ledger.repayments_from_amount(ONE_INT, ONE), [Repayment(ONE_INT, ONE, ONE_INT)])
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
 
     def test_repayments_from_amount_multiple_loans(self):
@@ -36,9 +36,9 @@ class TestLedger(BaseTestCase):
         loan2 = Loan(ONE, ONE, TWO_INT)
         loan2_mid = Loan(ONE, half, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
-        repayment1 = Repayment(ONE, TWO_INT)
-        repayment2 = Repayment(half, ONE_INT)
-        repayment3 = Repayment(half, TWO_INT)
+        repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
+        repayment2 = Repayment(TWO_INT, half, ONE_INT)
+        repayment3 = Repayment(three, half, TWO_INT)
 
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
@@ -56,9 +56,9 @@ class TestLedger(BaseTestCase):
         loan2 = Loan(ONE, ONE, TWO_INT)
         loan2_mid = Loan(ONE, half, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
-        repayment1 = Repayment(ONE, TWO_INT)
-        repayment2 = Repayment(half, ONE_INT)
-        repayment3 = Repayment(half, TWO_INT)
+        repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
+        repayment2 = Repayment(TWO_INT, half, ONE_INT)
+        repayment3 = Repayment(three, half, TWO_INT)
         loans = [self.one_loan, loan2]
 
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
@@ -79,9 +79,9 @@ class TestLedger(BaseTestCase):
         loan2 = Loan(ONE, ONE, TWO_INT)
         loan2_mid = Loan(ONE, half, TWO_INT)
         loan2_paid = Loan(ONE, O, TWO_INT)
-        repayment1 = Repayment(ONE, TWO_INT)
-        repayment2 = Repayment(half, ONE_INT)
-        repayment3 = Repayment(half, TWO_INT)
+        repayment1 = Repayment(TWO_INT, ONE, TWO_INT)
+        repayment2 = Repayment(TWO_INT, half, ONE_INT)
+        repayment3 = Repayment(three, half, TWO_INT)
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
         self.ledger.initiate_loan_repayment(TWO_INT, ONE + half)
@@ -102,15 +102,25 @@ class TestLedger(BaseTestCase):
     def test_projected_repayments(self):
         half = Dollar(0.5)
         cent = Dollar(0.01)
-        today = TWO_INT
+        today = Date(TWO_INT)
         loan2 = Loan(ONE, ONE, today)
         repayments_half = [
-            Repayment(half, ONE_INT + 1 * self.context.marketplace_payment_cycle),
-            Repayment(half, ONE_INT + 2 * self.context.marketplace_payment_cycle),
-            Repayment(half, O_INT + 3 * self.context.marketplace_payment_cycle),
-            Repayment(half, O_INT + 4 * self.context.marketplace_payment_cycle),
+            Repayment(
+                ONE_INT + 1 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 1 * self.context.marketplace_payment_cycle),
+            Repayment(
+                ONE_INT + 2 * self.context.marketplace_payment_cycle, half,
+                ONE_INT + 2 * self.context.marketplace_payment_cycle),
+            Repayment(
+                ONE_INT + 3 * self.context.marketplace_payment_cycle, half,
+                O_INT + 3 * self.context.marketplace_payment_cycle),
+            Repayment(
+                ONE_INT + 4 * self.context.marketplace_payment_cycle, half,
+                O_INT + 4 * self.context.marketplace_payment_cycle),
         ]
-        repayments_cent = [Repayment(cent, ONE_INT + (i + 1) * self.context.marketplace_payment_cycle) for i in
+        repayments_cent = [Repayment(
+            ONE_INT + (i + 1) * self.context.marketplace_payment_cycle, cent,
+            ONE_INT + (i + 1) * self.context.marketplace_payment_cycle) for i in
             range((self.context.loan_duration / self.context.marketplace_payment_cycle).floor() - 1)]
         self.ledger.new_loan(deepcopy(self.one_loan))
         self.ledger.new_loan(deepcopy(loan2))
@@ -127,11 +137,12 @@ class TestRepayment(BaseTestCase):
     def test_generate_from_loan(self):
         three = Duration(3)
         self.assertEqual(
-            Repayment.generate_from_loan(three, Loan(ONE, ONE, ONE_INT), ONE), Repayment(ONE, three.from_date(ONE)))
+            Repayment.generate_from_loan(three, Loan(ONE, ONE, ONE_INT), ONE),
+            Repayment(three, ONE, three.from_date(ONE)))
 
     def test_repay(self):
         half = Dollar(0.5)
-        repayment = Repayment(half, ONE_INT)
+        repayment = Repayment(ONE_INT, half, ONE_INT)
         loan1 = Loan(half, ONE, ONE_INT)
         loan1_mid = Loan(half, half, ONE_INT)
         loan1_repaid = Loan(half, O, ONE_INT)

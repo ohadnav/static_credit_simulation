@@ -7,6 +7,7 @@ import numpy
 from numpy.compat import long
 
 from common.context import DataGenerator, SimulationContext
+from simulation.merchant_factory import MerchantFactory
 
 T = TypeVar('T')
 
@@ -26,6 +27,7 @@ class BaseTestCase(TestCase):
         logging.info(f'****  setUp for {self._testMethodName} of {type(self).__name__}')
         self.data_generator = DataGenerator.generate_data_generator()
         self.context = SimulationContext.generate_context()
+        self.factory = MerchantFactory(self.data_generator, self.context)
 
     # noinspection PyUnresolvedReferences
     def assertDeepAlmostEqual(self, expected: T, actual: T, *args, **kwargs):
