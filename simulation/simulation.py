@@ -16,6 +16,7 @@ from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Dollar, Float
 from common.util import shout_print
 from finance.lender import Lender
+from finance.loan_simulation import LoanSimulation
 from simulation.merchant_factory import Condition, MerchantFactory
 
 
@@ -112,6 +113,12 @@ class Simulation:
         merchants = results
         if self.scenario.conditions:
             merchants = [mnr[0] for mnr in results]
+            if isinstance(results[0][1], list) and isinstance(results[0][1][0], LoanSimulation):
+                lenders = []
+                for i in range(len(results[0])):
+                    loans = [mnr[1][i] for mnr in results]
+                    lenders.append(Lender.generate_from_simulated_loans(loans))
+                return lenders
         loan_types = self.scenario.loan_simulation_types or LoanSimulationType.list()
         return [Lender(self.context, self.data_generator, deepcopy(merchants), loan_type) for loan_type in loan_types]
 
