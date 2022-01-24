@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from autologging import logged, traced
 
 from common import constants
-from common.numbers import Dollar, Duration, Float, Date
+from common.numbers import Dollar, Duration, Float, Date, ONE
 from seller.batch import Batch
 from seller.inventory import Inventory
 from tests.util_test import BaseTestCase
@@ -71,7 +71,7 @@ class TestInventory(BaseTestCase):
         batch.purchase_order.stock = velocity * 2
         batch.last_date = Date(2)
         batch.sales_velocity = MagicMock(return_value=velocity)
-        batch.product.price = Dollar(1)
+        batch.product.price = ONE
         dv = batch.product.price * velocity
         r = constants.INVENTORY_NPV_DISCOUNT_FACTOR
         self.assertEqual(

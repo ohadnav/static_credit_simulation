@@ -8,11 +8,12 @@ from common.context import DataGenerator
 from common.numbers import Float, Percent, Ratio, Date, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, min_max
+from finance.risk_entity import RiskEntity
 from seller.batch import Batch
 from seller.inventory import Inventory
 
 
-class Merchant(Primitive):
+class Merchant(Primitive, RiskEntity):
     def __init__(
             self, data_generator: DataGenerator, inventories: List[Inventory],
             suspension_start_date: Optional[Date]):
@@ -74,12 +75,19 @@ class Merchant(Primitive):
     def current_batches(self, day: Date) -> List[Batch]:
         return [inventory[day] for inventory in self.inventories]
 
+    def batch_profit_margin(self, batch: Batch) -> Percent:
+        return batch.profit_margin()
+
+    def batches_with_orders(self, day: Date) -> List[Batch]:
+        batches = [batch for batch in self.current_batches(day) if batch.max_cash_needed(day) > O]
+        batches.sort(key=self.batch_profit_margin, reverse=True)
+        return batches
+
     def inventory_cost(self, day: Date, current_cash: Dollar) -> Dollar:
         total_to_pay = O
         committed = self.committed_purchase_orders(day)
         cash_for_new_orders = Float.max(O, current_cash - committed)
-        for batch in self.current_batches(day):
-            # TODO: allocate budget per profitable product lines
+        for batch in self.batches_with_orders(day):
             batch_cost = batch.inventory_cost(day, cash_for_new_orders)
             if batch_cost > O:
                 total_to_pay += batch_cost
@@ -105,12 +113,12 @@ class Merchant(Primitive):
     def inventory_value(self, day: Date) -> Dollar:
         return Float.sum([inventory.current_inventory_valuation(day) for inventory in self.inventories])
 
-    def organic_rate(self, day: Date) -> Percent:
+    def get_organic_rate(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         organic_rates = [inventory[day].organic_rate for inventory in self.inventories]
         return weighted_average(organic_rates, top_lines)
 
-    def out_of_stock_rate(self, day: Date) -> Percent:
+    def get_out_of_stock_rate(self, day: Date) -> Percent:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         out_of_stock_rates = [inventory[day].out_of_stock_rate for inventory in self.inventories]
         return weighted_average(out_of_stock_rates, top_lines)
@@ -120,15 +128,15 @@ class Merchant(Primitive):
         profit_margins = [inventory[day].profit_margin() for inventory in self.inventories]
         return weighted_average(profit_margins, top_lines)
 
-    def adjusted_profit_margin(self, day: Date) -> Percent:
+    def get_adjusted_profit_margin(self, day: Date) -> Percent:
         return self.profit_margin(day) + constants.PROFIT_MARGIN_ADJUSTMENT
 
-    def inventory_turnover_ratio(self, day: Date) -> Ratio:
+    def get_inventory_turnover_ratio(self, day: Date) -> Ratio:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         ratios = [inventory[day].inventory_turnover_ratio for inventory in self.inventories]
         return weighted_average(ratios, top_lines)
 
-    def roas(self, day: Date) -> Ratio:
+    def get_roas(self, day: Date) -> Ratio:
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         ratios = [inventory[day].roas for inventory in self.inventories]
         return weighted_average(ratios, top_lines)

@@ -58,7 +58,7 @@ class LoanSimulation(Primitive):
         self.initial_cash = data_generator.initial_cash_ratio * merchant.annual_top_line(self.today)
         self.current_cash = self.initial_cash
         self.bankruptcy_date: Optional[Date] = None
-        self.underwriting = Underwriting(self.context, self.data_generator, self.merchant)
+        self.underwriting = Underwriting(self.context, self.data_generator, merchant)
         self.flat_fee = self.context.rbf_flat_fee
         self.revenues_to_date = O
         self.current_repayment_rate = self.default_repayment_rate()
@@ -106,7 +106,7 @@ class LoanSimulation(Primitive):
         return self.amount_to_debt(self.loan_amount())
 
     def approved_amount(self) -> Dollar:
-        if not self.underwriting.approved(self.today) or self.projected_lender_profit() <= O:
+        if not self.underwriting.approved(self.merchant, self.today):
             return O
         return self.loan_amount()
 
@@ -144,16 +144,15 @@ class LoanSimulation(Primitive):
     def reference_conditions(self) -> bool:
         if self.reference_loan is None or self.context.loan_reference_type is None:
             return True
-        ref_condition = False
         if self.context.loan_reference_type == LoanReferenceType.REVENUE_CAGR:
-            ref_condition = self.revenue_cagr() < self.reference_loan.revenue_cagr()
-        elif self.context.loan_reference_type == LoanReferenceType.TOTAL_INTEREST:
-            ref_condition = self.paid_interest() < self.reference_loan.total_interest()
-        elif self.context.loan_reference_type == LoanReferenceType.TOTAL_REVENUE:
-            ref_condition = self.total_revenue() < self.reference_loan.total_revenue()
-        if ref_condition:
+            if self.revenue_cagr() >= self.reference_loan.revenue_cagr():
+                no_diff = not self.loan_reference_diff.fast_diff(self.today, self.reference_loan.today)
+                return no_diff
             return True
-        return not self.loan_reference_diff.fast_diff(self.today, self.reference_loan.today)
+        elif self.context.loan_reference_type == LoanReferenceType.TOTAL_INTEREST:
+            return self.paid_interest() < self.reference_loan.total_interest()
+        elif self.context.loan_reference_type == LoanReferenceType.TOTAL_REVENUE:
+            return self.total_revenue() < self.reference_loan.total_revenue()
 
     def total_revenue(self):
         return self.revenues_to_date
@@ -162,7 +161,9 @@ class LoanSimulation(Primitive):
         return self.loan_reference_diff.calculate_diff(self.today, self.reference_loan.today)
 
     def primary_approval_conditions(self) -> bool:
-        return self.secondary_approval_conditions() and self.credit_needed() > O and self.reference_conditions()
+        return not self.merchant.is_suspended(
+            self.today) and self.projected_lender_profit() >= O and self.secondary_approval_conditions() and \
+               self.credit_needed() > O and self.reference_conditions()
 
     def secondary_approval_conditions(self):
         return self.ledger.outstanding_balance() == O

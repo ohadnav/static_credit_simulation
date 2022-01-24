@@ -37,12 +37,13 @@ def statistical_test_mean_error(
 
 def statistical_test_bool(
         test_case: StatisticalTestCase, test_iteration: Callable,
-        times: int = 20, min_frequency: Optional[float] = None, max_frequency: Optional[float] = None):
+        times: int = 20, min_frequency: Optional[float] = None, max_frequency: Optional[float] = None, *args, **kwargs):
     assert min_frequency is not None or max_frequency is not None
     logging_level = logging.getLogger().getEffectiveLevel()
     logging.getLogger().setLevel(logging.WARNING)
     results = TqdmParallel(desc=f'{test_case._testMethodName}', total=times)(
-        delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory) for _ in range(times))
+        delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory, *args, **kwargs) for _
+            in range(times))
     is_true = translate_results(results)
     print_results(is_true)
     validate_results(test_case, min_frequency, max_frequency, is_true)

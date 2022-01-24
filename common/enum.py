@@ -16,6 +16,7 @@ class LoanSimulationType(ExtendedEnum):
     LINE_OF_CREDIT = 'LineOfCreditSimulation'
     DYNAMIC_LINE_OF_CREDIT = 'DynamicLineOfCreditSimulation'
     NO_CAPITAL = 'NoCapitalLoanSimulation'
+    INVOICE_FINANCING = 'InvoiceFinancingSimulation'
 
 
 class LoanReferenceType(ExtendedEnum):

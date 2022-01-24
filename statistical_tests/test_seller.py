@@ -72,25 +72,25 @@ class TestStatisticalSeller(StatisticalTestCase):
             is_true.append(
                 (
                     data_generator.inventory_turnover_ratio_median / change_factor_big <
-                    merchant.inventory_turnover_ratio(
+                    merchant.get_inventory_turnover_ratio(
                         data_generator.start_date) < change_factor_big *
                     data_generator.inventory_turnover_ratio_median,
-                    merchant.inventory_turnover_ratio(data_generator.start_date)))
+                    merchant.get_inventory_turnover_ratio(data_generator.start_date)))
             is_true.append(
                 (
-                    data_generator.roas_median / change_factor_small < merchant.roas(data_generator.start_date) < \
-                    change_factor_small * data_generator.roas_median, merchant.roas(data_generator.start_date)))
+                    data_generator.roas_median / change_factor_small < merchant.get_roas(data_generator.start_date) < \
+                    change_factor_small * data_generator.roas_median, merchant.get_roas(data_generator.start_date)))
             is_true.append(
                 (
-                    data_generator.organic_rate_median / change_factor_small < merchant.organic_rate(
+                    data_generator.organic_rate_median / change_factor_small < merchant.get_organic_rate(
                         data_generator.start_date) < change_factor_small * data_generator.organic_rate_median,
-                    merchant.organic_rate(data_generator.start_date)))
+                    merchant.get_organic_rate(data_generator.start_date)))
             is_true.append(
                 (
-                    data_generator.out_of_stock_rate_median / change_factor_small < merchant.out_of_stock_rate(
+                    data_generator.out_of_stock_rate_median / change_factor_small < merchant.get_out_of_stock_rate(
                         data_generator.start_date) < \
                     change_factor_small * data_generator.out_of_stock_rate_median,
-                    merchant.out_of_stock_rate(data_generator.start_date)))
+                    merchant.get_out_of_stock_rate(data_generator.start_date)))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.4, max_frequency=0.85, times=1000)
@@ -201,8 +201,8 @@ class TestStatisticalSeller(StatisticalTestCase):
             underwriting = Underwriting(context, data_generator, merchant)
             score_dict = underwriting.initial_risk_context.score_dict()
             is_true.append(
-                (abs(mid_score - underwriting.aggregated_score()) < small_margin,
-                ('agg', underwriting.aggregated_score())))
+                (abs(mid_score - underwriting.aggregated_score(underwriting.initial_risk_context)) < small_margin,
+                ('agg', underwriting.aggregated_score(underwriting.initial_risk_context))))
             for k, score in score_dict.items():
                 is_true.append((abs(mid_score - score) < risk_to_margin[k], (k, Float(score))))
 

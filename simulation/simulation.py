@@ -58,7 +58,7 @@ class Scenario:
 BENCHMARK_LOAN_TYPES = [
     LoanSimulationType.INCREASING_REBATE,
     LoanSimulationType.LINE_OF_CREDIT,
-    LoanSimulationType.DYNAMIC_LINE_OF_CREDIT
+    LoanSimulationType.INVOICE_FINANCING
 ]
 
 PREDEFINED_SCENARIOS = [
@@ -129,9 +129,9 @@ class Simulation:
                             for risk_field, correlation in lender.risk_correlation[nested_field.name].items():
                                 correlations_df[lender_id].at[nested_name, risk_field] = str(correlation)
                         nested_value = getattr(field_value, nested_field.name)
-                        results_df.at[lender_id, nested_name] = str(nested_value)
+                        results_df.at[nested_name, lender_id] = str(nested_value)
                 else:
-                    results_df.at[lender_id, field_name] = str(field_value)
+                    results_df.at[field_name, lender_id] = str(field_value)
         return results_df, correlations_df
 
     def compare(self):

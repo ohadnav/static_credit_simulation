@@ -106,14 +106,10 @@ class TestLoanSimulation(BaseTestCase):
         self.assertEqual(self.loan_simulation.current_repayment_rate, 0.3)
 
     def test_approved_amount(self):
-        self.loan_simulation.loan_amount = MagicMock(return_value=Dollar(1))
+        self.loan_simulation.loan_amount = MagicMock(return_value=ONE)
         self.loan_simulation.underwriting.approved = MagicMock(return_value=True)
-        self.loan_simulation.projected_lender_profit = MagicMock(return_value=Dollar(1))
         self.assertEqual(self.loan_simulation.approved_amount(), 1)
         self.loan_simulation.underwriting.approved = MagicMock(return_value=False)
-        self.assertEqual(self.loan_simulation.approved_amount(), 0)
-        self.loan_simulation.underwriting.approved = MagicMock(return_value=True)
-        self.loan_simulation.projected_lender_profit = MagicMock(return_value=-1)
         self.assertEqual(self.loan_simulation.approved_amount(), 0)
 
     def test_reference_conditions(self):
@@ -138,6 +134,8 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.secondary_approval_conditions = MagicMock(return_value=True)
         self.loan_simulation.credit_needed = MagicMock(return_value=ONE)
         self.loan_simulation.reference_conditions = MagicMock(return_value=True)
+        self.loan_simulation.merchant.is_suspended = MagicMock(return_value=False)
+        self.loan_simulation.projected_lender_profit = MagicMock(return_value=ONE)
         self.assertTrue(self.loan_simulation.primary_approval_conditions())
         self.loan_simulation.secondary_approval_conditions = MagicMock(return_value=False)
         self.assertFalse(self.loan_simulation.primary_approval_conditions())
@@ -148,6 +146,12 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.reference_conditions = MagicMock(return_value=False)
         self.assertFalse(self.loan_simulation.primary_approval_conditions())
         self.loan_simulation.reference_conditions = MagicMock(return_value=True)
+        self.loan_simulation.merchant.is_suspended = MagicMock(return_value=True)
+        self.assertFalse(self.loan_simulation.primary_approval_conditions())
+        self.loan_simulation.merchant.is_suspended = MagicMock(return_value=False)
+        self.loan_simulation.projected_lender_profit = MagicMock(return_value=Dollar(-1))
+        self.assertFalse(self.loan_simulation.primary_approval_conditions())
+        self.loan_simulation.projected_lender_profit = MagicMock(return_value=ONE)
 
     def test_secondary_approval_conditions(self):
         self.loan_simulation.credit_needed = MagicMock(return_value=ONE)
@@ -203,7 +207,7 @@ class TestLoanSimulation(BaseTestCase):
 
     def test_simulate_inventory_purchase(self):
         self.loan_simulation.current_cash = 2
-        self.merchant.inventory_cost = MagicMock(return_value=Dollar(1))
+        self.merchant.inventory_cost = MagicMock(return_value=ONE)
         self.loan_simulation.simulate_inventory_purchase()
         self.assertEqual(self.loan_simulation.current_cash, 2 - 1)
         self.assertDeepAlmostEqual(self.loan_simulation.ledger.cash_history, {self.data_generator.start_date: ONE})
@@ -476,7 +480,7 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.add_debt(self.loan_simulation.loan_amount())
         self.assertEqual(
             self.loan_simulation.projected_remaining_debt(), self.loan_simulation.ledger.outstanding_balance())
-        repaid = Dollar(1)
+        repaid = ONE
         self.loan_simulation.ledger.initiate_loan_repayment(self.loan_simulation.today, repaid)
         self.assertEqual(
             self.loan_simulation.projected_remaining_debt(), self.loan_simulation.max_debt() - repaid)

@@ -6,9 +6,9 @@ from common.numbers import O, Date
 from finance.ledger import Ledger
 from seller.merchant import Merchant
 
-MERCHANT_ATTRIBUTES = ['roas', 'inventory_turnover_ratio', 'adjusted_profit_margin', 'profit_margin',
-    'out_of_stock_rate',
-    'organic_rate', 'inventory_value', 'annual_top_line', 'max_cash_needed',
+MERCHANT_ATTRIBUTES = ['get_roas', 'get_inventory_turnover_ratio', 'get_adjusted_profit_margin', 'profit_margin',
+    'get_out_of_stock_rate',
+    'get_organic_rate', 'inventory_value', 'annual_top_line', 'max_cash_needed',
     'revenue_per_day', 'gp_per_day']
 
 
@@ -35,9 +35,17 @@ class LoanSimulationDiff:
 
     def fast_diff(self, today1: Date, today2: Date) -> bool:
         min_today = Date(min(today1, today2))
-        loans_before_date1 = [loan for loan in self.loan1.ledger.loans_history if loan.start_date <= min_today]
-        loans_before_date2 = [loan for loan in self.loan2.ledger.loans_history if loan.start_date <= min_today]
-        return loans_before_date1 != loans_before_date2
+        for i in range(len(self.loan1.ledger.loans_history)):
+            if i >= len(self.loan2.ledger.loans_history):
+                return True
+            if self.loan1.ledger.loans_history[i].start_date > min_today:
+                if self.loan2.ledger.loans_history[i].start_date < min_today:
+                    return True
+                else:
+                    break
+            if self.loan1.ledger.loans_history[i] != self.loan2.ledger.loans_history[i]:
+                return True
+        return False
 
     def ledger_diff(self, today1: Date, today2: Date):
         self.diff['ledger'] = {}

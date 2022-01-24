@@ -15,7 +15,7 @@ from common.enum import LoanSimulationType
 from common.numbers import Float, Percent, Ratio, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, TqdmParallel, get_key_from_value
-from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation
+from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation, InvoiceFinancingSimulation
 from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
     NoCapitalLoanSimulation
 from seller.merchant import Merchant
@@ -52,6 +52,7 @@ LOAN_TYPES_MAPPING = {
     LoanSimulationType.LINE_OF_CREDIT: LineOfCreditSimulation,
     LoanSimulationType.NO_CAPITAL: NoCapitalLoanSimulation,
     LoanSimulationType.DEFAULT: LoanSimulation,
+    LoanSimulationType.INVOICE_FINANCING: InvoiceFinancingSimulation
 }
 
 

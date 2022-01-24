@@ -1,23 +1,29 @@
-from copy import deepcopy
-
-from common.context import SimulationContext, RiskConfiguration, DataGenerator
+from common.context import SimulationContext, RiskConfiguration, DataGenerator, RiskContext
 from common.numbers import Float, Percent, Ratio, Date, O, ONE
 from common.util import weighted_average, min_max
-from seller.merchant import Merchant
+from finance.risk_entity import RiskEntity
 
 
 class Underwriting:
-    def __init__(self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant):
+    def __init__(self, context: SimulationContext, data_generator: DataGenerator, entity: RiskEntity):
         self.context = context
         self.data_generator = data_generator
-        self.merchant = merchant
-        self.risk_context = deepcopy(self.context.risk_context)
-        self.update_score(self.data_generator.start_date)
-        self.initial_risk_context = deepcopy(self.risk_context)
+        self.initial_risk_context = self.calculate_score(entity, self.data_generator.start_date)
 
-    def update_score(self, day: Date):
-        for predictor, risk_configuration in vars(self.risk_context).items():
-            risk_configuration.score = self.benchmark_score(predictor, day)
+    @staticmethod
+    def benchmark_variable_name(predictor: str) -> str:
+        return f'{predictor}_benchmark'
+
+    @staticmethod
+    def risk_entity_method_name(predictor: str) -> str:
+        return f'get_{predictor}'
+
+    def calculate_score(self, entity: RiskEntity, day: Date) -> RiskContext:
+        risk_context = RiskContext()
+        for predictor in vars(self.context.risk_context).keys():
+            risk_configuration = getattr(risk_context, predictor)
+            risk_configuration.score = self.benchmark_score(entity, predictor, day)
+        return risk_context
 
     def benchmark_comparison(
             self, benchmark: Float, value: Float, higher_is_better: bool, sensitivity: Ratio) -> Percent:
@@ -33,24 +39,24 @@ class Underwriting:
         ratio = sensitivity * (ratio - 0.5) + 0.5
         return min_max(ratio, O, ONE)
 
-    def benchmark_score(self, predictor: str, day: Date):
+    def benchmark_score(self, entity: RiskEntity, predictor: str, day: Date):
         configuration: RiskConfiguration = getattr(self.context.risk_context, predictor)
-        benchmark = getattr(self.context, f'{predictor}_benchmark')
-        value = getattr(self.merchant, predictor)(day)
+        benchmark = getattr(self.context, Underwriting.benchmark_variable_name(predictor))
+        value = getattr(entity, Underwriting.risk_entity_method_name(predictor))(day)
         score = self.benchmark_comparison(benchmark, value, configuration.higher_is_better, configuration.sensitivity)
         return score
 
-    def aggregated_score(self) -> Percent:
-        scores = [configuration.score for configuration in vars(self.risk_context).values()]
-        weights = [configuration.weight for configuration in vars(self.risk_context).values()]
+    @staticmethod
+    def aggregated_score(risk_context: RiskContext) -> Percent:
+        scores = [configuration.score for configuration in vars(risk_context).values()]
+        weights = [configuration.weight for configuration in vars(risk_context).values()]
         return weighted_average(scores, weights)
 
-    def approved(self, day: Date) -> bool:
-        for _, configuration in vars(self.risk_context).items():
+    def approved(self, entity: RiskEntity, day: Date) -> bool:
+        risk_context = self.calculate_score(entity, day)
+        for _, configuration in vars(risk_context).items():
             if configuration.score < configuration.threshold:
                 return False
-        if self.aggregated_score() < self.context.min_risk_score:
-            return False
-        if self.merchant.is_suspended(day):
+        if self.aggregated_score(risk_context) < self.context.min_risk_score:
             return False
         return True

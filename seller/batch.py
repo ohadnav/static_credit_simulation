@@ -9,6 +9,7 @@ from common.context import DataGenerator
 from common.numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT
 from common.primitive import Primitive
 from common.util import min_max
+from finance.risk_entity import RiskEntity
 from seller.product import Product
 
 
@@ -22,7 +23,7 @@ class PurchaseOrder:
         return self.upfront_cost + self.post_manufacturing_cost
 
 
-class Batch(Primitive):
+class Batch(Primitive, RiskEntity):
     def __init__(
             self, data_generator: DataGenerator, product: Product, shipping_duration: Duration,
             out_of_stock_rate: Percent, inventory_turnover_ratio: Ratio, roas: Ratio, organic_rate: Percent,
@@ -284,3 +285,18 @@ class Batch(Primitive):
         sales_duration = Duration.min(self.duration_in_stock(), day - self.start_date)
         sold_in_duration = Stock(self.sales_velocity() * sales_duration)
         return max(self.stock - sold_in_duration, O_INT)
+
+    def get_roas(self, day: Date) -> Ratio:
+        return self.roas
+
+    def get_organic_rate(self, day: Date) -> Percent:
+        return self.organic_rate
+
+    def get_adjusted_profit_margin(self, day: Date) -> Percent:
+        return self.profit_margin() + constants.PROFIT_MARGIN_ADJUSTMENT
+
+    def get_inventory_turnover_ratio(self, day: Date) -> Ratio:
+        return self.inventory_turnover_ratio
+
+    def get_out_of_stock_rate(self, day: Date) -> Percent:
+        return self.out_of_stock_rate

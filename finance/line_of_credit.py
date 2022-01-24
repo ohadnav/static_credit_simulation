@@ -1,19 +1,11 @@
-from typing import Optional
-
 from common import constants
-from common.context import SimulationContext, DataGenerator
 from common.numbers import Float, Dollar, O
 from common.util import min_max
 from finance.loan_simulation import LoanSimulation
-from seller.merchant import Merchant
+from finance.underwriting import Underwriting
 
 
 class LineOfCreditSimulation(LoanSimulation):
-    def __init__(
-            self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant,
-            reference_loan: Optional[LoanSimulation] = None):
-        super(LineOfCreditSimulation, self).__init__(context, data_generator, merchant, reference_loan)
-
     def remaining_credit(self) -> Dollar:
         # TODO: test fixed size line of credit
         return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.ledger.outstanding_balance()))
@@ -28,14 +20,10 @@ class LineOfCreditSimulation(LoanSimulation):
 
 
 class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
-    def __init__(
-            self, context: SimulationContext, data_generator: DataGenerator, merchant: Merchant,
-            reference_loan: Optional[LoanSimulation] = None):
-        super(DynamicLineOfCreditSimulation, self).__init__(context, data_generator, merchant, reference_loan)
-
     def update_repayment_rate(self):
-        if self.underwriting.approved(self.today):
-            repayment_ratio = constants.AGG_SCORE_BENCHMARK / self.underwriting.aggregated_score()
+        if self.underwriting.approved(self.merchant, self.today):
+            risk_context = self.underwriting.calculate_score(self.merchant, self.today)
+            repayment_ratio = constants.AGG_SCORE_BENCHMARK / Underwriting.aggregated_score(risk_context)
             new_rate = (repayment_ratio ** self.context.repayment_factor) * self.default_repayment_rate()
             new_rate = min_max(new_rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
             self.current_repayment_rate = new_rate
@@ -43,3 +31,14 @@ class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
             self.current_repayment_rate = constants.MAX_REPAYMENT_RATE
         else:
             self.current_repayment_rate = self.default_repayment_rate()
+
+
+class InvoiceFinancingSimulation(LineOfCreditSimulation):
+    def approved_amount(self) -> Dollar:
+        batches = self.merchant.batches_with_orders(self.today)
+        approved_batches_cost = O
+        for batch in batches:
+            if self.underwriting.approved(batch, self.today):
+                approved_batches_cost += batch.max_cash_needed(self.today)
+        approved_amount = Float.min(approved_batches_cost, self.loan_amount())
+        return approved_amount
