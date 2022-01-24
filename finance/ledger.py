@@ -71,8 +71,7 @@ class Ledger(Primitive):
         return Float.sum([loan.outstanding_balance for loan in loans])
 
     def repayments_from_amount(self, repayment_date: Date, total_amount: Dollar, loans: Optional[List[Loan]] = None) \
-            -> \
-                    List[Repayment]:
+            -> List[Repayment]:
         loans = loans or self.active_loans
         remaining_amount = total_amount
         repayments: List[Repayment] = []
