@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 from dataclasses import fields, dataclass
-from typing import List, MutableMapping, Optional, Mapping
+from typing import List, MutableMapping, Optional
 
 import dacite as dacite
 import numpy as np
@@ -15,9 +15,12 @@ from common.enum import LoanSimulationType
 from common.numbers import Float, Percent, Ratio, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, TqdmParallel, get_key_from_value
+from finance.ledger import O_LSR
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation, InvoiceFinancingSimulation
-from finance.loan_simulation import LoanSimulationResults, LoanSimulation, IncreasingRebateLoanSimulation, \
+from finance.loan_simulation import LoanSimulation, IncreasingRebateLoanSimulation, \
     NoCapitalLoanSimulation
+from finance.loan_simulation_results import LoanSimulationResults
+from finance.risk_order import RiskOrder
 from seller.merchant import Merchant
 
 
@@ -37,7 +40,7 @@ class AggregatedLoanSimulationResults:
     bankruptcy_rate: Percent
     hyper_growth_rate: Percent
     duration_in_debt_rate: Percent
-    acceptance_rate: Percent
+    approval_rate: Percent
     num_merchants: Int
     num_loans: Float
 
@@ -84,7 +87,7 @@ class Lender(Primitive):
     def __init__(
             self, context: SimulationContext, data_generator: DataGenerator, merchants: List[Merchant],
             loan_type: LoanSimulationType = LoanSimulationType.DEFAULT,
-            reference_loans: Optional[Mapping[Merchant, LoanSimulation]] = None):
+            reference_lender: Optional[Lender] = None):
         super(Lender, self).__init__(data_generator)
         self.merchants = merchants
         self.context = context
@@ -92,27 +95,18 @@ class Lender(Primitive):
         self.loans: MutableMapping[Merchant, LoanSimulation] = {}
         self.risk_correlation: MutableMapping[str, MutableMapping[str, Percent]] = {}
         self.loan_type = loan_type
-        self.reference_loans = reference_loans
+        self.reference = reference_lender
+        self.risk_order = RiskOrder()
 
     @classmethod
-    def generate_from_simulated_loans(cls, loans: List[LoanSimulation]) -> Lender:
+    def generate_from_simulated_loans(cls, loans: List[LoanSimulation], reference: Optional[Lender] = None) -> Lender:
         merchants = [loan.merchant for loan in loans]
         context = deepcopy(loans[0].context)
         loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
         data_generator = loans[0].data_generator
-        lender = Lender(context, data_generator, merchants, loan_type)
+        lender = Lender(context, data_generator, merchants, loan_type, reference)
         lender.loans = {loan.merchant: loan for loan in loans}
         lender.calculate_results()
-        return lender
-
-    @classmethod
-    def generate_from_reference_loans(cls, loans: List[LoanSimulation]) -> Lender:
-        merchants = [loan.merchant for loan in loans]
-        reference_loans = {loan.merchant: loan for loan in loans}
-        context = loans[0].context
-        loan_type = get_key_from_value(type(loans[0]), LOAN_TYPES_MAPPING)
-        data_generator = loans[0].data_generator
-        lender = Lender(context, data_generator, merchants, loan_type, reference_loans)
         return lender
 
     @staticmethod
@@ -121,13 +115,40 @@ class Lender(Primitive):
             loan_type: LoanSimulationType, reference_loan: Optional[LoanSimulation]) -> LoanSimulation:
         return LOAN_TYPES_MAPPING[loan_type](context, data_generator, merchant, reference_loan)
 
+    def set_reference(self, reference: Lender):
+        self.reference = reference
+        self.risk_order = reference.risk_order
+
+    def get_risk_order(self, merchant: Merchant) -> Int:
+        revenue_cagr = self.loans[merchant].revenue_cagr()
+        merchant_top_line = merchant.annual_top_line(self.loans[merchant].today)
+        order = self.risk_order.get_order(revenue_cagr)
+        if merchant_top_line < self.context.min_merchant_top_line:
+            order = self.risk_order.prev_order(order)
+        if merchant_top_line > self.context.max_merchant_top_line:
+            order = self.risk_order.next_order(order)
+        return order
+
+    def lsr_or_zero(self, merchant: Merchant) -> LoanSimulationResults:
+        if self.loans[merchant].ledger.total_credit():
+            return self.loans[merchant].simulation_results
+        return O_LSR
+
+    def agg_compare(self, lender: Optional[Lender] = None) -> AggregatedLoanSimulationResults:
+        lender = lender or self.reference
+        diff_lsr = [self.lsr_or_zero(merchant) - lender.lsr_or_zero(merchant) for merchant in self.merchants]
+        return self.aggregate_results(diff_lsr)
+
+    def risk_order_counts(self) -> List[Int]:
+        return self.risk_order.count_per_order([lsr.revenue_cagr for lsr in self.funded_merchants_simulation_results()])
+
     def generate_loan_from_merchant(self, merchant: Merchant) -> LoanSimulation:
-        reference_loan = self.reference_loans[merchant] if self.reference_loans else None
+        reference_loan = self.reference.loans[merchant] if self.reference else None
         return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type, reference_loan)
 
     def aggregate_results(self, loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
         result = {'num_merchants': Int(len(loan_results)),
-            'acceptance_rate': Percent(len(loan_results) / len(self.merchants))}
+            'approval_rate': Percent(len(loan_results) / len(self.merchants))}
         for field in fields(LoanSimulationResults):
             if field.name == WEIGHT_FIELD:
                 continue
@@ -176,6 +197,10 @@ class Lender(Primitive):
         self.simulation_results = LenderSimulationResults(
             sharpe, all_merchants, portfolio_merchants_agg_results)
         self.underwriting_correlation()
+        if self.reference:
+            self.risk_order = self.reference.risk_order
+        else:
+            self.risk_order = RiskOrder([lsr.revenue_cagr for lsr in portfolio_results])
 
     def all_merchants_simulation_results(self) -> List[LoanSimulationResults]:
         return [loan.simulation_results for loan in self.loans.values()]

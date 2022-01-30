@@ -69,6 +69,13 @@ class TestFloat(BaseTestCase):
         self.assertFalse(Float(10).is_close(10 + constants.FLOAT_CLOSE_TOLERANCE * 11))
         self.assertFalse(Float(0).is_close(0 + constants.FLOAT_CLOSE_TOLERANCE + 0.01))
 
+    def test_from_human_format(self):
+        self.assertEqual(Float.from_human_format('1M'), 10 ** 6)
+        self.assertEqual(Float.from_human_format('1000T'), 10 ** 15)
+        self.assertEqual(Float.from_human_format('19.9K'), 19900)
+        self.assertEqual(Float.from_human_format('0.5'), 0.5)
+        self.assertEqual(Float.from_human_format('0'), 0)
+
 
 class TestNumbers(BaseTestCase):
     def test_human_format(self):
@@ -85,7 +92,7 @@ class TestNumbers(BaseTestCase):
         self.assertEqual(human_format(0.00099), '0')
 
     def test_human_format_duration(self):
-        self.assertEqual(human_format_duration(-10), '-10d')
+        self.assertEqual(human_format_duration(-10), '-(1wk 3d)')
         self.assertEqual(human_format_duration(0), '0d')
         self.assertEqual(human_format_duration(1), '1d')
         self.assertEqual(human_format_duration(6), '6d')

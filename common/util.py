@@ -113,3 +113,7 @@ def shout_print(msg: str):
     print(f'\n\n{"*" * len(msg)}\n')
     print(msg)
     print(f'\n{"*" * len(msg)}')
+
+
+def flatten(_list: List):
+    return [item for sublist in _list for item in sublist]

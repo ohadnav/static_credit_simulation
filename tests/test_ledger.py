@@ -1,10 +1,8 @@
 from copy import deepcopy
 
-from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT, Date
+from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT, Date, HALF
 from finance.ledger import Ledger, Loan, Repayment
 from tests.util_test import BaseTestCase
-
-HALF = Dollar(0.5)
 
 
 class TestLedger(BaseTestCase):
@@ -33,7 +31,6 @@ class TestLedger(BaseTestCase):
         self.assertDeepAlmostEqual(self.ledger.active_loans, [])
 
     def test_repayments_from_amount_multiple_loans(self):
-        HALF = Dollar(0.5)
         three = Duration(3)
         loan2 = Loan(ONE, ONE, TWO_INT)
         loan2_mid = Loan(ONE, HALF, TWO_INT)

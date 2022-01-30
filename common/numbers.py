@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import math
-from typing import Iterable, Union, List
+from dataclasses import dataclass
+from typing import Iterable, Union, List, Optional
 
 from common import constants
 
 
 class Float(float):
     def __eq__(self, other):
+        if other is None:
+            return False
         if math.isclose(self, other, abs_tol=constants.FLOAT_EQUALITY_TOLERANCE):
             return True
         return super(Float, self).__eq__(other)
@@ -67,6 +70,20 @@ class Float(float):
 
     def __repr__(self):
         return f'Float({human_format(self)})'
+
+    @staticmethod
+    def is_float(s: str) -> bool:
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def from_human_format(cls, human_format: str) -> Float:
+        if Float.is_float(human_format):
+            return Float(float(human_format))
+        return Float(float(human_format[:-1])) * 10 ** (3 * HUMAN_FORMAT_POSTFIX.index(human_format[-1]))
 
     @staticmethod
     def sum(*args, **kwargs) -> Float:
@@ -203,8 +220,10 @@ class Duration(Int):
 
 
 def human_format_duration(days: int) -> str:
-    if days <= 0:
-        return f'{int(days)}d'
+    if days < 0:
+        return f'-({human_format_duration(-days)})'
+    if days == 0:
+        return '0d'
     sizes = [1, constants.WEEK, constants.MONTH, constants.YEAR]
     postfix = ['d', 'wk', 'mon', 'yr']
     numbers = {}
@@ -216,15 +235,17 @@ def human_format_duration(days: int) -> str:
     return ' '.join([f'{n}{p}' for p, n in numbers.items()])
 
 
+HUMAN_FORMAT_POSTFIX = ['', 'K', 'M', 'B', 'T']
+
+
 def human_format(num: Union[float, int]) -> str:
     num = float('{:.3g}'.format(num))
     magnitude = 0
-    postfix = ['', 'K', 'M', 'B', 'T']
-    while abs(num) >= 1000 and magnitude < len(postfix) - 1:
+    while abs(num) >= 1000 and magnitude < len(HUMAN_FORMAT_POSTFIX) - 1:
         magnitude += 1
         num /= 1000.0
     deci = 1 if abs(num) > 2 else 2
-    return '{}{}'.format('{:.{deci}f}'.format(num, deci=deci).rstrip('0').rstrip('.'), postfix[magnitude])
+    return '{}{}'.format('{:.{deci}f}'.format(num, deci=deci).rstrip('0').rstrip('.'), HUMAN_FORMAT_POSTFIX[magnitude])
 
 
 Percent = Float
@@ -235,6 +256,28 @@ Dollar = Float
 O = Float(0)
 O_INT = Int(0)
 ONE = Float(1)
+HALF = Float(0.5)
 TWO = Float(2)
 ONE_INT = Duration(1)
 TWO_INT = Duration(2)
+
+
+@dataclass
+class FloatRange:
+    min_value: Optional[Float] = None
+    max_value: Optional[Float] = None
+
+    def __str__(self):
+        return f'[{self.min_value if self.min_value is not None else "-inf"}, ' \
+               f'{self.max_value if self.max_value is not None else "inf"})'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def update(self, value: Float):
+        if self.min_value is None:
+            self.min_value = value
+        if self.max_value is None:
+            self.max_value = value
+        self.min_value = Float.min(self.min_value, value)
+        self.max_value = Float.max(self.max_value, value)

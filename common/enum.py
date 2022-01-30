@@ -11,15 +11,16 @@ class ExtendedEnum(Enum):
 
 
 class LoanSimulationType(ExtendedEnum):
-    DEFAULT = 'LoanSimulation'
     INCREASING_REBATE = 'IncreasingRebateLoanSimulation'
+    INVOICE_FINANCING = 'InvoiceFinancingSimulation'
     LINE_OF_CREDIT = 'LineOfCreditSimulation'
+    DEFAULT = 'LoanSimulation'
     DYNAMIC_LINE_OF_CREDIT = 'DynamicLineOfCreditSimulation'
     NO_CAPITAL = 'NoCapitalLoanSimulation'
-    INVOICE_FINANCING = 'InvoiceFinancingSimulation'
 
 
 class LoanReferenceType(ExtendedEnum):
     TOTAL_INTEREST = 1
-    TOTAL_REVENUE = 2
-    REVENUE_CAGR = 3
+    DAILY_REVENUE = 2
+    TOTAL_REVENUE = 3
+    REVENUE_CAGR = 4

@@ -49,6 +49,7 @@ class DataGenerator:
     include_purchase_order_in_valuation = True
     conservative_cash_management = True
     first_batch_std_factor = constants.FIRST_BATCH_STD_FACTOR
+    chance_first_batch_better = constants.CHANCE_FIRST_BATCH_BETTER
 
     # Revenue
     initial_cash_ratio = constants.INITIAL_CASH_RATIO
@@ -106,7 +107,6 @@ class DataGenerator:
 
 @dataclass(unsafe_hash=True)
 class RiskConfiguration:
-    # TODO: consider adding noise per each check
     higher_is_better: bool = True
     weight: Float = Float(constants.DEFAULT_RISK_PREDICTOR_WEIGHT)
     threshold: Percent = Percent(constants.DEFAULT_RISK_MIN_THRESHOLD)
@@ -119,8 +119,8 @@ class RiskContext:
         self.out_of_stock_rate = RiskConfiguration(
             higher_is_better=False, sensitivity=constants.MEDIUM_UNDERWRITING_SENSITIVITY)
         self.inventory_turnover_ratio = RiskConfiguration(sensitivity=constants.MEDIUM_UNDERWRITING_SENSITIVITY)
-        self.adjusted_profit_margin = RiskConfiguration()
-        self.roas = RiskConfiguration(sensitivity=constants.HIGH_UNDERWRITING_SENSITIVITY)
+        self.adjusted_profit_margin = RiskConfiguration(weight=Float(constants.DEFAULT_RISK_PREDICTOR_WEIGHT) * 5)
+        self.roas = RiskConfiguration(sensitivity=constants.MEDIUM_UNDERWRITING_SENSITIVITY)
         self.organic_rate = RiskConfiguration(sensitivity=constants.HIGH_UNDERWRITING_SENSITIVITY)
 
     def score_dict(self) -> Mapping[str, Percent]:
@@ -154,6 +154,9 @@ class SimulationContext:
     agg_score_benchmark = constants.AGG_SCORE_BENCHMARK
     max_loan_amount = constants.MAX_LOAN_AMOUNT
     max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
+    min_merchant_top_line = constants.MIN_MERCHANT_TOP_LINE
+    min_repayment_rate = constants.MIN_REPAYMENT_RATE
+    max_repayment_rate = constants.MAX_REPAYMENT_RATE
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
     loan_reference_type: Optional[LoanReferenceType] = None
 

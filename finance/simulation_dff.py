@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Mapping
 
 from common.context import SimulationContext, DataGenerator
 from common.numbers import O, Date
 from finance.ledger import Ledger
+from finance.loan_simulation_results import LoanSimulationResults
 from seller.merchant import Merchant
 
 MERCHANT_ATTRIBUTES = ['get_roas', 'get_inventory_turnover_ratio', 'get_adjusted_profit_margin', 'profit_margin',
@@ -16,6 +17,7 @@ MERCHANT_ATTRIBUTES = ['get_roas', 'get_inventory_turnover_ratio', 'get_adjusted
 class LoanDataContainer:
     ledger: Ledger
     merchant: Merchant
+    results: LoanSimulationResults
 
 
 class LoanSimulationDiff:
@@ -31,6 +33,8 @@ class LoanSimulationDiff:
     def calculate_diff(self, today1: Date, today2: Date) -> Mapping:
         self.merchant_diff(today1, today2)
         self.ledger_diff(today1, today2)
+        self.results_diff()
+        self.today_diff(today1, today2)
         return self.diff
 
     def fast_diff(self, today1: Date, today2: Date) -> bool:
@@ -46,6 +50,20 @@ class LoanSimulationDiff:
             if self.loan1.ledger.loans_history[i] != self.loan2.ledger.loans_history[i]:
                 return True
         return False
+
+    def today_diff(self, today1: Date, today2: Date):
+        if today1 != today2:
+            self.diff['today'] = today1 - today2
+
+    def results_diff(self):
+        self.diff['results'] = {}
+        for field in fields(self.loan1.results):
+            value1 = getattr(self.loan1.results, field.name)
+            value2 = getattr(self.loan2.results, field.name)
+            if value1 != value2:
+                self.diff['results'][field.name] = value1 - value2
+        if not self.diff['results']:
+            del self.diff['results']
 
     def ledger_diff(self, today1: Date, today2: Date):
         self.diff['ledger'] = {}
@@ -136,11 +154,14 @@ class LoanSimulationDiff:
 
     def merchant_attribute_diff(self, attribute: str, today1: Date, today2: Date):
         self.diff['merchant'][attribute] = {}
+        last_day = None
         for day in range(self.data_generator.start_date, min(today1, today2) + 1):
             day = Date(day)
             value1 = getattr(self.loan1.merchant, attribute)(day)
             value2 = getattr(self.loan2.merchant, attribute)(day)
-            if value1 != value2:
-                self.diff['merchant'][attribute][day] = value1 - value2
+            gap = value1 - value2
+            if value1 != value2 and (last_day is None or gap != self.diff['merchant'][attribute][last_day]):
+                self.diff['merchant'][attribute][day] = gap
+                last_day = day
         if not self.diff['merchant'][attribute]:
             del self.diff['merchant'][attribute]

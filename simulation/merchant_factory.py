@@ -39,7 +39,10 @@ class Condition:
     @classmethod
     def generate_from_loan_reference_type(
             cls, loan_reference_type: LoanReferenceType, loan_type: LoanSimulationType) -> Condition:
-        return Condition(loan_reference_type.name.lower(), loan_type, O)
+        if loan_reference_type == LoanReferenceType.REVENUE_CAGR:
+            return Condition('revenue_cagr', loan_type, O)
+        else:
+            return Condition('total_credit', loan_type, O)
 
 
 ConditionsEntityOrList = Union[Condition, List[Condition]]
@@ -108,7 +111,7 @@ class MerchantFactory:
                     if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
                 if reference_loan and conditions[i].loan_type != LoanSimulationType.NO_CAPITAL:
-                    if not loans[i].compare_reference_loan():
+                    if not loans[i].close_to_reference_loan():
                         return None
             return loans if len(loans) > 1 else loans[0]
 

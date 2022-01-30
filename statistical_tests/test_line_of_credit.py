@@ -68,35 +68,32 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
 
         statistical_test_bool(self, test_iteration, min_frequency=0.8, times=10)
 
-    def test_invoice_financing_cheaper_when_controlling_total_revenue(self):
-        self.context.loan_reference_type = LoanReferenceType.TOTAL_REVENUE
+    def test_invoice_financing_cheaper_when_normalizing_daily_revenue(self):
+        self.context.loan_reference_type = LoanReferenceType.DAILY_REVENUE
         merchants_and_results = self.factory.generate_from_conditions(
             self.generate_conditions(self.context.loan_reference_type, LoanSimulationType.INVOICE_FINANCING))
         regular_loans = [mnr[1][0] for mnr in merchants_and_results]
         invoice_financing_loans = [mnr[1][1] for mnr in merchants_and_results]
         regular_lender = Lender.generate_from_simulated_loans(regular_loans)
-        invoice_financing_lender = Lender.generate_from_simulated_loans(invoice_financing_loans)
+        invoice_financing_lender = Lender.generate_from_simulated_loans(invoice_financing_loans, regular_lender)
         print('results:')
         print(regular_lender.simulation_results)
         print(invoice_financing_lender.simulation_results)
-        self.assertLessEqual(
+        self.assertLess(
             regular_lender.simulation_results.funded.revenue_cagr,
             invoice_financing_lender.simulation_results.funded.revenue_cagr)
         self.assertGreater(
             regular_lender.simulation_results.funded.total_interest,
             invoice_financing_lender.simulation_results.funded.total_interest)
-        self.assertGreater(
-            regular_lender.simulation_results.funded.apr,
-            invoice_financing_lender.simulation_results.funded.apr)
 
-    def test_line_of_credit_faster_when_controlling_revenue_cagr(self):
+    def test_line_of_credit_faster_when_normalizing_revenue_cagr(self):
         self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
         merchants_and_results = self.factory.generate_from_conditions(
             self.generate_conditions(self.context.loan_reference_type))
         regular_loans = [mnr[1][0] for mnr in merchants_and_results]
         loc_loans = [mnr[1][1] for mnr in merchants_and_results]
         regular_lender = Lender.generate_from_simulated_loans(regular_loans)
-        loc_lender = Lender.generate_from_simulated_loans(loc_loans)
+        loc_lender = Lender.generate_from_simulated_loans(loc_loans, regular_lender)
         print('results:')
         print(regular_lender.simulation_results)
         print(loc_lender.simulation_results)
@@ -110,17 +107,14 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             regular_lender.simulation_results.funded.apr,
             loc_lender.simulation_results.funded.apr)
 
-    def test_line_of_credit_grow_faster_when_controlling_total_interest(self):
+    def test_line_of_credit_grow_faster_when_normalizing_total_interest(self):
         self.context.loan_reference_type = LoanReferenceType.TOTAL_INTEREST
-        self.data_generator.num_merchants = 1
-        self.data_generator.max_num_products = 1
         merchants_and_results = self.factory.generate_from_conditions(
             self.generate_conditions(self.context.loan_reference_type))
         regular_loans = [mnr[1][0] for mnr in merchants_and_results]
         loc_loans = [mnr[1][1] for mnr in merchants_and_results]
-        diff = loc_loans[0].calculate_reference_diff()
         regular_lender = Lender.generate_from_simulated_loans(regular_loans)
-        loc_lender = Lender.generate_from_simulated_loans(loc_loans)
+        loc_lender = Lender.generate_from_simulated_loans(loc_loans, regular_lender)
         print('results:')
         print(regular_lender.simulation_results)
         print(loc_lender.simulation_results)
@@ -131,7 +125,7 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             regular_lender.simulation_results.funded.apr,
             loc_lender.simulation_results.funded.apr)
 
-    def test_line_of_credit_superior(self):
+    def test_line_of_credit_grows_faster(self):
         self.context.loan_reference_type = None
         merchants_and_results = self.factory.generate_from_conditions(self.generate_conditions())
         regular_loans = [mnr[1][0] for mnr in merchants_and_results]

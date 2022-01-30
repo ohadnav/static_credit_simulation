@@ -5,12 +5,19 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from common import constants
-from common.enum import LoanSimulationType, LoanReferenceType
+from common.enum import LoanSimulationType
 from common.numbers import O, ONE, Float, Percent, Int, TWO, ONE_INT, Duration
 from finance.lender import Lender, AggregatedLoanSimulationResults, WEIGHT_FIELD
-from finance.loan_simulation import LoanSimulationResults, LoanSimulation
+from finance.loan_simulation import LoanSimulation
+from finance.loan_simulation_results import LoanSimulationResults
+from finance.risk_order import RiskOrder
 from simulation.merchant_factory import MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
+
+ONE_LSR = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+
+TWO_LSR = LoanSimulationResults(
+    TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
 
 
 class TestLender(StatisticalTestCase):
@@ -41,8 +48,7 @@ class TestLender(StatisticalTestCase):
         self.assertEqual(
             self.lender.aggregate_results(
                 [
-                    LoanSimulationResults(
-                        ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+                    ONE_LSR,
                     LoanSimulationResults(
                         three, five, five, five, five, five, five, five, five, five, five, five, five, five, five,
                         Int(5))
@@ -55,7 +61,7 @@ class TestLender(StatisticalTestCase):
         five = Float(5)
         three = Float(3)
         results = [
-            LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1)),
+            ONE_LSR,
             LoanSimulationResults(
                 three, five, five, five, five, five, five, five, five, five, five, five, five, five, five, Int(3))
         ]
@@ -65,22 +71,27 @@ class TestLender(StatisticalTestCase):
 
     def test_calculate_results(self):
         self.data_generator.simulated_duration = ONE_INT
-        for merchant in self.merchants:
-            self.lender.loans[merchant] = self.lender.simulate_merchant(merchant)
+        self.lender.all_merchants_simulation_results = MagicMock(return_value=[ONE_LSR])
+        self.lender.funded_merchants_simulation_results = MagicMock(return_value=[ONE_LSR])
         self.lender.underwriting_correlation = MagicMock()
+        self.lender.reference = None
         self.lender.calculate_results()
         self.lender.underwriting_correlation.assert_called()
         self.assertIsNotNone(self.lender.simulation_results)
+        self.assertNotEqual(self.lender.risk_order, RiskOrder())
+        lender2 = Lender(self.context, self.data_generator, self.merchants)
+        lender2.risk_order = RiskOrder([ONE])
+        self.lender.reference = lender2
+        self.lender.calculate_results()
+        self.assertEqual(self.lender.risk_order, lender2.risk_order)
 
     def test_calculate_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(
-            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+        loan1.simulation_results = ONE_LSR
         loan1.ledger.total_credit = MagicMock(return_value=1)
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(
-            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+        loan2.simulation_results = TWO_LSR
         loan2.ledger.total_credit = MagicMock(return_value=1)
         for risk_field in vars(self.context.risk_context).keys():
             getattr(loan1.underwriting.initial_risk_context, risk_field).score = 2
@@ -107,12 +118,10 @@ class TestLender(StatisticalTestCase):
     def test_underwriting_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
         loan1 = LoanSimulation(self.context, self.data_generator, merchants[0])
-        loan1.simulation_results = LoanSimulationResults(
-            ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
+        loan1.simulation_results = ONE_LSR
         loan1.ledger.total_credit = MagicMock(return_value=1)
         loan2 = LoanSimulation(self.context, self.data_generator, merchants[1])
-        loan2.simulation_results = LoanSimulationResults(
-            TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
+        loan2.simulation_results = TWO_LSR
         loan2.ledger.total_credit = MagicMock(return_value=1)
         self.lender.loans = {1: loan1, 2: loan2}
         for risk_field in vars(self.context.risk_context).keys():
@@ -160,17 +169,3 @@ class TestLender(StatisticalTestCase):
             loan.simulate()
         lender2 = Lender.generate_from_simulated_loans(loans)
         self.assertDeepAlmostEqual(lender1.simulation_results, lender2.simulation_results)
-
-    def test_generate_from_reference_loans(self):
-        self.context.loan_reference_type = LoanReferenceType.REVENUE_CAGR
-        self.data_generator.simulated_duration = Duration(constants.YEAR)
-        self.merchants = self.merchants[:2]
-        reference_loans = [
-            Lender.generate_loan(merchant, self.context, self.data_generator, LoanSimulationType.DEFAULT, None) for
-            merchant in self.merchants]
-        self.lender = Lender.generate_from_reference_loans(reference_loans)
-        self.assertDeepAlmostEqual(self.lender.merchants, self.merchants)
-        self.assertDeepAlmostEqual(list(self.lender.reference_loans.values()), reference_loans)
-        self.lender.simulate()
-        actual_reference_loans = [loan.reference_loan for loan in self.lender.loans.values()]
-        self.assertDeepAlmostEqual(actual_reference_loans, reference_loans)

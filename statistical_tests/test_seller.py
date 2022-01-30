@@ -67,7 +67,7 @@ class TestStatisticalSeller(StatisticalTestCase):
             change_factor_big = 1.5
 
             is_true.append(
-                (0 < merchant.profit_margin(data_generator.start_date) < 0.2,
+                (-0.1 < merchant.profit_margin(data_generator.start_date) < 0.1,
                 merchant.profit_margin(data_generator.start_date)))
             is_true.append(
                 (
@@ -108,7 +108,7 @@ class TestStatisticalSeller(StatisticalTestCase):
             is_true.append((merchant.suspension_start_date is None, merchant.suspension_start_date))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.7)
 
     def test_generated_batches(self):
         def test_iteration(data_generator: DataGenerator, *args, **kwargs):
@@ -142,7 +142,7 @@ class TestStatisticalSeller(StatisticalTestCase):
                     10,
                     Float(batch.stock / batch.product.min_purchase_order_size),
                     Float(batch.stock / batch.lead_time), batch))
-            is_true.append((0 < batch.profit_margin() < 0.2, Float(batch.profit_margin())))
+            is_true.append((-0.1 < batch.profit_margin() < 0.2, Float(batch.profit_margin())))
             return is_true
 
         statistical_test_bool(self, test_iteration, min_frequency=0.3, max_frequency=0.7, times=1000)
@@ -192,23 +192,26 @@ class TestStatisticalSeller(StatisticalTestCase):
         mid_score = Percent(0.5)
         small_margin = 0.1
         big_margin = 0.25
-        risk_to_margin = {k: big_margin for k, v in vars(self.context.risk_context).items()}
+        to_skip = ['adjusted_profit_margin']
+        risk_to_margin = {k: big_margin for k, v in vars(self.context.risk_context).items() if k not in to_skip}
         risk_to_margin['inventory_turnover_ratio'] = small_margin
 
         def test_factor(data_generator: DataGenerator, context: SimulationContext, *args, **kwargs):
+            _to_skip = kwargs['to_skip']
             is_true = []
             merchant = Merchant.generate_simulated(data_generator)
             underwriting = Underwriting(context, data_generator, merchant)
             score_dict = underwriting.initial_risk_context.score_dict()
             is_true.append(
-                (abs(mid_score - underwriting.aggregated_score(underwriting.initial_risk_context)) < small_margin,
+                (abs(mid_score - underwriting.aggregated_score(underwriting.initial_risk_context)) < big_margin,
                 ('agg', underwriting.aggregated_score(underwriting.initial_risk_context))))
             for k, score in score_dict.items():
-                is_true.append((abs(mid_score - score) < risk_to_margin[k], (k, Float(score))))
+                if k not in _to_skip:
+                    is_true.append((abs(mid_score - score) < risk_to_margin[k], (k, Float(score))))
 
             return is_true
 
-        statistical_test_bool(self, test_factor, min_frequency=0.3, max_frequency=0.8, times=200)
+        statistical_test_bool(self, test_factor, min_frequency=0.25, max_frequency=0.8, times=200, to_skip=to_skip)
 
     def test_risk_scores_not_extreme(self):
         mid_score = Percent(0.5)

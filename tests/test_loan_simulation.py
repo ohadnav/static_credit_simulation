@@ -7,7 +7,8 @@ from common import constants
 from common.enum import LoanReferenceType
 from common.numbers import Float, Dollar, O, ONE, TWO, Duration, O_INT, Ratio, Int, Date, ONE_INT, Percent
 from finance.ledger import Loan, Repayment
-from finance.loan_simulation import LoanSimulation, LoanSimulationResults, NoCapitalLoanSimulation
+from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
+from finance.loan_simulation_results import LoanSimulationResults
 from seller.merchant import Merchant
 from tests.util_test import BaseTestCase
 
@@ -97,8 +98,8 @@ class TestLoanSimulation(BaseTestCase):
 
     def test_update_credit_new_credit(self):
         self.loan_simulation.current_repayment_rate = 0.1
-        self.loan_simulation.credit_needed = MagicMock(return_value=self.loan_simulation.loan_amount())
-        self.loan_simulation.approved_amount = MagicMock(return_value=self.loan_simulation.loan_amount())
+        self.loan_simulation.calculate_amount = MagicMock(return_value=self.loan_simulation.loan_amount())
+        self.loan_simulation.primary_approval_conditions = MagicMock(return_value=True)
         self.loan_simulation.default_repayment_rate = MagicMock(return_value=0.3)
         self.loan_simulation.add_debt = MagicMock()
         self.loan_simulation.update_credit()

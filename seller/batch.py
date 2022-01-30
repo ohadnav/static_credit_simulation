@@ -6,7 +6,7 @@ from typing import Optional
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT
+from common.numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT, HALF
 from common.primitive import Primitive
 from common.util import min_max
 from finance.risk_entity import RiskEntity
@@ -87,11 +87,11 @@ class Batch(Primitive, RiskEntity):
     def generate_organic_rate(cls, data_generator: DataGenerator, previous: Optional[Batch], roas: Ratio) -> Percent:
         organic_rate = previous.organic_rate if previous else data_generator.organic_rate_median
         change_std = data_generator.organic_rate_std
+        chance_positive = HALF
         if not previous:
             change_std *= data_generator.first_batch_std_factor
-        organic_rate *= data_generator.normal_ratio(change_std)
-        # if roas < data_generator.roas_median:
-        #     organic_rate = Float.max(data_generator.organic_rate_median, organic_rate)
+            chance_positive = data_generator.chance_first_batch_better
+        organic_rate *= data_generator.normal_ratio(change_std, chance_positive=chance_positive)
         organic_rate = min_max(organic_rate, constants.ORGANIC_RATE_MIN, constants.ORGANIC_RATE_MAX)
         return organic_rate
 
@@ -99,9 +99,11 @@ class Batch(Primitive, RiskEntity):
     def generate_roas(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Ratio:
         roas = previous.roas if previous else data_generator.roas_median
         change_std = data_generator.roas_std
+        chance_positive = HALF
         if not previous:
             change_std *= data_generator.first_batch_std_factor
-        roas *= data_generator.normal_ratio(change_std)
+            chance_positive = data_generator.chance_first_batch_better
+        roas *= data_generator.normal_ratio(change_std, chance_positive=chance_positive)
         roas = min_max(roas, constants.MIN_ROAS, constants.MAX_ROAS)
         return roas
 
@@ -109,9 +111,11 @@ class Batch(Primitive, RiskEntity):
     def generate_out_of_stock_rate(cls, data_generator: DataGenerator, previous: Optional[Batch]) -> Percent:
         out_of_stock_rate = previous.out_of_stock_rate if previous else data_generator.out_of_stock_rate_median
         change_std = data_generator.out_of_stock_rate_std
+        chance_positive = Percent(0.33)
         if not previous:
             change_std *= data_generator.first_batch_std_factor
-        out_of_stock_rate *= data_generator.normal_ratio(change_std, chance_positive=0.33)
+            chance_positive = HALF
+        out_of_stock_rate *= data_generator.normal_ratio(change_std, chance_positive=chance_positive)
         out_of_stock_rate = min_max(out_of_stock_rate, 0, constants.OUT_OF_STOCK_RATE_MAX)
         return out_of_stock_rate
 

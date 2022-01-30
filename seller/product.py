@@ -46,7 +46,8 @@ class Product(Primitive):
     @classmethod
     def generate_cogs_margin(cls, data_generator):
         cogs_margin = data_generator.cogs_margin_median * data_generator.normal_ratio(
-            data_generator.cogs_margin_std * data_generator.first_batch_std_factor)
+            data_generator.cogs_margin_std * data_generator.first_batch_std_factor,
+            chance_positive=data_generator.chance_first_batch_better)
         cogs_margin = min_max(cogs_margin, constants.COGS_MARGIN_MIN, constants.COGS_MARGIN_MAX)
         return cogs_margin
 

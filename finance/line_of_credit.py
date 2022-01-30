@@ -1,4 +1,3 @@
-from common import constants
 from common.numbers import Float, Dollar, O
 from common.util import min_max
 from finance.loan_simulation import LoanSimulation
@@ -23,18 +22,19 @@ class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
     def update_repayment_rate(self):
         if self.underwriting.approved(self.merchant, self.today):
             risk_context = self.underwriting.calculate_score(self.merchant, self.today)
-            repayment_ratio = constants.AGG_SCORE_BENCHMARK / Underwriting.aggregated_score(risk_context)
+            repayment_ratio = self.context.agg_score_benchmark / Underwriting.aggregated_score(risk_context)
             new_rate = (repayment_ratio ** self.context.repayment_factor) * self.default_repayment_rate()
-            new_rate = min_max(new_rate, constants.MIN_REPAYMENT_RATE, constants.MAX_REPAYMENT_RATE)
+            new_rate = min_max(new_rate, self.context.min_repayment_rate, self.context.max_repayment_rate)
             self.current_repayment_rate = new_rate
         elif self.context.revenue_collateralization:
-            self.current_repayment_rate = constants.MAX_REPAYMENT_RATE
+            self.current_repayment_rate = self.context.max_repayment_rate
         else:
             self.current_repayment_rate = self.default_repayment_rate()
 
 
 class InvoiceFinancingSimulation(LineOfCreditSimulation):
     def approved_amount(self) -> Dollar:
+        # TODO: risk-based-pricing
         batches = self.merchant.batches_with_orders(self.today)
         approved_batches_cost = O
         for batch in batches:

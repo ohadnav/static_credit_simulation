@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import fields
 from random import randint
 from unittest.mock import MagicMock, call
 
@@ -6,6 +7,7 @@ from common import constants
 from common.enum import LoanSimulationType
 from common.numbers import ONE, O, ONE_INT, Date, Duration
 from finance.loan_simulation import LoanSimulation
+from finance.loan_simulation_results import LoanSimulationResults
 from finance.simulation_dff import LoanSimulationDiff, MERCHANT_ATTRIBUTES
 from seller.merchant import Merchant
 from simulation.merchant_factory import Condition
@@ -123,3 +125,19 @@ class TestLoanSimulationDiff(BaseTestCase):
         self.loan2.ledger.loans_history[-1].amount -= ONE
         self.assertTrue(self.lsd.fast_diff(self.loan1.today, self.loan2.today))
         self.assertFalse(self.lsd.fast_diff(self.loan1.today, self.loan2.ledger.loans_history[-1].start_date - 1))
+
+    def test_results_diff(self):
+        loan1 = LoanSimulation(self.context, self.data_generator, self.merchant)
+        loan1.simulate()
+        loan2 = deepcopy(loan1)
+        loan1.set_reference_loan(loan2)
+        lsd = LoanSimulationDiff(
+            self.data_generator, self.context, loan1.to_data_container(), loan2.to_data_container())
+        lsd.results_diff()
+        self.assertFalse('results' in lsd.diff)
+        for field in fields(LoanSimulationResults):
+            value = getattr(loan1.simulation_results, field.name)
+            setattr(loan1.simulation_results, field.name, value + ONE)
+            lsd.results_diff()
+            self.assertDeepAlmostEqual(lsd.diff, {'results': {field.name: ONE}})
+            setattr(loan1.simulation_results, field.name, value)

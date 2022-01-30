@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from common.enum import LoanSimulationType, LoanReferenceType
 from common.numbers import Percent, Dollar, O, ONE, O_INT
-from finance.loan_simulation import LoanSimulation, LoanSimulationResults
+from finance.loan_simulation import LoanSimulation
+from finance.loan_simulation_results import LoanSimulationResults
 from seller.merchant import Merchant
 from simulation.merchant_factory import Condition, MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
@@ -76,7 +77,7 @@ class TestMerchantFactory(StatisticalTestCase):
             loan2: LoanSimulation = merchant_and_results[0][1][1]
             self.assertIsNone(loan1.reference_loan)
             self.assertEqual(loan2.reference_loan, loan1)
-            self.assertTrue(loan2.compare_reference_loan())
+            self.assertTrue(loan2.close_to_reference_loan())
 
     @patch('finance.lender.Lender')
     def test_generate_lsr_validator(self, lender_mock: MagicMock):
