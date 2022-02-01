@@ -1,4 +1,4 @@
-from common.numbers import Float, Dollar, O
+from common.local_numbers import Float, Dollar, O
 from common.util import min_max
 from finance.loan_simulation import LoanSimulation
 from finance.underwriting import Underwriting

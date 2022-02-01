@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 from common import constants
-from common.enum import LoanSimulationType
-from common.numbers import ONE, TWO
+from common.local_enum import LoanSimulationType
+from common.local_numbers import ONE, TWO
 from finance.line_of_credit import DynamicLineOfCreditSimulation, LineOfCreditSimulation, InvoiceFinancingSimulation
 from seller.batch import Batch
 from seller.merchant import Merchant

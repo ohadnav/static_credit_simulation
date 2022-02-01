@@ -2,10 +2,11 @@ from copy import deepcopy
 
 from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.enum import LoanSimulationType
-from common.numbers import O, Dollar, Duration
+from common.local_enum import LoanSimulationType
+from common.local_numbers import O, Dollar, Duration
 from finance.line_of_credit import LineOfCreditSimulation
-from finance.loan_simulation import LoanSimulation, NoCapitalLoanSimulation
+from finance.loan_simulation import LoanSimulation
+from loan_simulation_childs import NoCapitalLoanSimulation
 from seller.merchant import Merchant
 from simulation.merchant_factory import MerchantFactory, Condition
 from statistical_tests.statistical_util import statistical_test_bool, StatisticalTestCase
@@ -143,12 +144,10 @@ class TestStatisticalLoan(StatisticalTestCase):
         def test_iteration(
                 data_generator: DataGenerator, context: SimulationContext, factory: MerchantFactory, *args, **kwargs):
             is_true = []
-            data_generator.conservative_cash_management = True
-            results = factory.generate_merchants(
-                factory.generate_diff_validator(
-                    [Condition(loan_type=LoanSimulationType.DEFAULT),
-                        Condition(loan_type=LoanSimulationType.NO_CAPITAL)]),
-                num_merchants=1)
+            data_generator.num_merchants = 1
+            results = factory.generate_from_conditions(
+                [Condition(loan_type=LoanSimulationType.DEFAULT),
+                    Condition(loan_type=LoanSimulationType.NO_CAPITAL)])
             loans = results[0][1]
             loan_with_capital = loans[0].simulation_results
             loan_without_capital = loans[1].simulation_results
@@ -156,7 +155,7 @@ class TestStatisticalLoan(StatisticalTestCase):
             is_true.append((loan_with_capital.bankruptcy_rate <= loan_without_capital.bankruptcy_rate, loans))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.6)
 
     def test_loans_profitable(self):
         def test_iteration(

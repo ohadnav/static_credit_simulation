@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from common.numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT, Date, HALF
+from common.local_numbers import Dollar, ONE, ONE_INT, TWO, O, TWO_INT, Duration, O_INT, Date, HALF
 from finance.ledger import Ledger, Loan, Repayment
 from tests.util_test import BaseTestCase
 

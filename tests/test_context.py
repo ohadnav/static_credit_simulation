@@ -2,7 +2,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 from common import constants
-from common.numbers import Float, Int, Duration, Date
+from common.local_numbers import Float, Int, Duration, Date
 from tests.util_test import BaseTestCase
 
 

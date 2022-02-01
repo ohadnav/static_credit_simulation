@@ -9,6 +9,14 @@ class ExtendedEnum(Enum):
     def list(cls) -> List:
         return list(map(lambda c: c, cls))
 
+    def __eq__(self, other):
+        if type(other).__name__ != type(self).__name__:
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash(self.name)
+
 
 class LoanSimulationType(ExtendedEnum):
     INCREASING_REBATE = 'IncreasingRebateLoanSimulation'
@@ -19,8 +27,13 @@ class LoanSimulationType(ExtendedEnum):
     NO_CAPITAL = 'NoCapitalLoanSimulation'
 
 
+class RuntimeType(ExtendedEnum):
+    BENCHMARK_SIMULATION = 'BenchmarkSimulation'
+    PLOT_TIMELINE = 'TimelineSimulation'
+
+
 class LoanReferenceType(ExtendedEnum):
     TOTAL_INTEREST = 1
     DAILY_REVENUE = 2
-    TOTAL_REVENUE = 3
+    ANNUAL_REVENUE = 3
     REVENUE_CAGR = 4

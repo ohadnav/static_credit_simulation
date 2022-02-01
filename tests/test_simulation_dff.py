@@ -4,8 +4,8 @@ from random import randint
 from unittest.mock import MagicMock, call
 
 from common import constants
-from common.enum import LoanSimulationType
-from common.numbers import ONE, O, ONE_INT, Date, Duration
+from common.local_enum import LoanSimulationType
+from common.local_numbers import ONE, O, ONE_INT, Date, Duration
 from finance.loan_simulation import LoanSimulation
 from finance.loan_simulation_results import LoanSimulationResults
 from finance.simulation_dff import LoanSimulationDiff, MERCHANT_ATTRIBUTES

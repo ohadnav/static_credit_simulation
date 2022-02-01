@@ -5,19 +5,15 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from common import constants
-from common.enum import LoanSimulationType
-from common.numbers import O, ONE, Float, Percent, Int, TWO, ONE_INT, Duration
-from finance.lender import Lender, AggregatedLoanSimulationResults, WEIGHT_FIELD
+from common.local_enum import LoanSimulationType
+from common.local_numbers import O, ONE, Float, Percent, Int, ONE_INT, Duration, Date
+from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
 from finance.loan_simulation_results import LoanSimulationResults
 from finance.risk_order import RiskOrder
+from loan_simulation_results import ONE_LSR, TWO_LSR, WEIGHT_FIELD, AggregatedLoanSimulationResults
 from simulation.merchant_factory import MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
-
-ONE_LSR = LoanSimulationResults(ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, ONE, Int(1))
-
-TWO_LSR = LoanSimulationResults(
-    TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, TWO, Int(2))
 
 
 class TestLender(StatisticalTestCase):
@@ -45,29 +41,10 @@ class TestLender(StatisticalTestCase):
         five = Float(5)
         four = Float(4)
         six = Float(6)
-        self.assertEqual(
-            self.lender.aggregate_results(
-                [
-                    ONE_LSR,
-                    LoanSimulationResults(
-                        three, five, five, five, five, five, five, five, five, five, five, five, five, five, five,
-                        Int(5))
-                ]),
-            AggregatedLoanSimulationResults(
-                four, six, four, four, four, six, six, four, six, four, four, three, three, three, Percent(2 / 3),
-                Int(2), four))
-
-    def test_calculate_sharpe(self):
-        five = Float(5)
-        three = Float(3)
-        results = [
-            ONE_LSR,
-            LoanSimulationResults(
-                three, five, five, five, five, five, five, five, five, five, five, five, five, five, five, Int(3))
-        ]
-        std = np.std([ONE, five])
-        self.context.cost_of_capital = three
-        self.assertEqual(self.lender.calculate_sharpe(results), ONE / std)
+        loan_lsrs = [ONE_LSR, LoanSimulationResults.generate_from_float(five)]
+        loan_lsrs[1].valuation = three
+        expected = AggregatedLoanSimulationResults.generate_from_numbers(four, six, three, Int(2), Percent(2 / 3))
+        self.assertEqual(self.lender.aggregate_results(loan_lsrs), expected)
 
     def test_calculate_results(self):
         self.data_generator.simulated_duration = ONE_INT
@@ -169,3 +146,36 @@ class TestLender(StatisticalTestCase):
             loan.simulate()
         lender2 = Lender.generate_from_simulated_loans(loans)
         self.assertDeepAlmostEqual(lender1.simulation_results, lender2.simulation_results)
+
+    def test_prepare_snapshots(self):
+        self.context.snapshot_cycle = constants.MONTH
+        three = Float(3)
+        five = Float(5)
+        four = Float(4)
+        six = Float(6)
+        self.lender.merchants = self.lender.merchants[:2]
+        loan1 = LoanSimulation(self.context, self.data_generator, self.merchants[0])
+        loan1.simulation_results = ONE_LSR
+        loan1.snapshots = {Date(day): loan1.simulation_results for day in self.lender.snapshot_dates()}
+        loan2 = LoanSimulation(self.context, self.data_generator, self.merchants[1])
+        loan2.simulation_results = LoanSimulationResults.generate_from_float(five)
+        loan2.simulation_results.valuation = three
+        loan2.snapshots = {Date(day): loan2.simulation_results for day in self.lender.snapshot_dates()}
+        self.lender.loans = {self.lender.merchants[0]: loan1, self.lender.merchants[1]: loan2}
+        expected = AggregatedLoanSimulationResults.generate_from_numbers(four, six, three, Int(2), ONE)
+        expected_snapshots = {Date(day): expected for day in self.lender.snapshot_dates()}
+        self.lender.prepare_snapshots()
+        self.assertDeepAlmostEqual(self.lender.snapshots, expected_snapshots)
+
+    def test_get_snapshots_for_day(self):
+        self.context.snapshot_cycle = constants.MONTH
+        self.lender.merchants = self.lender.merchants[:2]
+        loan1 = LoanSimulation(self.context, self.data_generator, self.merchants[0])
+        loan1.snapshots = {Date(day): ONE_LSR for day in self.lender.snapshot_dates()}
+        loan2 = LoanSimulation(self.context, self.data_generator, self.merchants[1])
+        loan2.snapshots = {self.context.snapshot_cycle: TWO_LSR}
+        loan2.today = self.context.snapshot_cycle
+        self.lender.loans = {self.lender.merchants[0]: loan1, self.lender.merchants[1]: loan2}
+        self.assertDeepAlmostEqual(self.lender.get_snapshots_for_day(self.context.snapshot_cycle), [ONE_LSR, TWO_LSR])
+        self.assertDeepAlmostEqual(
+            self.lender.get_snapshots_for_day(self.context.snapshot_cycle * 2), [ONE_LSR, TWO_LSR])

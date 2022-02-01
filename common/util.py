@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import multiprocessing
 from random import random
 from typing import Union, List, Optional, TypeVar, Mapping
@@ -8,7 +9,7 @@ from joblib import Parallel
 from tqdm.auto import tqdm
 
 from common import constants
-from common.numbers import Float, Percent, Duration, O, ONE, Int
+from common.local_numbers import Float, Percent, Duration, O, ONE, Int
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -117,3 +118,10 @@ def shout_print(msg: str):
 
 def flatten(_list: List):
     return [item for sublist in _list for item in sublist]
+
+
+def inherits_from(child, parent_name):
+    if inspect.isclass(child):
+        if parent_name in [c.__name__ for c in inspect.getmro(child)[1:]]:
+            return True
+    return False

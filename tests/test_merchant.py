@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from common import constants
-from common.numbers import Float, Dollar, ONE, Date, Stock, O
+from common.local_numbers import Float, Dollar, ONE, Date, Stock, O
 from seller.batch import PurchaseOrder, Batch
 from seller.inventory import Inventory
 from seller.merchant import Merchant

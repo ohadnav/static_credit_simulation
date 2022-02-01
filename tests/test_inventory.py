@@ -1,16 +1,12 @@
 from unittest.mock import MagicMock
 
-from autologging import logged, traced
-
 from common import constants
-from common.numbers import Dollar, Duration, Float, Date, ONE
+from common.local_numbers import Dollar, Duration, Float, Date, ONE
 from seller.batch import Batch
 from seller.inventory import Inventory
 from tests.util_test import BaseTestCase
 
 
-@traced
-@logged
 class TestInventory(BaseTestCase):
     def setUp(self) -> None:
         super(TestInventory, self).setUp()

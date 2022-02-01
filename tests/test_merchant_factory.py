@@ -2,10 +2,10 @@ from copy import deepcopy
 from typing import Optional, Any
 from unittest.mock import MagicMock, patch
 
-from common.enum import LoanSimulationType, LoanReferenceType
-from common.numbers import Percent, Dollar, O, ONE, O_INT
+from common.local_enum import LoanSimulationType, LoanReferenceType
+from common.local_numbers import Percent, Dollar, O, ONE
 from finance.loan_simulation import LoanSimulation
-from finance.loan_simulation_results import LoanSimulationResults
+from finance.loan_simulation_results import O_LSR
 from seller.merchant import Merchant
 from simulation.merchant_factory import Condition, MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
@@ -20,7 +20,7 @@ class TestMerchantFactory(StatisticalTestCase):
     def generate_mock_loan(self, field_name: Optional[str] = None, value: Optional[Any] = None):
         loan = LoanSimulation(self.context, self.data_generator, self.merchant)
         loan.simulate = MagicMock()
-        loan.simulation_results = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O_INT)
+        loan.simulation_results = deepcopy(O_LSR)
         if field_name:
             setattr(loan.simulation_results, field_name, value)
         return loan

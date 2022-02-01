@@ -1,8 +1,8 @@
 from typing import Optional
 
 from common.context import SimulationContext, DataGenerator
-from common.enum import LoanSimulationType, LoanReferenceType
-from common.numbers import O
+from common.local_enum import LoanSimulationType, LoanReferenceType
+from common.local_numbers import O
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
 from simulation.merchant_factory import MerchantFactory, Condition
@@ -79,9 +79,6 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         print('results:')
         print(regular_lender.simulation_results)
         print(invoice_financing_lender.simulation_results)
-        self.assertLess(
-            regular_lender.simulation_results.funded.revenue_cagr,
-            invoice_financing_lender.simulation_results.funded.revenue_cagr)
         self.assertGreater(
             regular_lender.simulation_results.funded.total_interest,
             invoice_financing_lender.simulation_results.funded.total_interest)
@@ -98,14 +95,14 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
         print(regular_lender.simulation_results)
         print(loc_lender.simulation_results)
         self.assertGreater(
-            regular_lender.simulation_results.funded.total_revenue,
-            loc_lender.simulation_results.funded.total_revenue)
+            regular_lender.simulation_results.funded.annual_revenue,
+            loc_lender.simulation_results.funded.annual_revenue)
         self.assertGreater(
             regular_lender.simulation_results.funded.total_interest,
             loc_lender.simulation_results.funded.total_interest)
         self.assertGreater(
-            regular_lender.simulation_results.funded.apr,
-            loc_lender.simulation_results.funded.apr)
+            regular_lender.simulation_results.funded.effective_apr,
+            loc_lender.simulation_results.funded.effective_apr)
 
     def test_line_of_credit_grow_faster_when_normalizing_total_interest(self):
         self.context.loan_reference_type = LoanReferenceType.TOTAL_INTEREST
@@ -122,8 +119,8 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             regular_lender.simulation_results.funded.revenue_cagr,
             loc_lender.simulation_results.funded.revenue_cagr)
         self.assertGreater(
-            regular_lender.simulation_results.funded.apr,
-            loc_lender.simulation_results.funded.apr)
+            regular_lender.simulation_results.funded.effective_apr,
+            loc_lender.simulation_results.funded.effective_apr)
 
     def test_line_of_credit_grows_faster(self):
         self.context.loan_reference_type = None
@@ -139,26 +136,11 @@ class TestStatisticalLineOfCredit(StatisticalTestCase):
             regular_lender.simulation_results.funded.hyper_growth_rate,
             loc_lender.simulation_results.funded.hyper_growth_rate)
         self.assertLess(
-            regular_lender.simulation_results.funded.lender_profit,
-            loc_lender.simulation_results.funded.lender_profit)
-        self.assertLess(
-            regular_lender.simulation_results.funded.valuation_cagr,
-            loc_lender.simulation_results.funded.valuation_cagr)
-        self.assertLess(
             regular_lender.simulation_results.funded.revenue_cagr,
             loc_lender.simulation_results.funded.revenue_cagr)
         self.assertLess(
             regular_lender.simulation_results.funded.total_credit,
             loc_lender.simulation_results.funded.total_credit)
-        self.assertGreater(
-            regular_lender.simulation_results.funded.apr,
-            loc_lender.simulation_results.funded.apr)
-        self.assertLess(
-            regular_lender.simulation_results.funded.num_loans,
-            loc_lender.simulation_results.funded.num_loans)
-        self.assertGreaterEqual(
-            regular_lender.simulation_results.funded.bankruptcy_rate,
-            loc_lender.simulation_results.funded.bankruptcy_rate)
 
     def test_dynamic_line_of_credit_superior_for_lender(self):
         merchants_and_results = self.factory.generate_merchants(

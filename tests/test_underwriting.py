@@ -3,7 +3,7 @@ from random import random
 from unittest.mock import MagicMock
 
 from common.context import DataGenerator, SimulationContext, RiskContext
-from common.numbers import ONE, TWO, Float
+from common.local_numbers import ONE, TWO, Float
 from common.util import weighted_average
 from finance.risk_entity import RiskEntity
 from finance.underwriting import Underwriting

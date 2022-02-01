@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Float, Percent, Ratio, Date, Dollar, O, Int
+from common.local_numbers import Float, Percent, Ratio, Date, Dollar, O, Int
 from common.primitive import Primitive
 from common.util import weighted_average, min_max
 from finance.risk_entity import RiskEntity
@@ -140,3 +140,13 @@ class Merchant(Primitive, RiskEntity):
         top_lines = [inventory.annual_top_line(day) for inventory in self.inventories]
         ratios = [inventory[day].roas for inventory in self.inventories]
         return weighted_average(ratios, top_lines)
+
+    def reset_id(self):
+        super(Merchant, self).reset_id()
+        for inventory in self.inventories:
+            inventory.reset_id()
+
+    def copy_id(self, source: Merchant):
+        super(Merchant, self).copy_id(source)
+        for i in range(len(self.inventories)):
+            self.inventories[i].copy_id(source.inventories[i])

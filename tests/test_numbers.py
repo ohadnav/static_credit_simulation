@@ -1,7 +1,8 @@
 from unittest import TestCase
 
 from common import constants
-from common.numbers import Float, TWO, human_format, ONE, Int, human_format_duration, Duration
+from common.local_numbers import Float, TWO, human_format, ONE, Int, human_format_duration, Duration, \
+    calculate_decimal_figures
 from tests.util_test import BaseTestCase
 
 
@@ -66,7 +67,7 @@ class TestFloat(BaseTestCase):
         self.assertTrue(Float(1).is_close(1 - constants.FLOAT_CLOSE_TOLERANCE + 0.001))
         self.assertTrue(Float(10).is_close(10 + constants.FLOAT_CLOSE_TOLERANCE * 10))
         self.assertTrue(Float(-10).is_close(-10 + constants.FLOAT_CLOSE_TOLERANCE * 10))
-        self.assertFalse(Float(10).is_close(10 + constants.FLOAT_CLOSE_TOLERANCE * 11))
+        self.assertFalse(Float(10).is_close(10 * ((1 + constants.FLOAT_CLOSE_TOLERANCE) ** 2)))
         self.assertFalse(Float(0).is_close(0 + constants.FLOAT_CLOSE_TOLERANCE + 0.01))
 
     def test_from_human_format(self):
@@ -88,8 +89,8 @@ class TestNumbers(BaseTestCase):
         self.assertEqual(human_format(1), '1')
         self.assertEqual(human_format(0.5), '0.5')
         self.assertEqual(human_format(1.51), '1.51')
-        self.assertEqual(human_format(0.0099), '0.01')
-        self.assertEqual(human_format(0.00099), '0')
+        self.assertEqual(human_format(0.0099), '0.0099')
+        self.assertEqual(human_format(0.000106), '0.00011')
 
     def test_human_format_duration(self):
         self.assertEqual(human_format_duration(-10), '-(1wk 3d)')
@@ -101,8 +102,18 @@ class TestNumbers(BaseTestCase):
         self.assertEqual(human_format_duration(13), '1wk 6d')
         self.assertEqual(human_format_duration(30), '1mon')
         self.assertEqual(human_format_duration(31), '1mon 1d')
-        self.assertEqual(human_format_duration(365), '1yr')
-        self.assertEqual(human_format_duration(3650), '10yr')
+        self.assertEqual(human_format_duration(constants.YEAR), '1yr')
+        self.assertEqual(human_format_duration(constants.YEAR * 2), '2yr')
+
+    def test_calculate_decimal_figures(self):
+        self.assertEqual(calculate_decimal_figures(2), 1)
+        self.assertEqual(calculate_decimal_figures(-2), 1)
+        self.assertEqual(calculate_decimal_figures(0.1), 2)
+        self.assertEqual(calculate_decimal_figures(0.65), 2)
+        self.assertEqual(calculate_decimal_figures(0.01), 3)
+        self.assertEqual(calculate_decimal_figures(-0.01), 3)
+        self.assertEqual(calculate_decimal_figures(0.001), 4)
+        self.assertEqual(calculate_decimal_figures(0.1 ** 10), 1)
 
 
 class TestInt(BaseTestCase):

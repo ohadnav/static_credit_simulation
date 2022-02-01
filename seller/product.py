@@ -5,7 +5,7 @@ from typing import Tuple
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Percent, Duration, Stock, Dollar, O, O_INT
+from common.local_numbers import Percent, Duration, Stock, Dollar, O, O_INT
 from common.primitive import Primitive
 from common.util import min_max
 

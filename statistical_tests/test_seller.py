@@ -1,6 +1,6 @@
 from common import constants
 from common.context import DataGenerator, SimulationContext
-from common.numbers import Percent, Dollar, Float, ONE, Date
+from common.local_numbers import Percent, Dollar, Float, ONE, Date
 from finance.underwriting import Underwriting
 from seller.batch import Batch
 from seller.inventory import Inventory
@@ -167,11 +167,11 @@ class TestStatisticalSeller(StatisticalTestCase):
             value2 = data_generator.normal_ratio(chance_positive=0.8)
             value3 = data_generator.normal_ratio(chance_positive=0.2)
             is_true.append((0.5 < value1 < 2, value1))
-            is_true.append((0.7 < value2 < 2, value2))
-            is_true.append((0.5 < value3 < 1.5, value3))
+            is_true.append((1 < value2 < 3, value2))
+            is_true.append((0.33 < value3 < 1, value3))
             return is_true
 
-        statistical_test_bool(self, test_iteration, min_frequency=0.8)
+        statistical_test_bool(self, test_iteration, min_frequency=0.7, times=1000)
 
     def test_annual_top_line(self):
         def test_iteration(data_generator: DataGenerator, *args, **kwargs):

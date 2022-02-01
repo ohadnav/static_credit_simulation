@@ -6,8 +6,8 @@ from typing import Optional, Mapping, Any
 from numpy.random import mtrand
 
 from common import constants
-from common.enum import LoanReferenceType
-from common.numbers import Float, Percent, Ratio, ONE, Int, Duration
+from common.local_enum import LoanReferenceType
+from common.local_numbers import Float, Percent, Ratio, ONE, Int, Duration
 
 VOLATILE_FIELDS = [
     'account_suspension_chance',
@@ -159,6 +159,7 @@ class SimulationContext:
     max_repayment_rate = constants.MAX_REPAYMENT_RATE
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
     loan_reference_type: Optional[LoanReferenceType] = None
+    snapshot_cycle = None
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL

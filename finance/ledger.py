@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from typing import List, MutableMapping, Optional
 
 from common.context import DataGenerator, SimulationContext
-from common.numbers import Dollar, Date, Duration, Float, O_INT, O, Int
+from common.local_numbers import Dollar, Date, Duration, Float, O_INT, O, Int
 from common.primitive import Primitive
-from finance.loan_simulation_results import LoanSimulationResults
 
 
 @dataclass(unsafe_hash=True)
@@ -53,7 +52,7 @@ class Ledger(Primitive):
     def total_credit(self) -> Dollar:
         return Float.sum([loan.amount for loan in self.loans_history])
 
-    def get_num_loans(self) -> Int:
+    def num_loans(self) -> Int:
         return Int(len(self.loans_history))
 
     def get_current_loan(self) -> Loan:
@@ -128,6 +127,3 @@ class Ledger(Primitive):
                 self.loans_history[history_index].outstanding_balance = self.active_loans[-1].outstanding_balance
                 self.loans_history[history_index].amount -= remaining_rate * self.active_loans[-1].amount
             self.active_loans.pop()
-
-
-O_LSR = LoanSimulationResults(O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O_INT)

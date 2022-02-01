@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional, List
 
 from common import constants
-from common.numbers import Percent, O, Float, Int, O_INT, HALF, TWO, FloatRange
+from common.local_numbers import Percent, O, Float, Int, O_INT, HALF, TWO, FloatRange
 
 DEFAULT_RANGES = [
     FloatRange(max_value=O), FloatRange(O, HALF), FloatRange(HALF, TWO),

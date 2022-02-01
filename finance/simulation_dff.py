@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 from typing import Mapping
 
 from common.context import SimulationContext, DataGenerator
-from common.numbers import O, Date
+from common.local_numbers import O, Date
 from finance.ledger import Ledger
 from finance.loan_simulation_results import LoanSimulationResults
 from seller.merchant import Merchant

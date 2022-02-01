@@ -7,9 +7,9 @@ from typing import Callable, List, Optional, Union, Tuple
 from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
-from common.enum import LoanSimulationType, LoanReferenceType
-from common.numbers import Float, O
-from common.util import TqdmParallel, LIVE_RATE
+from common.local_enum import LoanSimulationType, LoanReferenceType
+from common.local_numbers import Float, O
+from common.util import TqdmParallel, LIVE_RATE, inherits_from
 from finance import lender
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant
@@ -42,7 +42,11 @@ class Condition:
         if loan_reference_type == LoanReferenceType.REVENUE_CAGR:
             return Condition('revenue_cagr', loan_type, O)
         else:
-            return Condition('total_credit', loan_type, O)
+            return Condition.generate_from_loan_type(loan_type)
+
+    @classmethod
+    def generate_from_loan_type(cls, loan_type: LoanSimulationType) -> Condition:
+        return Condition('total_credit', loan_type, O)
 
 
 ConditionsEntityOrList = Union[Condition, List[Condition]]
@@ -110,7 +114,8 @@ class MerchantFactory:
                         return None
                     if conditions[i].max_value is not None and not value < conditions[i].max_value:
                         return None
-                if reference_loan and conditions[i].loan_type != LoanSimulationType.NO_CAPITAL:
+                if reference_loan and loans[i].reference_loan and conditions[
+                    i].loan_type != LoanSimulationType.NO_CAPITAL:
                     if not loans[i].close_to_reference_loan():
                         return None
             return loans if len(loans) > 1 else loans[0]
@@ -136,15 +141,15 @@ class MerchantFactory:
             return [self.merchant_generation_iteration(validator)]
 
     @staticmethod
-    def reset_id(merchants_and_results: List[MerchantAndResult]):
-        merchants = MerchantFactory.get_merchants_from_results(merchants_and_results)
-        for merchant in merchants:
-            merchant.reset_id()
-            for inventory in merchant.inventories:
-                inventory.reset_id()
-                inventory.product.reset_id()
-                for batch in inventory.batches:
-                    batch.reset_id()
+    def reset_id(results: List[MerchantAndResult]):
+        merchants = MerchantFactory.get_merchants_from_results(results)
+        for i in range(len(results)):
+            merchants[i].reset_id()
+            if isinstance(results[0][1], list) and inherits_from(type(results[0][1][0]), LoanSimulation.__name__):
+                for j in range(len(results[0][1])):
+                    loan = results[i][1][j]
+                    loan.reset_id()
+                    loan.merchant.copy_id(merchants[i])
 
     @staticmethod
     def get_merchants_from_results(merchants_and_results: List[MerchantAndResult]) -> List[Merchant]:

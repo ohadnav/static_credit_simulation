@@ -6,7 +6,7 @@ from typing import Optional
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT, HALF
+from common.local_numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT, HALF
 from common.primitive import Primitive
 from common.util import min_max
 from finance.risk_entity import RiskEntity

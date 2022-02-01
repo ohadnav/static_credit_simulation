@@ -1,5 +1,5 @@
 from common.context import SimulationContext, RiskConfiguration, DataGenerator, RiskContext
-from common.numbers import Float, Percent, Ratio, Date, O, ONE
+from common.local_numbers import Float, Percent, Ratio, Date, O, ONE
 from common.util import weighted_average, min_max
 from finance.risk_entity import RiskEntity
 

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from common import constants
-from common.numbers import Dollar
+from common.local_numbers import Dollar
 from seller.product import Product
 from tests.util_test import BaseTestCase
 

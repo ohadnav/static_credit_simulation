@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from common import constants
 from common.context import DataGenerator
-from common.numbers import Percent, Date, Duration, Dollar, O, ONE, Stock
+from common.local_numbers import Percent, Date, Duration, Dollar, O, ONE, Stock
 from common.primitive import Primitive
 from seller.batch import Batch
 from seller.product import Product
@@ -88,3 +88,15 @@ class Inventory(Primitive):
         geometric_series_sum_factor = (ONE - (daily_value_discount ** duration_to_sell)) / (
                 1 - daily_value_discount)
         return value_per_day * geometric_series_sum_factor * lead_time_factor
+
+    def reset_id(self):
+        super(Inventory, self).reset_id()
+        self.product.reset_id()
+        for batch in self.batches:
+            batch.reset_id()
+
+    def copy_id(self, source: Inventory):
+        super(Inventory, self).copy_id(source)
+        self.product.copy_id(source.product)
+        for i in range(len(self.batches)):
+            self.batches[i].copy_id(source.batches[i])

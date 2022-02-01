@@ -244,8 +244,17 @@ def human_format(num: Union[float, int]) -> str:
     while abs(num) >= 1000 and magnitude < len(HUMAN_FORMAT_POSTFIX) - 1:
         magnitude += 1
         num /= 1000.0
-    deci = 1 if abs(num) > 2 else 2
+    deci = calculate_decimal_figures(num)
     return '{}{}'.format('{:.{deci}f}'.format(num, deci=deci).rstrip('0').rstrip('.'), HUMAN_FORMAT_POSTFIX[magnitude])
+
+
+def calculate_decimal_figures(num: Union[float, int]) -> int:
+    abs_num = abs(num)
+    if abs_num >= 2 or O == abs_num:
+        return 1
+    if abs_num >= 0.1:
+        return 2
+    return -math.floor(math.log10(abs_num)) + 1
 
 
 Percent = Float

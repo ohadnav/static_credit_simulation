@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, Tuple, Any
 from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
-from common.numbers import Float
+from common.local_numbers import Float
 from common.util import TqdmParallel
 from tests.util_test import BaseTestCase
 

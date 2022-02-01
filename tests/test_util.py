@@ -4,7 +4,7 @@ from time import time, sleep
 from joblib import delayed
 
 from common import constants
-from common.numbers import Float, O, ONE, TWO, Int, Duration
+from common.local_numbers import Float, O, ONE, TWO, Int, Duration
 from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel
 from tests.util_test import BaseTestCase
 

@@ -1,5 +1,5 @@
 from common import constants
-from common.numbers import Percent, O, TWO_INT, O_INT, Int, ONE, ONE_INT, FloatRange
+from common.local_numbers import Percent, O, TWO_INT, O_INT, Int, ONE, ONE_INT, FloatRange
 from finance.risk_order import RiskOrder
 from tests.util_test import BaseTestCase
 

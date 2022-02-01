@@ -1,7 +1,7 @@
 from random import randint
 from unittest.mock import MagicMock
 
-from common.numbers import Percent, Dollar, O, ONE, Date, Duration
+from common.local_numbers import Percent, Dollar, O, ONE, Date, Duration
 from seller.batch import Batch, PurchaseOrder
 from tests.util_test import BaseTestCase
 

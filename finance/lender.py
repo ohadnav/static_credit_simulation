@@ -2,52 +2,25 @@ from __future__ import annotations
 
 import math
 from copy import deepcopy
-from dataclasses import fields, dataclass
+from dataclasses import fields
 from typing import List, MutableMapping, Optional
 
-import dacite as dacite
 import numpy as np
 from joblib import delayed
 
-from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.enum import LoanSimulationType
-from common.numbers import Float, Percent, Ratio, Dollar, O, Int
+from common.local_enum import LoanSimulationType
+from common.local_numbers import Percent, O, Int, Date
 from common.primitive import Primitive
-from common.util import weighted_average, TqdmParallel, get_key_from_value
-from finance.ledger import O_LSR
+from common.util import TqdmParallel, get_key_from_value
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation, InvoiceFinancingSimulation
-from finance.loan_simulation import LoanSimulation, IncreasingRebateLoanSimulation, \
-    NoCapitalLoanSimulation
+from finance.loan_simulation import LoanSimulation
 from finance.loan_simulation_results import LoanSimulationResults
 from finance.risk_order import RiskOrder
+from lender_simulation_results import LenderSimulationResults
+from loan_simulation_childs import IncreasingRebateLoanSimulation, NoCapitalLoanSimulation
+from loan_simulation_results import O_LSR, WEIGHT_FIELD, AggregatedLoanSimulationResults
 from seller.merchant import Merchant
-
-
-@dataclass(unsafe_hash=True)
-class AggregatedLoanSimulationResults:
-    revenue_cagr: Percent
-    total_revenue: Dollar
-    inventory_cagr: Percent
-    net_cashflow_cagr: Percent
-    valuation_cagr: Percent
-    lender_profit: Dollar
-    total_credit: Dollar
-    lender_profit_margin: Percent
-    total_interest: Dollar
-    debt_to_valuation: Percent
-    apr: Percent
-    bankruptcy_rate: Percent
-    hyper_growth_rate: Percent
-    duration_in_debt_rate: Percent
-    approval_rate: Percent
-    num_merchants: Int
-    num_loans: Float
-
-
-WEIGHT_FIELD = 'valuation'
-SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest', 'total_revenue']
-NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate']
 
 LOAN_TYPES_MAPPING = {
     LoanSimulationType.INCREASING_REBATE: IncreasingRebateLoanSimulation,
@@ -57,30 +30,6 @@ LOAN_TYPES_MAPPING = {
     LoanSimulationType.DEFAULT: LoanSimulation,
     LoanSimulationType.INVOICE_FINANCING: InvoiceFinancingSimulation
 }
-
-
-#
-
-class LenderSimulationResults:
-    def __init__(
-            self, sharpe: Ratio, all_merchants: AggregatedLoanSimulationResults,
-            funded_merchants: AggregatedLoanSimulationResults):
-        self.funded = funded_merchants
-        self.all = all_merchants
-        self.sharpe = sharpe
-
-    def __eq__(self, other):
-        if not isinstance(other, LenderSimulationResults):
-            return False
-        return self.sharpe == other.sharpe \
-               and self.all == other.all \
-               and self.funded == other.funded
-
-    def __str__(self):
-        return f'funded: {self.funded} all_lsr: {self.all} sharpe: {self.sharpe}'
-
-    def __repr__(self):
-        return self.__str__()
 
 
 class Lender(Primitive):
@@ -97,6 +46,7 @@ class Lender(Primitive):
         self.loan_type = loan_type
         self.reference = reference_lender
         self.risk_order = RiskOrder()
+        self.snapshots: MutableMapping[Date, AggregatedLoanSimulationResults] = {}
 
     @classmethod
     def generate_from_simulated_loans(cls, loans: List[LoanSimulation], reference: Optional[Lender] = None) -> Lender:
@@ -146,31 +96,8 @@ class Lender(Primitive):
         reference_loan = self.reference.loans[merchant] if self.reference else None
         return Lender.generate_loan(merchant, self.context, self.data_generator, self.loan_type, reference_loan)
 
-    def aggregate_results(self, loan_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
-        result = {'num_merchants': Int(len(loan_results)),
-            'approval_rate': Percent(len(loan_results) / len(self.merchants))}
-        for field in fields(LoanSimulationResults):
-            if field.name == WEIGHT_FIELD:
-                continue
-            values = [getattr(lsr, field.name) for lsr in loan_results]
-            if field.name in SUM_FIELDS:
-                result[field.name] = Float.sum(values)
-            elif field.name in NO_WEIGHTS_FIELDS:
-                result[field.name] = Float.average(values)
-            else:
-                weights = [Float.min(lsr.valuation, constants.MAX_RESULTS_WEIGHT) for lsr in loan_results]
-                result[field.name] = weighted_average(values, weights)
-        return dacite.from_dict(AggregatedLoanSimulationResults, result)
-
-    def calculate_sharpe(self, portfolio_results: List[LoanSimulationResults]) -> Ratio:
-        aggregated = self.aggregate_results(portfolio_results)
-        portfolio_return = aggregated.apr
-        risk_free_return = self.context.cost_of_capital
-        std = np.std([lsr.apr for lsr in portfolio_results])
-        if std <= 0:
-            return O
-        sharpe = (portfolio_return - risk_free_return) / std
-        return sharpe
+    def aggregate_results(self, simulations_results: List[LoanSimulationResults]) -> AggregatedLoanSimulationResults:
+        return AggregatedLoanSimulationResults.generate_from_list(simulations_results, len(self.merchants))
 
     def calculate_correlation(self, simulation_result_field_name: str) -> MutableMapping[str, Percent]:
         correlations = {}
@@ -193,14 +120,33 @@ class Lender(Primitive):
         all_merchants = self.aggregate_results(self.all_merchants_simulation_results())
         portfolio_results = self.funded_merchants_simulation_results()
         portfolio_merchants_agg_results = self.aggregate_results(portfolio_results)
-        sharpe = self.calculate_sharpe(portfolio_results)
-        self.simulation_results = LenderSimulationResults(
-            sharpe, all_merchants, portfolio_merchants_agg_results)
+        self.simulation_results = LenderSimulationResults(all_merchants, portfolio_merchants_agg_results)
         self.underwriting_correlation()
         if self.reference:
             self.risk_order = self.reference.risk_order
         else:
             self.risk_order = RiskOrder([lsr.revenue_cagr for lsr in portfolio_results])
+        self.prepare_snapshots()
+
+    def snapshot_dates(self) -> List[Date]:
+        return [Date(day) for day in
+            range(self.context.snapshot_cycle, self.data_generator.simulated_duration, self.context.snapshot_cycle)]
+
+    def prepare_snapshots(self):
+        if not self.context.snapshot_cycle:
+            return
+        for day in self.snapshot_dates():
+            day_snapshots = self.get_snapshots_for_day(day)
+            self.snapshots[day] = self.aggregate_results(day_snapshots)
+
+    def get_snapshots_for_day(self, day: Date) -> List[LoanSimulationResults]:
+        day_snapshots = []
+        for loan in self.loans.values():
+            if day in loan.snapshots:
+                day_snapshots.append(loan.snapshots[day])
+            elif day > loan.today and loan.snapshots:
+                day_snapshots.append(loan.snapshots[list(loan.snapshots)[-1]])
+        return day_snapshots
 
     def all_merchants_simulation_results(self) -> List[LoanSimulationResults]:
         return [loan.simulation_results for loan in self.loans.values()]
@@ -209,7 +155,7 @@ class Lender(Primitive):
         return [loan.simulation_results for loan in self.funded_merchants_loans()]
 
     def funded_merchants_loans(self) -> List[LoanSimulation]:
-        return [loan for loan in self.loans.values() if loan.ledger.total_credit() > 0]
+        return [loan for loan in self.loans.values() if loan.ledger.total_credit() > O]
 
     def simulate(self):
         if self.simulation_results:
