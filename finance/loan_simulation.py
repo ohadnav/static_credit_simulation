@@ -31,6 +31,7 @@ class LoanSimulation(Primitive):
         self.underwriting = Underwriting(self.context, self.data_generator, merchant)
         self.flat_fee = self.context.rbf_flat_fee
         self.last_year_revenue = O
+        self.recent_history_revenue = O
         self.current_repayment_rate = self.default_repayment_rate()
         self.ledger = Ledger(self.data_generator, self.context)
         self.ledger.record_cash(self.today, self.initial_cash)
@@ -47,12 +48,15 @@ class LoanSimulation(Primitive):
         self.reference_loan = reference_loan
         self.init_loan_reference_diff()
 
-    def estimated_annual_revenue(self):
+    def estimated_annual_revenue(self) -> Dollar:
+        return self.estimated_revenue_over_duration(self.last_year_revenue, constants.YEAR)
+
+    def estimated_revenue_over_duration(self, total_revenue: Dollar, duration: Duration) -> Dollar:
         if self.today <= constants.MONTH:
-            return self.merchant.annual_top_line(self.data_generator.start_date)
-        if self.today <= constants.YEAR:
-            return self.last_year_revenue * constants.YEAR / self.today.from_date(self.data_generator.start_date)
-        return self.last_year_revenue
+            return self.merchant.annual_top_line(self.data_generator.start_date) * duration / constants.YEAR
+        if self.today <= duration:
+            return total_revenue * duration / self.today.from_date(self.data_generator.start_date)
+        return total_revenue
 
     def to_data_container(self) -> LoanDataContainer:
         return LoanDataContainer(self.ledger, self.merchant, self.simulation_results)
@@ -92,7 +96,9 @@ class LoanSimulation(Primitive):
         return self.loan_amount()
 
     def loan_amount(self) -> Dollar:
-        amount = self.estimated_annual_revenue() * self.context.loan_amount_per_monthly_income / constants.NUM_MONTHS
+        recent_revenue = self.recent_revenue()
+        recent_monthly_revenue = recent_revenue * constants.MONTH / self.context.history_duration_for_amount_calculation
+        amount = recent_monthly_revenue * self.context.loan_amount_per_monthly_income
         amount = Float.min(amount, self.context.max_loan_amount)
         return amount
 
@@ -143,6 +149,10 @@ class LoanSimulation(Primitive):
     def annual_revenue(self):
         return self.estimated_annual_revenue()
 
+    def recent_revenue(self):
+        return self.estimated_revenue_over_duration(
+            self.recent_history_revenue, self.context.history_duration_for_amount_calculation)
+
     def calculate_reference_diff(self) -> Mapping:
         return self.loan_reference_diff.calculate_diff(self.today, self.reference_loan.today)
 
@@ -191,8 +201,12 @@ class LoanSimulation(Primitive):
 
     def simulate_sales(self):
         self.last_year_revenue += self.merchant.revenue_per_day(self.today)
+        self.recent_history_revenue += self.merchant.revenue_per_day(self.today)
         if self.today > constants.YEAR:
             self.last_year_revenue -= self.merchant.revenue_per_day(self.today - constants.YEAR + 1)
+        if self.today > self.context.history_duration_for_amount_calculation:
+            self.recent_history_revenue -= self.merchant.revenue_per_day(
+                self.today - self.context.history_duration_for_amount_calculation + 1)
         self.marketplace_balance += self.merchant.gp_per_day(self.today)
 
     def marketplace_payout(self):
@@ -256,11 +270,15 @@ class LoanSimulation(Primitive):
     def current_simulation_results(self) -> LoanSimulationResults:
         return LoanSimulationResults(
             self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.annual_revenue(),
-            self.projected_cagr(), self.inventory_cagr(), self.net_cashflow_cagr(), self.valuation_cagr(),
+            self.recent_revenue(), self.projected_cagr(), self.inventory_cagr(), self.net_cashflow_cagr(),
+            self.valuation_cagr(),
             self.lender_profit(), self.ledger.total_credit(), self.lender_profit_margin(), self.total_interest(),
             self.debt_to_valuation(), self.effective_apr(), self.bankruptcy_rate(),
-            self.hyper_growth_rate(), self.duration_in_debt_rate(),
+            self.hyper_growth_rate(), self.duration_in_debt_rate(), self.duration_finished_rate(),
             self.ledger.num_loans())
+
+    def duration_finished_rate(self) -> Percent:
+        return self.today / self.data_generator.simulated_duration
 
     def duration_in_debt_rate(self) -> Percent:
         return Percent(self.duration_in_debt / self.today)

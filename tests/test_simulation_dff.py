@@ -104,7 +104,7 @@ class TestLoanSimulationDiff(BaseTestCase):
         self.lsd.merchant_stock_diff(self.loan1.today, self.loan2.today)
         self.assertDeepAlmostEqual(
             self.lsd.diff,
-            {'merchant': {'stock': {i: (j, 1, self.loan2.merchant.inventories[i].batches[j].start_date)}}})
+            {'merchant': {'stock': {i: [(j, 1, self.loan2.merchant.inventories[i].batches[j].start_date)]}}})
 
     def test_merchant_attribute_diff(self):
         for attribute in MERCHANT_ATTRIBUTES:

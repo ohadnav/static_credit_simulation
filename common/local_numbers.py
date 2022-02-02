@@ -102,11 +102,10 @@ class Float(float):
         return Float(min(*args, **kwargs))
 
     @staticmethod
-    def average(values: List[float]) -> Float:
+    def mean(values: List[float]) -> Float:
         if len(values) == 0:
             return O
-        total = Float.sum([values[i] for i in range(len(values))])
-        return total / len(values)
+        return Float.sum(values) / len(values)
 
 
 class Int(int):
@@ -271,7 +270,7 @@ ONE_INT = Duration(1)
 TWO_INT = Duration(2)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class FloatRange:
     min_value: Optional[Float] = None
     max_value: Optional[Float] = None

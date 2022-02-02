@@ -8,7 +8,7 @@ import dacite
 
 import constants
 from common.local_numbers import Dollar, Percent, Int, Float, O, ONE, TWO
-from util import inherits_from, weighted_average
+from util import inherits_from, weighted_average, min_max
 
 
 @dataclass(unsafe_hash=True)
@@ -16,6 +16,7 @@ class LoanSimulationResults:
     valuation: Optional[Dollar]
     revenue_cagr: Percent
     annual_revenue: Dollar
+    recent_revenue: Dollar
     projected_cagr: Percent
     inventory_cagr: Percent
     net_cashflow_cagr: Percent
@@ -29,6 +30,7 @@ class LoanSimulationResults:
     bankruptcy_rate: Percent
     hyper_growth_rate: Percent
     duration_in_debt_rate: Percent
+    duration_finished_rate: Percent
     num_loans: Int
 
     def __str__(self):
@@ -62,9 +64,9 @@ O_LSR = LoanSimulationResults.generate_from_float(O)
 ONE_LSR = LoanSimulationResults.generate_from_float(ONE)
 TWO_LSR = LoanSimulationResults.generate_from_float(TWO)
 
-WEIGHT_FIELD = 'valuation'
-SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest', 'annual_revenue']
-NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate']
+WEIGHT_FIELD = 'annual_revenue'
+SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest', 'annual_revenue', 'valuation', 'recent_revenue']
+NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate', 'duration_finished_rate']
 
 
 @dataclass(unsafe_hash=True)
@@ -80,15 +82,13 @@ class AggregatedLoanSimulationResults(LoanSimulationResults):
         result = {'num_merchants': Int(len(simulations_results)),
             'approval_rate': Percent(len(simulations_results) / num_merchants)}
         for field in fields(LoanSimulationResults):
-            if field.name == WEIGHT_FIELD:
-                continue
             values = [getattr(lsr, field.name) for lsr in simulations_results]
             if field.name in SUM_FIELDS:
                 result[field.name] = Float.sum(values)
             elif field.name in NO_WEIGHTS_FIELDS:
-                result[field.name] = Float.average(values)
+                result[field.name] = Float.mean(values)
             else:
-                weights = [Float.min(lsr.valuation, constants.MAX_RESULTS_WEIGHT) for lsr in simulations_results]
+                weights = [min_max(lsr.valuation, ONE, constants.MAX_RESULTS_WEIGHT) for lsr in simulations_results]
                 result[field.name] = weighted_average(values, weights)
         return dacite.from_dict(AggregatedLoanSimulationResults, result)
 
@@ -98,8 +98,6 @@ class AggregatedLoanSimulationResults(LoanSimulationResults):
             approval_rate: Float) -> AggregatedLoanSimulationResults:
         result = {'num_merchants': num_merchants, 'approval_rate': approval_rate}
         for field in fields(LoanSimulationResults):
-            if field.name == WEIGHT_FIELD:
-                continue
             if field.name in SUM_FIELDS:
                 result[field.name] = sum_field
             elif field.name in NO_WEIGHTS_FIELDS:

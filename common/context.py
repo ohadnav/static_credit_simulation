@@ -160,6 +160,7 @@ class SimulationContext:
     marketplace_payment_cycle = constants.MARKETPLACE_PAYMENT_CYCLE
     loan_reference_type: Optional[LoanReferenceType] = None
     snapshot_cycle = None
+    history_duration_for_amount_calculation = constants.HISTORY_DURATION_FOR_AMOUNT_CALCULATION
 
     # Lender
     cost_of_capital = constants.COST_OF_CAPITAL

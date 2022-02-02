@@ -141,12 +141,12 @@ class LoanSimulationDiff:
     def merchant_stock_diff(self, today1: Date, today2: Date):
         self.diff['merchant']['stock'] = {}
         for i in range(len(self.loan1.merchant.inventories)):
-            self.diff['merchant']['stock'][i] = {}
+            self.diff['merchant']['stock'][i] = []
             for j in range(len(self.loan1.merchant.inventories[i].batches)):
                 batch1 = self.loan1.merchant.inventories[i].batches[j]
                 batch2 = self.loan2.merchant.inventories[i].batches[j]
                 if batch1.stock != batch2.stock and batch1.start_date <= min(today1, today2):
-                    self.diff['merchant']['stock'][i] = (j, batch1.stock - batch2.stock, batch1.start_date)
+                    self.diff['merchant']['stock'][i].append((j, batch1.stock - batch2.stock, batch1.start_date))
             if not self.diff['merchant']['stock'][i]:
                 del self.diff['merchant']['stock'][i]
         if not self.diff['merchant']['stock']:

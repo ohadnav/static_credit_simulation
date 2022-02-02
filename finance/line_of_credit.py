@@ -6,7 +6,6 @@ from finance.underwriting import Underwriting
 
 class LineOfCreditSimulation(LoanSimulation):
     def remaining_credit(self) -> Dollar:
-        # TODO: test fixed size line of credit
         return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.ledger.outstanding_balance()))
 
     def secondary_approval_conditions(self):

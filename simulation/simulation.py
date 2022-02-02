@@ -6,7 +6,7 @@ import time
 from abc import abstractmethod, ABC
 from copy import deepcopy
 from shutil import copyfile
-from typing import List, Mapping
+from typing import List, Mapping, Optional
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
@@ -19,11 +19,12 @@ from scenario import Scenario
 
 
 class Simulation(ABC):
-    def __init__(self, scenario: Scenario, run_dir: str):
+    def __init__(self, scenario: Scenario, run_dir: str, loan_types: Optional[List[LoanSimulationType]] = None):
         shout_print(f'SIMULATING {scenario.__str__()}')
         self.scenario = scenario
         self.context = self.generate_context()
         self.data_generator = self.generate_data_generator()
+        self.loan_types = loan_types or LoanSimulationType.list()
         self.lenders = self.generate_lenders()
         self.save_dir = scenario.get_dir(run_dir, to_make=True)
         self.simulate()
@@ -52,7 +53,7 @@ class Simulation(ABC):
             merchants = MerchantFactory.get_merchants_from_results(results)
             if isinstance(results[0][1], list) and inherits_from(type(results[0][1][0]), LoanSimulation.__name__):
                 return self.generate_lenders_from_simulated_loans(results)
-        loan_types = self.scenario.loan_simulation_types or LoanSimulationType.list()
+        loan_types = self.scenario.loan_simulation_types or self.loan_types
         return [Lender(self.context, self.data_generator, deepcopy(merchants), loan_type) for loan_type in loan_types]
 
     def generate_lenders_from_simulated_loans(self, results: List[MerchantAndResult]) -> List[Lender]:

@@ -1,11 +1,8 @@
 from random import uniform
-from time import time, sleep
-
-from joblib import delayed
 
 from common import constants
 from common.local_numbers import Float, O, ONE, TWO, Int, Duration
-from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr, TqdmParallel
+from common.util import calculate_cagr, min_max, weighted_average, inverse_cagr
 from tests.util_test import BaseTestCase
 
 
@@ -40,19 +37,3 @@ class TestUtil(BaseTestCase):
         self.assertEqual(inverse_cagr(O, constants.YEAR), -ONE)
         self.assertEqual(inverse_cagr(-ONE, constants.YEAR), -ONE)
 
-
-class TestTqdmParallel(BaseTestCase):
-    def test_parallel(self):
-        def sleep_func(i):
-            sleep(0.2)
-            return i
-
-        times = 5
-        start_time = time()
-        [sleep_func(i) for i in range(times)]
-        unparallel_time = time() - start_time
-        start_time2 = time()
-        result = TqdmParallel(use_tqdm=False)(delayed(sleep_func)(i) for i in range(times))
-        parallel_time = time() - start_time2
-        self.assertLess(parallel_time, unparallel_time)
-        self.assertDeepAlmostEqual(result, [0, 1, 2, 3, 4])

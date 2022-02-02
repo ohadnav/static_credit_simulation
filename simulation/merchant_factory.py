@@ -9,7 +9,8 @@ from joblib import delayed
 from common.context import DataGenerator, SimulationContext
 from common.local_enum import LoanSimulationType, LoanReferenceType
 from common.local_numbers import Float, O
-from common.util import TqdmParallel, LIVE_RATE, inherits_from
+from common.tqdm_parallel import LIVE_RATE, TqdmParallel
+from common.util import inherits_from
 from finance import lender
 from finance.loan_simulation import LoanSimulation
 from seller.merchant import Merchant

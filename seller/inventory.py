@@ -40,7 +40,7 @@ class Inventory(Primitive):
         return len([batch for batch in self.batches if batch.start_date <= day <= batch.last_date]) > 0
 
     def annual_top_line(self, day: Date) -> Dollar:
-        return self[day].inventory_turnover_ratio * self[day].stock * self.product.price
+        return self[day].inventory_turnover_ratio * self[day].stock * self.product.price * self[day].revenue_margin()
 
     def gp_per_day(self, day: Date) -> Dollar:
         return self[day].gp_per_day(day)

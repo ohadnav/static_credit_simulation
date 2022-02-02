@@ -28,12 +28,13 @@ class LoanSimulationType(ExtendedEnum):
 
 
 class RuntimeType(ExtendedEnum):
+    RUN_ALL = 'RunAll'
     BENCHMARK_SIMULATION = 'BenchmarkSimulation'
     PLOT_TIMELINE = 'TimelineSimulation'
 
 
 class LoanReferenceType(ExtendedEnum):
     TOTAL_INTEREST = 1
-    DAILY_REVENUE = 2
-    ANNUAL_REVENUE = 3
+    ANNUAL_REVENUE = 2
+    DAILY_REVENUE = 3
     REVENUE_CAGR = 4

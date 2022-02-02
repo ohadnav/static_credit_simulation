@@ -3,16 +3,17 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 from dataclasses import fields
-from typing import List, MutableMapping, Optional
+from typing import List, MutableMapping, Optional, Mapping
 
 import numpy as np
 from joblib import delayed
 
 from common.context import SimulationContext, DataGenerator
 from common.local_enum import LoanSimulationType
-from common.local_numbers import Percent, O, Int, Date
+from common.local_numbers import Percent, O, Int, Date, Dollar, FloatRange, Float
 from common.primitive import Primitive
-from common.util import TqdmParallel, get_key_from_value
+from common.tqdm_parallel import TqdmParallel
+from common.util import get_key_from_value, intersection
 from finance.line_of_credit import LineOfCreditSimulation, DynamicLineOfCreditSimulation, InvoiceFinancingSimulation
 from finance.loan_simulation import LoanSimulation
 from finance.loan_simulation_results import LoanSimulationResults
@@ -90,7 +91,31 @@ class Lender(Primitive):
         return self.aggregate_results(diff_lsr)
 
     def risk_order_counts(self) -> List[Int]:
-        return self.risk_order.count_per_order([lsr.revenue_cagr for lsr in self.funded_merchants_simulation_results()])
+        if not self.reference:
+            return self.get_risk_order_counts_for_list(self.funded_merchants_simulation_results())
+        funded_by_both = self.funded_also_by_reference_lender()
+        lsr_of_these_merchants = [self.loans[merchant].simulation_results for merchant in funded_by_both]
+        return self.get_risk_order_counts_for_list(lsr_of_these_merchants)
+
+    def funded_also_by_reference_lender(self) -> List[Merchant]:
+        funded_by_self = [loan.merchant for loan in self.funded_merchants_loans()]
+        if not self.reference:
+            return funded_by_self
+        funded_by_reference = [loan.merchant for loan in self.reference.funded_merchants_loans()]
+        funded_by_both = intersection(funded_by_self, funded_by_reference)
+        return funded_by_both
+
+    def lender_profit_per_risk_order(self) -> List[Dollar]:
+        order_to_loans: Mapping[FloatRange: List[LoanSimulation]] = {
+            order: [self.loans[merchant] for merchant in self.funded_also_by_reference_lender() if
+                self.risk_order.get_order_range(self.loans[merchant].simulation_results.revenue_cagr) == order] for
+            order in
+            self.risk_order.risk_orders}
+        return [Float.mean([loan.simulation_results.lender_profit for loan in loans]) for order, loans in
+            order_to_loans.items()]
+
+    def get_risk_order_counts_for_list(self, lsr_list: List[LoanSimulationResults]) -> List[Int]:
+        return self.risk_order.count_per_order([lsr.revenue_cagr for lsr in lsr_list])
 
     def generate_loan_from_merchant(self, merchant: Merchant) -> LoanSimulation:
         reference_loan = self.reference.loans[merchant] if self.reference else None
@@ -124,8 +149,8 @@ class Lender(Primitive):
         self.underwriting_correlation()
         if self.reference:
             self.risk_order = self.reference.risk_order
-        else:
-            self.risk_order = RiskOrder([lsr.revenue_cagr for lsr in portfolio_results])
+        # else:
+        #     self.risk_order = RiskOrder([lsr.revenue_cagr for lsr in portfolio_results])
         self.prepare_snapshots()
 
     def snapshot_dates(self) -> List[Date]:

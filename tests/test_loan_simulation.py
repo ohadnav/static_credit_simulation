@@ -99,6 +99,16 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.current_cash = 1
         self.assertEqual(self.loan_simulation.credit_needed(), inventory_cost - 1)
 
+    def test_loan_amount(self):
+        self.assertEqual(
+            self.loan_simulation.loan_amount(), self.loan_simulation.merchant.annual_top_line(
+                self.data_generator.start_date) * self.context.loan_amount_per_monthly_income / constants.NUM_MONTHS)
+        self.loan_simulation.today += self.context.history_duration_for_amount_calculation
+        self.loan_simulation.recent_revenue = self.context.history_duration_for_amount_calculation / constants.MONTH
+        self.assertEqual(self.loan_simulation.loan_amount(), self.context.loan_amount_per_monthly_income)
+        self.loan_simulation.recent_revenue = Dollar(10 ** 10)
+        self.assertEqual(self.loan_simulation.loan_amount(), self.context.max_loan_amount)
+
     def test_update_credit_new_credit(self):
         self.loan_simulation.current_repayment_rate = 0.1
         self.loan_simulation.calculate_amount = MagicMock(return_value=self.loan_simulation.loan_amount())
@@ -200,14 +210,23 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.simulate_day()
         self.loan_simulation.on_bankruptcy.assert_called()
 
-    def test_simulate_sales(self):
-        self.loan_simulation.marketplace_balance = 1
-        self.loan_simulation.last_year_revenue = 2
+    def test_simulate_sales_recent_revenue(self):
+        self.merchant.revenue_per_day = MagicMock(return_value=ONE)
+        self.loan_simulation.simulate_sales()
+        self.assertEqual(self.loan_simulation.recent_revenue, ONE)
+        self.loan_simulation.today += self.context.history_duration_for_amount_calculation
+        self.loan_simulation.simulate_sales()
+        self.assertEqual(self.loan_simulation.recent_revenue, ONE)
+
+    def test_simulate_sales_last_year_revenue(self):
+        self.merchant.revenue_per_day = MagicMock(return_value=ONE)
         self.loan_simulation.simulate_sales()
         self.assertEqual(
-            self.loan_simulation.marketplace_balance, 1 + self.merchant.gp_per_day(self.data_generator.start_date))
-        self.assertEqual(
-            self.loan_simulation.last_year_revenue, 2 + self.merchant.revenue_per_day(self.data_generator.start_date))
+            self.loan_simulation.marketplace_balance, self.merchant.gp_per_day(self.data_generator.start_date))
+        self.assertEqual(self.loan_simulation.last_year_revenue, ONE)
+        self.loan_simulation.today += constants.YEAR
+        self.loan_simulation.simulate_sales()
+        self.assertEqual(self.loan_simulation.last_year_revenue, ONE)
 
     def test_simulate_inventory_purchase(self):
         self.loan_simulation.current_cash = 2
@@ -421,7 +440,7 @@ class TestLoanSimulation(BaseTestCase):
 
         # First debt
         self.loan_simulation.add_debt(self.loan_simulation.debt_to_loan_amount(debt1))
-        self.assertEqual(self.loan_simulation.cost_of_capital(), repaid1 * Float.average(coc[:2]))
+        self.assertEqual(self.loan_simulation.cost_of_capital(), repaid1 * Float.mean(coc[:2]))
         self.loan_simulation.projected_remaining_debt = MagicMock(return_value=ONE)
         # Simulating repayment
         duration = Duration(constants.MONTH)
@@ -437,7 +456,7 @@ class TestLoanSimulation(BaseTestCase):
         self.loan_simulation.projected_amount_per_repayment = MagicMock(return_value=ONE)
         # Moving today forward
         self.loan_simulation.today += self.context.marketplace_payment_cycle
-        self.assertEqual(self.loan_simulation.cost_of_capital(), repaid1 * Float.average(coc[1:3]))
+        self.assertEqual(self.loan_simulation.cost_of_capital(), repaid1 * Float.mean(coc[1:3]))
         # Second debt
         self.loan_simulation.add_debt(self.loan_simulation.debt_to_loan_amount(debt2))
         self.assertEqual(self.loan_simulation.cost_of_capital(), repaid1 * coc[2] + repaid2 * coc[1])
@@ -546,7 +565,7 @@ class TestLoanSimulation(BaseTestCase):
         debt2 = ONE
         apr = [self.loan_simulation.calculate_apr(self.context.marketplace_payment_cycle * (i + 1)) for i in range(3)]
         self.loan_simulation.add_debt(self.loan_simulation.debt_to_loan_amount(debt1))
-        self.assertEqual(self.loan_simulation.effective_apr(), Float.average(apr[:2]))
+        self.assertEqual(self.loan_simulation.effective_apr(), Float.mean(apr[:2]))
         self.loan_simulation.projected_remaining_debt = MagicMock(return_value=ONE)
         self.assertEqual(self.loan_simulation.effective_apr(), apr[0])
         self.loan_simulation.projected_remaining_debt = MagicMock(return_value=O)
@@ -554,7 +573,7 @@ class TestLoanSimulation(BaseTestCase):
         self.assertEqual(self.loan_simulation.effective_apr(), apr[0])
         self.loan_simulation.projected_amount_per_repayment = MagicMock(return_value=ONE)
         self.loan_simulation.today += self.context.marketplace_payment_cycle
-        self.assertEqual(self.loan_simulation.effective_apr(), Float.average(apr[1:3]))
+        self.assertEqual(self.loan_simulation.effective_apr(), Float.mean(apr[1:3]))
         self.loan_simulation.add_debt(self.loan_simulation.debt_to_loan_amount(debt2))
         self.assertEqual(self.loan_simulation.effective_apr(), (2 * apr[2] + apr[1]) / 3)
         self.loan_simulation.today += self.context.marketplace_payment_cycle - 1
@@ -569,6 +588,7 @@ class TestLoanSimulation(BaseTestCase):
         expected = {Date(day): O_LSR for day in range(
             self.context.snapshot_cycle + self.data_generator.start_date - 1, self.loan_simulation.today + 1,
             self.context.snapshot_cycle)}
+        # noinspection PyTypeChecker
         self.assertDeepAlmostEqual(expected, self.loan_simulation.snapshots)
 
     def test_estimated_annual_revenue(self):

@@ -60,5 +60,8 @@ class RiskOrder:
             if cagr >= risk_order.min_value:
                 return Int(len(self.risk_orders) - i - 1)
 
+    def get_order_range(self, cagr: Percent) -> FloatRange:
+        return self.risk_orders[self.get_order(cagr)]
+
     def __eq__(self, other: RiskOrder) -> bool:
         return self.risk_orders == other.risk_orders

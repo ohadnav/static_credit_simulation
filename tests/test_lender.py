@@ -6,11 +6,10 @@ import numpy as np
 
 from common import constants
 from common.local_enum import LoanSimulationType
-from common.local_numbers import O, ONE, Float, Percent, Int, ONE_INT, Duration, Date
+from common.local_numbers import O, ONE, Float, Percent, Int, ONE_INT, Duration, Date, TWO, Dollar
 from finance.lender import Lender
 from finance.loan_simulation import LoanSimulation
 from finance.loan_simulation_results import LoanSimulationResults
-from finance.risk_order import RiskOrder
 from loan_simulation_results import ONE_LSR, TWO_LSR, WEIGHT_FIELD, AggregatedLoanSimulationResults
 from simulation.merchant_factory import MerchantFactory
 from statistical_tests.statistical_util import StatisticalTestCase
@@ -39,11 +38,11 @@ class TestLender(StatisticalTestCase):
         self.lender.merchants = [self.merchants[0]] * 3
         three = Float(3)
         five = Float(5)
-        four = Float(4)
         six = Float(6)
+        weighted_avg = Float((5 * 5 + 1) / (1 + 5))
         loan_lsrs = [ONE_LSR, LoanSimulationResults.generate_from_float(five)]
-        loan_lsrs[1].valuation = three
-        expected = AggregatedLoanSimulationResults.generate_from_numbers(four, six, three, Int(2), Percent(2 / 3))
+        expected = AggregatedLoanSimulationResults.generate_from_numbers(
+            weighted_avg, six, three, Int(2), Percent(2 / 3))
         self.assertEqual(self.lender.aggregate_results(loan_lsrs), expected)
 
     def test_calculate_results(self):
@@ -55,12 +54,6 @@ class TestLender(StatisticalTestCase):
         self.lender.calculate_results()
         self.lender.underwriting_correlation.assert_called()
         self.assertIsNotNone(self.lender.simulation_results)
-        self.assertNotEqual(self.lender.risk_order, RiskOrder())
-        lender2 = Lender(self.context, self.data_generator, self.merchants)
-        lender2.risk_order = RiskOrder([ONE])
-        self.lender.reference = lender2
-        self.lender.calculate_results()
-        self.assertEqual(self.lender.risk_order, lender2.risk_order)
 
     def test_calculate_correlation(self):
         merchants = self.factory.generate_merchants(num_merchants=2)
@@ -151,7 +144,7 @@ class TestLender(StatisticalTestCase):
         self.context.snapshot_cycle = constants.MONTH
         three = Float(3)
         five = Float(5)
-        four = Float(4)
+        weighted_avg = Float((5 * 5 + 1) / (1 + 5))
         six = Float(6)
         self.lender.merchants = self.lender.merchants[:2]
         loan1 = LoanSimulation(self.context, self.data_generator, self.merchants[0])
@@ -159,10 +152,9 @@ class TestLender(StatisticalTestCase):
         loan1.snapshots = {Date(day): loan1.simulation_results for day in self.lender.snapshot_dates()}
         loan2 = LoanSimulation(self.context, self.data_generator, self.merchants[1])
         loan2.simulation_results = LoanSimulationResults.generate_from_float(five)
-        loan2.simulation_results.valuation = three
         loan2.snapshots = {Date(day): loan2.simulation_results for day in self.lender.snapshot_dates()}
         self.lender.loans = {self.lender.merchants[0]: loan1, self.lender.merchants[1]: loan2}
-        expected = AggregatedLoanSimulationResults.generate_from_numbers(four, six, three, Int(2), ONE)
+        expected = AggregatedLoanSimulationResults.generate_from_numbers(weighted_avg, six, three, Int(2), ONE)
         expected_snapshots = {Date(day): expected for day in self.lender.snapshot_dates()}
         self.lender.prepare_snapshots()
         self.assertDeepAlmostEqual(self.lender.snapshots, expected_snapshots)
@@ -179,3 +171,26 @@ class TestLender(StatisticalTestCase):
         self.assertDeepAlmostEqual(self.lender.get_snapshots_for_day(self.context.snapshot_cycle), [ONE_LSR, TWO_LSR])
         self.assertDeepAlmostEqual(
             self.lender.get_snapshots_for_day(self.context.snapshot_cycle * 2), [ONE_LSR, TWO_LSR])
+
+    def test_risk_order_counts(self):
+        loans = [LoanSimulation(self.context, self.data_generator, self.merchants[i]) for i in range(2)]
+        for i in range(2):
+            loans[i].simulation_results = LoanSimulationResults.generate_from_float(ONE)
+            loans[i].ledger.total_credit = MagicMock(return_value=ONE)
+        self.lender.merchants = self.merchants[:2]
+        self.lender.loans = {self.merchants[i]: loans[i] for i in range(2)}
+        lender2 = deepcopy(self.lender)
+        lender2.reference = self.lender
+        self.assertEqual(lender2.risk_order_counts(), [0, 0, 2, 0, 0])
+        self.lender.loans[self.merchants[0]].ledger.total_credit = MagicMock(return_value=O)
+        self.assertEqual(lender2.risk_order_counts(), [0, 0, 1, 0, 0])
+
+    def test_lender_profit_per_risk_order(self):
+        loans = [LoanSimulation(self.context, self.data_generator, self.merchants[i]) for i in range(2)]
+        for i in range(2):
+            loans[i].simulation_results = LoanSimulationResults.generate_from_float(ONE)
+            loans[i].ledger.total_credit = MagicMock(return_value=ONE)
+        self.lender.loans = {self.merchants[i]: loans[i] for i in range(2)}
+        self.assertEqual(self.lender.lender_profit_per_risk_order()[self.lender.risk_order.get_order(ONE)], ONE)
+        loans[0].simulation_results.lender_profit = TWO
+        self.assertEqual(self.lender.lender_profit_per_risk_order()[self.lender.risk_order.get_order(ONE)], Dollar(1.5))

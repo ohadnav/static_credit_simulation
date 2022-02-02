@@ -6,7 +6,7 @@ from typing import Optional
 
 from common import constants
 from common.context import DataGenerator
-from common.local_numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT, HALF
+from common.local_numbers import Float, Percent, Ratio, Date, Duration, Stock, Dollar, O, ONE, O_INT, HALF, ONE_INT
 from common.primitive import Primitive
 from common.util import min_max
 from finance.risk_entity import RiskEntity
@@ -123,8 +123,8 @@ class Batch(Primitive, RiskEntity):
     def generate_initial_stock(
             cls, data_generator: DataGenerator, lead_time: Duration, product: Product,
             previous: Optional[Batch]) -> Stock:
-        return 0 if previous else Stock(
-            max(lead_time + 1, product.min_purchase_order_size) * data_generator.normal_ratio(
+        return O_INT if previous else Stock(
+            max(lead_time + ONE_INT, product.min_purchase_order_size) * data_generator.normal_ratio(
                 data_generator.initial_stock_std, chance_positive=1))
 
     @classmethod

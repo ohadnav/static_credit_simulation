@@ -68,7 +68,7 @@ class TimelineSimulation(Simulation):
                 snapshot_dates = [date for date in lender.snapshots.keys()]
                 fig.add_trace(
                     go.Scatter(
-                        x=snapshot_dates, y=values, mode='lines', name=lender.loan_type.name, line_shape='spline'))
+                        x=snapshot_dates, y=values, mode='lines', name=lender.loan_type.name))
                 results[f'timeline'] = snapshot_dates
             if results:
                 self.show_and_save(fig, results)
@@ -86,7 +86,7 @@ class TimelineSimulation(Simulation):
             y_axis = [getattr(lender.snapshots[day], y_axis_name) for day in lender.snapshots.keys()]
             clean_x, clean_y = self.clean_and_sort_results(x_axis, y_axis, O, O)
             fig_x_to_y.add_trace(
-                go.Scatter(x=clean_x, y=clean_y, mode='lines', name=lender.loan_type.name, line_shape='spline'))
+                go.Scatter(x=clean_x, y=clean_y, mode='lines', name=lender.loan_type.name))
             results[f'{y_axis_name}_{lender.loan_type.name}'] = clean_y
             results[f'{x_axis_name}_{lender.loan_type.name}'] = clean_x
         self.show_and_save(fig_x_to_y, results, False)
@@ -111,6 +111,7 @@ class TimelineSimulation(Simulation):
             fig.show()
         fig.write_image(f'{self.save_dir}/{fig.layout.title.text}.png')
         try:
+            # noinspection PyTypeChecker
             results_df = pd.DataFrame.from_dict(results)
             results_df.to_csv(f'{self.save_dir}/{fig.layout.title.text}.csv', index=False)
         except ValueError:

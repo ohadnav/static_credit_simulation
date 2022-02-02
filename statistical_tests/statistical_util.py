@@ -5,7 +5,7 @@ from joblib import delayed
 
 from common.context import DataGenerator, SimulationContext
 from common.local_numbers import Float
-from common.util import TqdmParallel
+from common.tqdm_parallel import TqdmParallel
 from tests.util_test import BaseTestCase
 
 
@@ -29,7 +29,7 @@ def statistical_test_mean_error(
     errors = TqdmParallel(desc=desc, total=times)(
         delayed(test_iteration)(test_case.data_generator, test_case.context, test_case.factory, *args, **kwargs) for _
             in range(times))
-    actual_mean_error = Float.sum(errors) / times
+    actual_mean_error = Float.mean(errors)
     test_case.assertLess(actual_mean_error, mean_error)
     print(f'mean_error = {actual_mean_error}')
     logging.getLogger().setLevel(logging_level)

@@ -59,7 +59,7 @@ class TestFloat(BaseTestCase):
         self.assertTrue(type(Float.sum([1, 2])), Float)
 
     def test_average(self):
-        self.assertEqual(Float.average([1, 2, 3]), Float(2))
+        self.assertEqual(Float.mean([1, 2, 3]), Float(2))
 
     def test_is_close(self):
         self.assertTrue(Float(0).is_close(0 + constants.FLOAT_CLOSE_TOLERANCE))
