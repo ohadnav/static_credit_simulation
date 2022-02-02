@@ -5,15 +5,11 @@ from finance.underwriting import Underwriting
 
 
 class LineOfCreditSimulation(LoanSimulation):
-    def remaining_credit(self) -> Dollar:
-        return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.ledger.outstanding_balance()))
-
     def secondary_approval_conditions(self):
         return True
 
     def calculate_amount(self) -> Dollar:
-        amount = Float.min(
-            self.credit_needed(), self.remaining_credit(), super(LineOfCreditSimulation, self).calculate_amount())
+        amount = Float.min(self.remaining_credit(), super(LineOfCreditSimulation, self).calculate_amount())
         return amount
 
 
@@ -32,6 +28,10 @@ class DynamicLineOfCreditSimulation(LineOfCreditSimulation):
 
 
 class InvoiceFinancingSimulation(LineOfCreditSimulation):
+    def calculate_amount(self) -> Dollar:
+        amount = Float.min(self.credit_needed(), super(InvoiceFinancingSimulation, self).calculate_amount())
+        return amount
+
     def approved_amount(self) -> Dollar:
         # TODO: risk-based-pricing
         batches = self.merchant.batches_with_orders(self.today)

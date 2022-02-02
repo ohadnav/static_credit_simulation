@@ -22,8 +22,8 @@ class Simulation(ABC):
     def __init__(self, scenario: Scenario, run_dir: str, loan_types: Optional[List[LoanSimulationType]] = None):
         shout_print(f'SIMULATING {scenario.__str__()}')
         self.scenario = scenario
-        self.context = self.generate_context()
         self.data_generator = self.generate_data_generator()
+        self.context = self.generate_context()
         self.loan_types = loan_types or LoanSimulationType.list()
         self.lenders = self.generate_lenders()
         self.save_dir = scenario.get_dir(run_dir, to_make=True)

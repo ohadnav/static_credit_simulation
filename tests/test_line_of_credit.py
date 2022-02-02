@@ -16,23 +16,11 @@ class TestLineOfCredit(BaseTestCase):
         self.line_of_credit = LineOfCreditSimulation(self.context, self.data_generator, self.merchant)
         self.line_of_credit.underwriting.approved = MagicMock(return_value=True)
 
-    def test_remaining_credit(self):
-        self.line_of_credit.approved_amount = MagicMock(return_value=self.line_of_credit.loan_amount())
-        self.assertEqual(self.line_of_credit.remaining_credit(), self.line_of_credit.loan_amount())
-        self.line_of_credit.add_debt(ONE)
-        self.assertEqual(self.line_of_credit.remaining_credit(), self.line_of_credit.loan_amount() - 1)
-
-    def test_update_credit(self):
-        self.line_of_credit.credit_needed = MagicMock(return_value=0)
-        self.line_of_credit.update_credit()
-        self.assertEqual(self.line_of_credit.ledger.outstanding_balance(), 0)
-        self.line_of_credit.credit_needed = MagicMock(return_value=1)
-        prev_cash = self.line_of_credit.current_cash
-        self.line_of_credit.update_credit()
-        self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
-        self.line_of_credit.remaining_credit = MagicMock(return_value=0)
-        self.line_of_credit.update_credit()
-        self.assertEqual(self.line_of_credit.current_cash, prev_cash + 1)
+    def test_calculate_amount(self):
+        self.line_of_credit.remaining_credit = MagicMock(return_value=ONE)
+        self.assertEqual(self.line_of_credit.calculate_amount(), ONE)
+        self.line_of_credit.remaining_credit = MagicMock(return_value=self.line_of_credit.loan_amount())
+        self.assertEqual(self.line_of_credit.calculate_amount(), self.line_of_credit.loan_amount())
 
 
 class TestDynamicLineOfCredit(BaseTestCase):
@@ -91,6 +79,11 @@ class TestInvoiceFinancingSimulation(BaseTestCase):
         self.context.loan_type = LoanSimulationType.INVOICE_FINANCING
         self.merchant = Merchant.generate_simulated(self.data_generator)
         self.invoice_financing = InvoiceFinancingSimulation(self.context, self.data_generator, self.merchant)
+
+    def test_calculate_amount(self):
+        self.invoice_financing.approved_amount = MagicMock(return_value=self.invoice_financing.loan_amount())
+        self.invoice_financing.credit_needed = MagicMock(return_value=self.context.min_loan_amount)
+        self.assertEqual(self.invoice_financing.calculate_amount(), self.context.min_loan_amount)
 
     def test_approved_amount(self):
         batch1 = Batch.generate_simulated(self.data_generator)

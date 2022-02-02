@@ -29,11 +29,12 @@ class Scenario:
 
     @staticmethod
     def generate_scenario_variants(
-            scenario: Scenario, loan_types: List[LoanSimulationType], include_base_scenario: bool) -> List[Scenario]:
+            scenario: Scenario, loan_types: List[LoanSimulationType], include_base_scenario: bool,
+            reference_types: List[LoanReferenceType] = None) -> List[Scenario]:
         assert scenario.loan_reference_type is None
         scenario.loan_simulation_types = loan_types
         scenarios = [scenario] if include_base_scenario else []
-        for loan_reference_type in LoanReferenceType.list():
+        for loan_reference_type in (reference_types or LoanReferenceType.list()):
             reference_scenario = deepcopy(scenario)
             reference_scenario.loan_reference_type = loan_reference_type
             reference_scenario.loan_simulation_types = loan_types

@@ -38,11 +38,10 @@ class TestLender(StatisticalTestCase):
         self.lender.merchants = [self.merchants[0]] * 3
         three = Float(3)
         five = Float(5)
-        six = Float(6)
         weighted_avg = Float((5 * 5 + 1) / (1 + 5))
         loan_lsrs = [ONE_LSR, LoanSimulationResults.generate_from_float(five)]
         expected = AggregatedLoanSimulationResults.generate_from_numbers(
-            weighted_avg, six, three, Int(2), Percent(2 / 3))
+            weighted_avg, three, Int(2), Percent(2 / 3))
         self.assertEqual(self.lender.aggregate_results(loan_lsrs), expected)
 
     def test_calculate_results(self):
@@ -145,7 +144,6 @@ class TestLender(StatisticalTestCase):
         three = Float(3)
         five = Float(5)
         weighted_avg = Float((5 * 5 + 1) / (1 + 5))
-        six = Float(6)
         self.lender.merchants = self.lender.merchants[:2]
         loan1 = LoanSimulation(self.context, self.data_generator, self.merchants[0])
         loan1.simulation_results = ONE_LSR
@@ -154,7 +152,7 @@ class TestLender(StatisticalTestCase):
         loan2.simulation_results = LoanSimulationResults.generate_from_float(five)
         loan2.snapshots = {Date(day): loan2.simulation_results for day in self.lender.snapshot_dates()}
         self.lender.loans = {self.lender.merchants[0]: loan1, self.lender.merchants[1]: loan2}
-        expected = AggregatedLoanSimulationResults.generate_from_numbers(weighted_avg, six, three, Int(2), ONE)
+        expected = AggregatedLoanSimulationResults.generate_from_numbers(weighted_avg, three, Int(2), ONE)
         expected_snapshots = {Date(day): expected for day in self.lender.snapshot_dates()}
         self.lender.prepare_snapshots()
         self.assertDeepAlmostEqual(self.lender.snapshots, expected_snapshots)

@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import fields
-from typing import List, Mapping, Union, Tuple
+from typing import List, Mapping, Union, Tuple, Optional
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -8,28 +8,31 @@ from plotly.graph_objs import Figure
 
 from common import constants
 from common.context import SimulationContext, DataGenerator
-from common.local_enum import LoanSimulationType
-from common.local_numbers import Dollar, Duration, O, Float, Int
+from common.local_enum import LoanSimulationType, LoanReferenceType
+from common.local_numbers import Dollar, Duration, O, Float, Int, ONE_INT
 from loan_simulation_results import AggregatedLoanSimulationResults
 from scenario import Scenario
 from simulation.merchant_factory import Condition
 from simulation.simulation import Simulation
 
-BENCHMARK_LOAN_TYPES = [
+LOAN_TYPES = [
     LoanSimulationType.INCREASING_REBATE,
     LoanSimulationType.INVOICE_FINANCING
 ]
+REFERENCE_TYPES = [LoanReferenceType.TOTAL_INTEREST, LoanReferenceType.ANNUAL_REVENUE]
 
 SCENARIO = Scenario(
     [Condition('annual_top_line', min_value=Dollar(10 ** 5), max_value=Dollar(10 ** 6))],
-    loan_simulation_types=BENCHMARK_LOAN_TYPES)
+    loan_simulation_types=LOAN_TYPES)
+
+CREDIT_FIELDS = ['loan_amount', 'underutilized_credit', 'remaining_credit']
 
 
 class TimelineSimulation(Simulation):
     @staticmethod
     def run_reference_scenarios():
         run_dir = Simulation.generate_run_dir()
-        all_scenarios = Scenario.generate_scenario_variants(SCENARIO, BENCHMARK_LOAN_TYPES, False)
+        all_scenarios = Scenario.generate_scenario_variants(SCENARIO, LOAN_TYPES, False, REFERENCE_TYPES)
         for scenario in all_scenarios:
             TimelineSimulation(scenario, run_dir)
 
@@ -37,7 +40,7 @@ class TimelineSimulation(Simulation):
     def run_main_scenario():
         run_dir = Simulation.generate_run_dir()
         scenario = deepcopy(SCENARIO)
-        for loan_type in BENCHMARK_LOAN_TYPES:
+        for loan_type in LOAN_TYPES:
             scenario.conditions.append(Condition.generate_from_loan_type(loan_type))
         TimelineSimulation(scenario, run_dir)
 
@@ -48,13 +51,32 @@ class TimelineSimulation(Simulation):
 
     def generate_context(self) -> SimulationContext:
         context = super(TimelineSimulation, self).generate_context()
-        context.snapshot_cycle = Duration(constants.MONTH)
+        if self.data_generator.num_merchants == 1:
+            context.snapshot_cycle = ONE_INT
+        else:
+            context.snapshot_cycle = Duration(constants.WEEK)
         return context
 
     def post_simulation(self):
         super(TimelineSimulation, self).post_simulation()
         self.plot_timeline()
         self.plot_cost_to_cagr_graphs()
+        self.plot_credit_evolution()
+
+    def plot_credit_evolution(self):
+        fig = go.Figure(layout_title_text='credit_evolution')
+        for lender in self.lenders:
+            for i, field in enumerate(CREDIT_FIELDS):
+                snapshot_dates = [date for date in lender.snapshots.keys()]
+                values = [getattr(lender.snapshots[day], field) for day in lender.snapshots.keys()]
+                line_properties = dict(color='blue' if lender.loan_type == LOAN_TYPES[0] else 'red')
+                if i > 0:
+                    line_properties['dash'] = ['dash', 'dot'][i - 1]
+                fig.add_trace(
+                    go.Scatter(
+                        x=snapshot_dates, y=values, mode='lines', name=f'{lender.loan_type.name}_{field}',
+                        line=line_properties))
+        self.show_and_save(fig)
 
     def plot_timeline(self):
         for field in fields(AggregatedLoanSimulationResults):
@@ -66,9 +88,10 @@ class TimelineSimulation(Simulation):
                     continue
                 results[f'{field.name}_{lender.loan_type.name}'] = values
                 snapshot_dates = [date for date in lender.snapshots.keys()]
+                # noinspection PyTypeChecker
                 fig.add_trace(
                     go.Scatter(
-                        x=snapshot_dates, y=values, mode='lines', name=lender.loan_type.name))
+                        x=snapshot_dates, y=values, mode='lines', name=lender.loan_type.name, line_shape='spline'))
                 results[f'timeline'] = snapshot_dates
             if results:
                 self.show_and_save(fig, results)
@@ -85,8 +108,9 @@ class TimelineSimulation(Simulation):
             x_axis = [getattr(lender.snapshots[day], x_axis_name) for day in lender.snapshots.keys()]
             y_axis = [getattr(lender.snapshots[day], y_axis_name) for day in lender.snapshots.keys()]
             clean_x, clean_y = self.clean_and_sort_results(x_axis, y_axis, O, O)
+            # noinspection PyTypeChecker
             fig_x_to_y.add_trace(
-                go.Scatter(x=clean_x, y=clean_y, mode='lines', name=lender.loan_type.name))
+                go.Scatter(x=clean_x, y=clean_y, mode='lines', name=lender.loan_type.name, line_shape='spline'))
             results[f'{y_axis_name}_{lender.loan_type.name}'] = clean_y
             results[f'{x_axis_name}_{lender.loan_type.name}'] = clean_x
         self.show_and_save(fig_x_to_y, results, False)
@@ -106,13 +130,15 @@ class TimelineSimulation(Simulation):
         clean_x = sorted(clean_x)
         return clean_x, clean_y
 
-    def show_and_save(self, fig: Figure, results: Mapping[str, List[Union[Float, Int]]], to_show=False):
+    def show_and_save(
+            self, fig: Figure, results: Optional[Mapping[str, List[Union[Float, Int]]]] = None, to_show=False):
         if to_show:
             fig.show()
         fig.write_image(f'{self.save_dir}/{fig.layout.title.text}.png')
-        try:
-            # noinspection PyTypeChecker
-            results_df = pd.DataFrame.from_dict(results)
-            results_df.to_csv(f'{self.save_dir}/{fig.layout.title.text}.csv', index=False)
-        except ValueError:
-            self.save_json(results, f'{fig.layout.title.text}.json')
+        if results:
+            try:
+                # noinspection PyTypeChecker
+                results_df = pd.DataFrame.from_dict(results)
+                results_df.to_csv(f'{self.save_dir}/{fig.layout.title.text}.csv', index=False)
+            except ValueError:
+                self.save_json(results, f'{fig.layout.title.text}.json')

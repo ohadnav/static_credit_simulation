@@ -153,6 +153,7 @@ class SimulationContext:
     repayment_factor = constants.REPAYMENT_FACTOR
     agg_score_benchmark = constants.AGG_SCORE_BENCHMARK
     max_loan_amount = constants.MAX_LOAN_AMOUNT
+    min_loan_amount = constants.MIN_LOAN_AMOUNT
     max_merchant_top_line = constants.MAX_MERCHANT_TOP_LINE
     min_merchant_top_line = constants.MIN_MERCHANT_TOP_LINE
     min_repayment_rate = constants.MIN_REPAYMENT_RATE

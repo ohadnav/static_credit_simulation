@@ -96,8 +96,8 @@ class LoanSimulation(Primitive):
         return self.loan_amount()
 
     def loan_amount(self) -> Dollar:
-        recent_revenue = self.recent_revenue()
-        recent_monthly_revenue = recent_revenue * constants.MONTH / self.context.history_duration_for_amount_calculation
+        recent_monthly_revenue = self.recent_revenue() * constants.MONTH / \
+                                 self.context.history_duration_for_amount_calculation
         amount = recent_monthly_revenue * self.context.loan_amount_per_monthly_income
         amount = Float.min(amount, self.context.max_loan_amount)
         return amount
@@ -149,7 +149,7 @@ class LoanSimulation(Primitive):
     def annual_revenue(self):
         return self.estimated_annual_revenue()
 
-    def recent_revenue(self):
+    def recent_revenue(self) -> Dollar:
         return self.estimated_revenue_over_duration(
             self.recent_history_revenue, self.context.history_duration_for_amount_calculation)
 
@@ -164,7 +164,7 @@ class LoanSimulation(Primitive):
     def primary_approval_conditions(self) -> bool:
         return not self.merchant.is_suspended(
             self.today) and self.projected_lender_profit() >= O and self.secondary_approval_conditions() and \
-               self.credit_needed() > O and self.reference_conditions()
+               self.credit_needed() >= self.context.min_loan_amount and self.reference_conditions()
 
     def secondary_approval_conditions(self):
         return self.ledger.outstanding_balance() == O
@@ -271,11 +271,23 @@ class LoanSimulation(Primitive):
         return LoanSimulationResults(
             self.merchant.valuation(self.today, self.net_cashflow()), self.revenue_cagr(), self.annual_revenue(),
             self.recent_revenue(), self.projected_cagr(), self.inventory_cagr(), self.net_cashflow_cagr(),
-            self.valuation_cagr(),
-            self.lender_profit(), self.ledger.total_credit(), self.lender_profit_margin(), self.total_interest(),
-            self.debt_to_valuation(), self.effective_apr(), self.bankruptcy_rate(),
-            self.hyper_growth_rate(), self.duration_in_debt_rate(), self.duration_finished_rate(),
-            self.ledger.num_loans())
+            self.valuation_cagr(), self.lender_profit(), self.ledger.total_credit(), self.loan_amount(),
+            self.ledger.outstanding_balance(),
+            self.credit_utilization_rate(), self.credit_needed(), self.remaining_credit(), self.underutilized_credit(),
+            self.lender_profit_margin(), self.total_interest(), self.debt_to_valuation(), self.effective_apr(),
+            self.bankruptcy_rate(), self.hyper_growth_rate(), self.duration_in_debt_rate(),
+            self.duration_finished_rate(), self.ledger.num_loans())
+
+    def remaining_credit(self) -> Dollar:
+        return Float.max(O, self.approved_amount() - self.debt_to_loan_amount(self.ledger.outstanding_balance()))
+
+    def underutilized_credit(self) -> Dollar:
+        return Float.min(self.credit_needed(), self.remaining_credit())
+
+    def credit_utilization_rate(self) -> Percent:
+        if self.loan_amount() <= O:
+            return O
+        return min_max(self.debt_to_loan_amount(self.ledger.outstanding_balance()) / self.loan_amount(), O, ONE)
 
     def duration_finished_rate(self) -> Percent:
         return self.today / self.data_generator.simulated_duration
@@ -369,7 +381,6 @@ class LoanSimulation(Primitive):
         if total_credit == O or profit <= O:
             return O
         margin = profit / total_credit
-        assert O < margin < ONE
         return margin
 
     def interest_from_amount(self, amount: Dollar) -> Dollar:

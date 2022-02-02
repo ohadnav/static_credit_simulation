@@ -23,6 +23,12 @@ class LoanSimulationResults:
     valuation_cagr: Percent
     lender_profit: Dollar
     total_credit: Dollar
+    loan_amount: Dollar
+    outstanding_balance: Dollar
+    credit_utilization_rate: Percent
+    credit_needed: Dollar
+    remaining_credit: Dollar
+    underutilized_credit: Dollar
     lender_profit_margin: Percent
     total_interest: Dollar
     debt_to_valuation: Percent
@@ -65,8 +71,8 @@ ONE_LSR = LoanSimulationResults.generate_from_float(ONE)
 TWO_LSR = LoanSimulationResults.generate_from_float(TWO)
 
 WEIGHT_FIELD = 'annual_revenue'
-SUM_FIELDS = ['total_credit', 'lender_profit', 'total_interest', 'annual_revenue', 'valuation', 'recent_revenue']
-NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate', 'duration_finished_rate']
+NO_WEIGHTS_FIELDS = ['bankruptcy_rate', 'hyper_growth_rate', 'duration_in_debt_rate', 'duration_finished_rate',
+    'credit_utilization_rate']
 
 
 @dataclass(unsafe_hash=True)
@@ -79,13 +85,11 @@ class AggregatedLoanSimulationResults(LoanSimulationResults):
     def generate_from_list(
             cls, simulations_results: List[LoanSimulationResults],
             num_merchants: int) -> AggregatedLoanSimulationResults:
-        result = {'num_merchants': Int(len(simulations_results)),
-            'approval_rate': Percent(len(simulations_results) / num_merchants)}
+        funded_loans = Int(len([lsr for lsr in simulations_results if lsr.total_credit > O]))
+        result = {'num_merchants': funded_loans, 'approval_rate': Percent(funded_loans / num_merchants)}
         for field in fields(LoanSimulationResults):
             values = [getattr(lsr, field.name) for lsr in simulations_results]
-            if field.name in SUM_FIELDS:
-                result[field.name] = Float.sum(values)
-            elif field.name in NO_WEIGHTS_FIELDS:
+            if field.name in NO_WEIGHTS_FIELDS:
                 result[field.name] = Float.mean(values)
             else:
                 weights = [min_max(lsr.valuation, ONE, constants.MAX_RESULTS_WEIGHT) for lsr in simulations_results]
@@ -94,13 +98,11 @@ class AggregatedLoanSimulationResults(LoanSimulationResults):
 
     @classmethod
     def generate_from_numbers(
-            cls, regular_field: Float, sum_field: Float, no_weight_field: Float, num_merchants: Int,
+            cls, regular_field: Float, no_weight_field: Float, num_merchants: Int,
             approval_rate: Float) -> AggregatedLoanSimulationResults:
         result = {'num_merchants': num_merchants, 'approval_rate': approval_rate}
         for field in fields(LoanSimulationResults):
-            if field.name in SUM_FIELDS:
-                result[field.name] = sum_field
-            elif field.name in NO_WEIGHTS_FIELDS:
+            if field.name in NO_WEIGHTS_FIELDS:
                 result[field.name] = no_weight_field
             else:
                 result[field.name] = regular_field
